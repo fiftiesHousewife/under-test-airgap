@@ -23,6 +23,7 @@ records by `./gradlew buildDecisionIndexes`.
 | [It runs on JDK 8 and later, needing no administrator rights or containers](0005-it-runs-on-jdk-8-and-later-needing-no-administrator-rights-or-containers.md) | accepted (chosen in discussion) | Airgap maintainers |
 | [The report is one line of JSON per call, with a schema, and feeds the connection list](0006-the-report-is-one-line-of-json-per-call-with-a-schema-and-feeds-the-connection-list.md) | accepted (chosen in discussion) | Airgap maintainers |
 | [Every hook is proved on every supported JDK, and the agent checks its own hooks at start](0008-every-hook-is-proved-on-every-supported-jdk-and-the-agent-checks-its-own-hooks-at-start.md) | accepted (chosen in discussion) | Airgap maintainers |
+| [The Gradle wiring supports Gradle 5.6 and later, proved on each major version](0010-the-gradle-wiring-supports-gradle-5-6-and-later-proved-on-each-major-version.md) | accepted (chosen in discussion) | Airgap maintainers |
 
 ## How this repo works
 

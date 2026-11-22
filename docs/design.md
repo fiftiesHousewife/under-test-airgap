@@ -150,8 +150,13 @@ The same agent jar is added to every JVM that runs the project's code:
 | The build itself | An old project's build scripts are its code too, and run first | Gradle: `org.gradle.jvmargs` in the engineer's own `gradle.properties` (in the Gradle user home, which wins over the project's). Maven: `MAVEN_OPTS` |
 | Forked JVMs | PIT and some test set-ups start more JVMs | PIT's `jvmArgs`; the agent also adds itself to JVMs started with `java` from a guarded JVM, where it can |
 
-In the build JVM the allowlist also holds the company's package repository, so dependencies can download; nothing
-else.
+In the build JVM the allowlist also holds the company's package repository, so dependencies can download, and `java`,
+so Gradle can start its workers; nothing else.
+
+For Gradle, the plugin `io.github.fiftieshousewife.airgap` does the first two rows in one line, on Gradle 5.6 and later
+(see [The Gradle wiring supports Gradle 5.6 and later, proved on each major version](decisions/0010-the-gradle-wiring-supports-gradle-5-6-and-later-proved-on-each-major-version.md)).
+Each task writes its own report, `build/airgap/<task name>/calls.jsonl`, cleared when the task starts. The build JVM
+is set up by hand, as the README describes, because a plugin is applied too late to guard the build that applies it.
 
 ## What counts as a risky call, and where it's caught
 
@@ -294,9 +299,10 @@ that impossible to miss (see
 - **Native code** loaded before the agent, or code that uses the JDK's internals to go round it, isn't caught.
 - **Programs other than Java** are refused at the point of starting, but if a start is allowed, the program runs
   unguarded.
-- **Windows file-share paths** (`\\server\share`) are opened by the operating system, not through the JVM's sockets,
-  so the agent doesn't see them. Writes to them are reported as file writes outside the project, once file writes are
-  hooked; reads aren't caught.
+- **Shared drives** (`\\server\share` paths and mapped network drives) are opened by the operating system, not
+  through the JVM's sockets, so the network hooks don't see them. A planned hook on the JVM's file APIs will refuse
+  and report opening any file on a `\\server\share` path, and on drive letters the settings name as network drives
+  (the JVM can't tell a mapped drive from a local one without native code). Until then, they can be read and written.
 - **Gradle daemons are reused** between builds: the agent goes into the daemon's own settings, so a daemon started
   before it was added has to be stopped first.
 - **It's no substitute for a secrets scan, or for network separation** where code can't be trusted; it's the safety net

@@ -26,6 +26,7 @@ rootProject.name = "under-test-airgap"
 //   maintainer-tools/<id>  -> :maintainer-tools:<id>  (repo checks)
 //   agent  -> :agent  (the airgap agent: refuses and reports risky calls)
 //   junit  -> :junit  (the JUnit Platform listener and @AllowCalls)
+//   gradle-plugin  -> :gradle-plugin  (the Gradle wiring)
 fun includeAll(root: String) {
     rootDir.resolve(root).listFiles()?.sorted()?.forEach { dir ->
         if (dir.resolve("build.gradle.kts").isFile) {
@@ -36,4 +37,4 @@ fun includeAll(root: String) {
     }
 }
 includeAll("maintainer-tools")
-include(":agent", ":junit")
+include(":agent", ":junit", ":gradle-plugin")

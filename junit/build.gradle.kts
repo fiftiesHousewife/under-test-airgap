@@ -8,6 +8,10 @@ plugins {
 group = "io.github.fiftieshousewife.airgap"
 base.archivesName = "airgap-junit"
 
+// The listener goes onto projects' own test class paths, so it brings no logging library of its own.
+configurations.named("implementation") { dependencies.removeIf { it.group == "org.slf4j" } }
+configurations.named("runtimeOnly") { dependencies.removeIf { it.group == "org.apache.logging.log4j" } }
+
 dependencies {
     compileOnly(platform(libs.junit5.bom))
     compileOnly(libs.junit5.jupiter.api)
@@ -44,6 +48,13 @@ tasks.test {
 }
 
 publishing {
+    // A local repository for the Gradle wiring's integration tests, so their sample builds need no other.
+    repositories {
+        maven {
+            name = "integration"
+            url = uri(rootProject.layout.buildDirectory.dir("integration-repo"))
+        }
+    }
     publications {
         create<MavenPublication>("junit") {
             artifactId = "airgap-junit"

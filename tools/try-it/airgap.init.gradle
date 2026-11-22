@@ -1,24 +1,37 @@
 // Runs any Gradle build's tests under the airgap agent, without changing that build:
 //
-//   ./gradlew test --init-script /path/to/under-test-airgap/tools/try-it/airgap.init.gradle
+//   ./gradlew test --init-script /path/to/airgap.init.gradle
 //
-// The agent comes from Maven Local (publish it there with `./gradlew publishToMavenLocal` in this repo), or from the
-// jar named by -Dairgap.agent=<path>. -Dairgap.version=<version> picks another version from Maven Local. Each
-// project's report goes to <project>/build/airgap/calls.jsonl; no report means no risky calls. Nothing in the build
-// being tried changes, so its own CI is untouched.
-def version = System.getProperty("airgap.version", "0.1.0")
+// The agent comes from Maven Central, or from the repository named by -Dairgap.repository=<URL> (a company's own
+// repository, say), or from the jar named by -Dairgap.agent=<path>. -Dairgap.version=<version> picks a version.
+// The agent is fetched for this script alone: the build's own repositories and dependencies don't change. Each
+// project's report goes to <project>/build/airgap/calls.jsonl; no report means no risky calls.
+initscript {
+    repositories {
+        def repository = System.getProperty("airgap.repository")
+        if (repository) {
+            maven { url repository }
+        } else {
+            mavenCentral()
+        }
+    }
+    dependencies {
+        if (!System.getProperty("airgap.agent")) {
+            classpath "io.github.fiftieshousewife.airgap:airgap-agent:${System.getProperty("airgap.version", "0.1.0")}"
+        }
+    }
+}
+
 def agentJar = System.getProperty("airgap.agent")
         ? new File(System.getProperty("airgap.agent"))
-        : new File(System.getProperty("user.home"),
-                ".m2/repository/io/github/fiftieshousewife/airgap/airgap-agent/${version}/airgap-agent-${version}.jar")
+        : initscript.configurations.classpath.files.find { it.name.startsWith("airgap-agent-") }
 
 allprojects {
     tasks.withType(Test).configureEach { test ->
         def report = new File(test.project.layout.buildDirectory.get().asFile, "airgap/calls.jsonl")
         test.doFirst {
-            if (!agentJar.isFile()) {
-                throw new GradleException("airgap agent not found at ${agentJar}: publish it to Maven Local, " +
-                        "or pass -Dairgap.agent=<path to the jar>")
+            if (agentJar == null || !agentJar.isFile()) {
+                throw new GradleException("airgap agent not found at ${agentJar}: pass -Dairgap.agent=<path to the jar>")
             }
             report.delete()
         }

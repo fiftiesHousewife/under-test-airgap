@@ -13,6 +13,9 @@ json-schema-validator = "3.0.9"
 byte-buddy = "1.18.17"
 junit5 = "5.14.4"
 gradle-shadow-plugin = "9.6.1"
+# The Gradle wiring is compiled against the oldest Gradle it supports, and tested on the latest of each major version.
+gradle-oldest-supported = "5.6.4"
+gradle-tested = "5.6.4,6.9.4,7.6.6,8.14.8"
 
 # Quality tools
 jacoco = "0.8.16"
@@ -48,6 +51,8 @@ byte-buddy = { module = "net.bytebuddy:byte-buddy", version.ref = "byte-buddy" }
 junit5-bom = { module = "org.junit:junit-bom", version.ref = "junit5" }
 junit5-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api" }
 junit5-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+gradle-api-oldest-supported = { module = "dev.gradleplugins:gradle-api", version.ref = "gradle-oldest-supported" }
+junit4 = { module = "junit:junit", version = "4.13.2" }
 
 # Gradle plugins, as ordinary dependencies of build-logic
 gradle-pitest-plugin = { module = "info.solidsoft.gradle.pitest:gradle-pitest-plugin", version.ref = "gradle-pitest-plugin" }

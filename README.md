@@ -4,134 +4,148 @@
 [![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE)
 ![Runs on JDK 8 and later](https://img.shields.io/badge/runs%20on-JDK%208%20and%20later-blue)
 
-**Run old Java code as if its network cable were pulled, and find out everything it tried to reach.**
+**Run old Java code without letting it reach other machines, and get a list of everything it tried to reach.**
 
 ## The problem it solves
 
-Imagine being handed an old Java service that you've never seen run. Its tests don't pass. Its
-`application.properties` might point at the production database, or it might not, and you can't be sure which.
-Somewhere in it, a scheduled job may send email to customers. You need to run it, because you can't test code you
-can't run, but you'd rather not find out what it does by watching it do it.
+You are given an old Java service to test, and you have not seen it run. Its tests don't pass. Its
+`application.properties` may point at the production database. A scheduled job in it may send email to customers, or
+write to a shared drive. You need to run the code to test it, but running it could change real systems.
 
-The safe answer is to pull the network cable. On a corporate laptop you can't: there is no cable, the laptop runs
-Windows, you don't have administrator rights, there's no container runtime, and nothing can be installed without a
-security review. The software equivalents of pulling the cable (containers, operating-system sandboxes, firewall
-rules, packet capture) all need exactly what those laptops withhold. Inside the JVM there is no help either: the JDK's
-Security Manager, which could refuse connections by policy, is disabled in recent JDKs, and there is no maintained
-"no network" tool for the JVM like WebMock for Ruby or pytest-socket for Python.
+The usual ways to stop a program reaching the network are containers, operating-system sandboxes, firewall rules and
+packet capture. Each one needs administrator rights or software installed, and most corporate laptops allow neither.
+Inside the JVM, the Security Manager could refuse connections by policy, but recent JDKs disable it. No maintained
+tool does this job for the JVM, as WebMock does for Ruby or pytest-socket for Python.
 
 ## What the airgap agent does
 
-The airgap agent is a small Java agent: a jar named on the JVM's command line. It needs nothing installed and no
-rights beyond running Java, and it works on JDK 8 and every version since.
+The airgap agent is a Java agent: a jar named on the JVM's command line. It needs nothing installed and no rights
+beyond running Java, and it works on JDK 8 and every later version.
 
-As the JVM loads its own classes, the agent rewrites the handful of places in the JDK where risky calls really happen.
-Because it works at that low level, every library a program might use, from old JDBC drivers to Netty, goes through
-the agent's check. Calls to the machine itself are allowed. Calls to anything else are refused with the exception an
-unplugged machine would give (`UnknownHostException`, `ConnectException`), so the code takes the same path it would
-take offline. And every refused call is written to a report.
+When the JVM loads its own classes, the agent changes the few places in the JDK where risky calls happen. Every
+library goes through those places, from old JDBC drivers to Netty, so every library's calls are checked. Calls to the
+same machine go ahead. Calls to any other machine are refused with the exception a machine without a network would
+throw (`UnknownHostException`, `ConnectException`), so the code fails the way it would offline. Each refused call is
+written to a report.
 
-| It refuses and reports | Coming |
+| Refused and reported now | Coming |
 |---|---|
 | Host lookups | JNDI and LDAP lookups |
 | TCP connections, through sockets, NIO channels and asynchronous channels | Loading native libraries |
 | UDP traffic | `System.exit` |
-| Starting other programs | File writes outside the build folder |
-| | Naming the Spring setting, and the file and line, that supplied each address |
+| Starting other programs | Opening files on shared drives: `\\server\share` paths and mapped network drives |
+| | Writing files outside the project folder |
+| | For Spring applications, the setting, file and line that gave each address |
 
-[The design](docs/design.md) has the whole plan.
+[The design](docs/design.md) describes each of these.
 
 ## Getting started
 
-You need a Gradle build whose tests you want to run safely, and the agent's jar. Until the agent is in a public
-package repository, build it from this repo, which puts it in your local Maven repository:
+You need a Gradle build whose tests you want to run.
+
+### 1. Run the tests with the agent
+
+Download [`airgap.init.gradle`](tools/try-it/airgap.init.gradle). It adds the agent to a build's tests without
+changing that build or its CI. In the project you want to test, run:
 
 ```bash
-git clone https://github.com/fiftiesHousewife/under-test-airgap.git
-cd under-test-airgap
-./gradlew publishToMavenLocal
+./gradlew test --init-script /path/to/airgap.init.gradle
 ```
 
-### 1. Run the tests under the agent
-
-[`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle) adds the agent to a build's tests from the
-outside, so nothing in that build, or its CI, changes. In the project you want to try:
-
-```bash
-./gradlew test --init-script /path/to/under-test-airgap/tools/try-it/airgap.init.gradle
-```
-
-To use a jar from somewhere else, add `-Dairgap.agent=<path to the jar>`.
+The script fetches the agent from Maven Central. To fetch it from your company's repository instead, add
+`-Dairgap.repository=<repository URL>`. To use a jar you already have, add `-Dairgap.agent=<path to the jar>`.
 
 ### 2. Read the report
 
-Each project's report goes to its own `build/airgap/calls.jsonl`. No report means no risky calls. A failing test
-shows the refusal as an ordinary exception:
+Each project's report is written to its own `build/airgap/calls.jsonl`. If there is no report, the tests made no
+risky calls. A test that made a refused call fails with an ordinary exception:
 
 ```text
 OrderServiceTest > placesAnOrder() FAILED
     java.net.UnknownHostException: db.orders.example.com: refused by the airgap agent
 ```
 
-### 3. Give each dependency a stand-in
+### 3. Decide what to do about each line
 
-Each refused call is something the code depends on. List it, and give it a stand-in in the test settings (an
-in-memory database, a local WireMock), until a run's report comes back empty. A test allows a stand-in it relies on
-with the JUnit extension:
+Each line in the report is a system the code tried to reach. The agent only finds them: how a test replaces one
+(a mock, a fake, an in-memory database, a WireMock server) is up to you and the tools you already use. Run the tests
+again after each change, until the report is empty.
 
-```java
-@AllowCalls("localhost:8089")
-class PaymentClientTest { ... }
-```
+Calls to `localhost` are always allowed. To allow anything else, such as a stand-in under its own host name or a
+program a test starts on purpose:
 
-### Adding it to a build for good
+- **for one test class or method**, use `@AllowCalls` from `airgap-junit` (JUnit 5 and later), on the class or the
+  method:
 
-To keep the agent on a project's tests, give the test runs the agent and the tests the JUnit listener, which
-tells the agent which test made each call:
+  ```java
+  import io.github.fiftieshousewife.airgap.junit.AllowCalls;
+
+  @AllowCalls("wiremock.test:8089")
+  class PaymentClientTest { ... }
+  ```
+
+- **for a whole run**, use the agent's `allow` setting (see [Settings](#settings)), for example
+  `allow=wiremock.test:8089,process:git`.
+
+Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), or a program (`process:git`).
+
+### Adding the agent to a build
+
+To run a project's tests with the agent every time, apply the Gradle plugin. It works with Gradle 5.6 and later.
 
 ```kotlin
-val airgapVersion = "..." // the version you built or your company approved
-val airgap: Configuration by configurations.creating
-
-dependencies {
-    airgap("io.github.fiftieshousewife.airgap:airgap-agent:$airgapVersion")
-    testImplementation("io.github.fiftieshousewife.airgap:airgap-junit:$airgapVersion")
+plugins {
+    id("io.github.fiftieshousewife.airgap") version "..." // the version your company approved
 }
 
-tasks.test {
-    val agent = files(airgap)
-    val report = layout.buildDirectory.file("airgap/calls.jsonl")
-    jvmArgumentProviders.add(CommandLineArgumentProvider {
-        listOf("-javaagent:${agent.singleFile}=report=${report.get().asFile}")
-    })
+airgap {
+    packages.add("com.example.")       // your code's packages, so the report names your line of code
+    allow.add("wiremock.test:8089")    // anything besides localhost the tests may reach
 }
 ```
 
-Gradle and Maven plugins that do this in one line are on the way. On any JVM, outside a build, name the agent
-directly:
+The plugin fetches the agent and the JUnit listener from the project's repositories. It starts every `Test` task and
+every `JavaExec` task with the agent, including Spring Boot's `bootRun`. Each task's report goes to
+`build/airgap/<task name>/calls.jsonl`, and is cleared when the task starts.
+
+Outside a build, name the agent on the `java` command:
 
 ```bash
 java -javaagent:airgap-agent.jar="report=build/airgap/calls.jsonl;project=com.example." -jar old-service.jar
 ```
 
+### Running the build itself with the agent
+
+An old project's build scripts are code too, and they run before its tests. To run Gradle itself with the agent, add
+it to `org.gradle.jvmargs` in your own `gradle.properties`, in the Gradle user home (`~/.gradle/gradle.properties`, or
+`%USERPROFILE%\.gradle\gradle.properties` on Windows). That file takes precedence over the project's own. Allow your
+package repository, so dependencies can download, and `java`, so Gradle can start its test workers:
+
+```properties
+org.gradle.jvmargs=-Xmx2g -javaagent:/path/to/airgap-agent.jar=run=build;report=/path/to/build-calls.jsonl;allow=repo.example.com:443,process:java
+```
+
+`org.gradle.jvmargs` replaces Gradle's default memory setting, so keep an `-Xmx`. Gradle reuses running daemons, so
+stop them with `./gradlew --stop` after changing the file.
+
 ### Settings
 
-The agent's settings follow `=` on its command line, separated by `;`:
+Settings follow `=` after the agent's jar on the command line, separated by `;`:
 
 | Setting | What it does |
 |---|---|
-| `mode=refuse` | Refuse every risky call that isn't allowed, and report it (the default); `report` lets calls through and reports them; `off` does nothing |
-| `report=build/airgap/calls.jsonl` | Where the report goes (the default shown) |
-| `allow=localhost-stand-in:8089,process:git` | Stand-ins to allow: `host`, `host:port` or `process:name`. The machine itself is always allowed |
-| `run=test` | What kind of JVM this is, for the report: `test`, `application` or `build` |
-| `project=com.example.` | Package prefixes of your own code, so the report names the line of your code that made the call |
+| `mode=refuse` | Refuse and report every risky call that isn't allowed (the default). `report` lets calls go ahead and reports them. `off` does nothing |
+| `report=build/airgap/calls.jsonl` | Where the report is written (the default shown) |
+| `allow=wiremock.test:8089,process:git` | Addresses and programs to allow for the whole run: `host`, `host:port` or `process:name`. `localhost` is always allowed |
+| `run=test` | The kind of JVM, for the report: `test`, `application` or `build` |
+| `project=com.example.` | Package prefixes of your own code, so the report names the line of your code that made each call |
 
-A mistyped setting stops the JVM at start, so it's never silently ignored.
+A mistyped setting stops the JVM at start.
 
 ## An example report
 
-A first run of an old order service's tests. Each line of the report is one call, as JSON
-([its schema](schema/airgap-report.schema.json)); the stack traces are cut short here:
+This report comes from the first run of an old order service's tests. Each line is one call, as JSON
+([the report's schema](schema/airgap-report.schema.json)). The stack traces are shortened here.
 
 ```json
 {"kind":"host-lookup","target":"db.orders.example.com","outcome":"refused","run":{"kind":"test","java_version":"17.0.12"},"test":"com.example.orders.OrderServiceTest.placesAnOrder","caller":"com.example.orders.OrderRepository.connect(OrderRepository.java:41)","stack":["java.base/java.net.InetAddress.getByName(InetAddress.java:1301)","com.example.orders.OrderRepository.connect(OrderRepository.java:41)"]}
@@ -140,37 +154,53 @@ A first run of an old order service's tests. Each line of the report is one call
 {"kind":"process","target":"sendmail","outcome":"refused","run":{"kind":"test","java_version":"17.0.12"},"test":"com.example.orders.NightlyReportJobTest.runsTheJob","caller":"com.example.orders.NightlyReportJob.mailReport(NightlyReportJob.java:77)","stack":["java.base/java.lang.ProcessBuilder.start(ProcessBuilder.java:1089)","com.example.orders.NightlyReportJob.mailReport(NightlyReportJob.java:77)"]}
 ```
 
-Read line by line, that's a to-do list: the order repository needs a database stand-in, the confirmation mailer a
-local mail server, the payment client a WireMock, and the nightly job shouldn't shell out to `sendmail` in a test at
-all. Each line names the test that was running and the exact line of the service's own code that made the call.
+Each line names the test that was running and the line of the service's code that made the call. This report shows
+the service's tests depend on a database, a mail server, a payment service and the `sendmail` program.
 
-## Why "airgap", and what it doesn't promise
+## What it doesn't catch
 
-An air gap usually means a machine with no network connection at all. The airgap agent is narrower, and it's worth
-being plain about how. It works inside the JVM it guards, so code written on purpose to get past it (with native code,
-or tricks with the JDK's internals) could. It's built for the real risk in an organisation's own old code: ordinary
-calls made by accident, because a configuration file says so. Where code can't be trusted that far, real network
-separation is still the answer, such as a first run on CI runners that can't reach production. The reasoning is in
+The agent runs inside the JVM it checks. It is for code that makes risky calls by accident, for example because a
+configuration file names a production server. Code written to get round it, with native code or the JDK's internals,
+can do so. For code you can't trust that far, use real network separation, such as CI runners that can't reach
+production. See
 [The airgap agent guards against accidental calls from old code, not against hostile code](docs/decisions/0002-the-airgap-agent-guards-against-accidental-calls-from-old-code-not-against-hostile-code.md).
 
-## Why it can be trusted
+Until shared drives are covered, files on `\\server\share` paths and mapped network drives can be read and written:
+Windows opens them itself, outside the JVM's network code.
 
-A tool like this fails in the worst possible way: silently. If a JDK update changed an internal method and a hook
-stopped matching, calls would go through and nothing would look wrong. So:
+## The check at start
 
-- at start, the agent checks that every hook it expects for the running JDK is in place, and refuses to run if not;
-- every hook is proved on every supported JDK;
-- every kind of call is made through every common route, from plain sockets to Netty and JDBC drivers;
-- each test checks the refusal came at once, before a connection could even have been attempted.
+The agent works by changing a few classes inside the JDK. Those classes differ between JDK versions, and a JDK update
+could change one so that the agent's change no longer fits. Calls would then go ahead with no sign of it.
 
-## Where to go next
+So each time a JVM starts with the agent, before the program runs, the agent checks itself. For each kind of risky
+call it catches, it makes one test call (a host lookup of `airgap-self-check.invalid`, a connection to that name, a
+UDP packet to the same machine, a start of a program that doesn't exist) and confirms the agent's change caught it.
+None of these test calls can reach another machine, even if the check fails.
 
-- [The design](docs/design.md) covers every risky call and where it's caught, the report, the allowlist, Spring, other
-  agents, approval inside a company, testing and the limits.
-- [The decision records](docs/decisions/README.md) explain why it's built and not adopted, the promise it makes, how a
-  refused call behaves, how its parts fit, and how it's tested.
-- [GLOSSARY.md](GLOSSARY.md) explains the words used here.
-- To work on the agent itself, start with [AGENTS.md](AGENTS.md).
+If any test call isn't caught, the JVM stops before the program starts, with a message such as:
+
+```text
+The airgap agent couldn't put its hooks in place for [tcp-socket] on Java 26-ea, so it won't start: this JDK isn't
+supported yet. Nothing was run unguarded.
+```
+
+Your tests don't need to do anything for the check.
+
+## How it is tested
+
+- Each of the agent's changes to the JDK is tested on every supported JDK.
+- Each kind of call is tested through each common library, from plain sockets to Netty and JDBC drivers.
+- Each test checks the call was refused before a connection could start.
+- Each test also checks the check at start fails when one of the agent's changes is left out.
+
+## More information
+
+- [The design](docs/design.md): each risky call and where it's caught, the report, the allowlist, Spring, other
+  agents, approval inside a company, testing and limits.
+- [The decision records](docs/decisions/README.md): the reasons behind each choice.
+- [GLOSSARY.md](GLOSSARY.md): the words used here.
+- To work on the agent, start with [AGENTS.md](AGENTS.md).
 
 ## Licence
 

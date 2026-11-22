@@ -21,7 +21,7 @@ in [The code is held to strict quality checks run by the build, and pushes go th
 | [`docs/decisions/`](docs/decisions/README.md) | This repo's decisions, in MADR form |
 | [`plan/airgap-backlog.yaml`](plan/airgap-backlog.yaml) | The work, imported into this repo's issues and shown on `docs/BACKLOG.md` after each push |
 | [`schema/`](schema/) | Schemas: the report, the repo's settings, the backlog |
-| `agent/`, `junit/`, `build-wiring/` | The agent, the JUnit Platform listener and extension, and the Gradle and Maven wiring (added as the work starts) |
+| `agent/`, `junit/`, `gradle-plugin/` | The agent, the JUnit Platform listener and extension, and the Gradle plugin. Maven wiring follows |
 | `examples/` | Old services run end to end under the agent, with their approved reports (added as the work starts) |
 | `maintainer-tools/` | Repo checks (`./gradlew check`, `buildDecisionIndexes`, `fixDecisionLinks`), the push script, and the hook that refuses a plain `git push` |
 | `tools/backlog-import/` | Loads the backlog into the issue tracker |
@@ -49,6 +49,11 @@ promises users (the self-check at start, every hook on every JDK, every common r
 
 - example old services are run end to end, and their reports must match saved, approved ones;
 - mutation testing must show the tests catch nearly every bug planted in the refusal and reporting code.
+
+The Gradle plugin's integration tests run a sample build on the latest Gradle 5, 6, 7, 8 and 9, each on a JDK it
+supports. Where Gradle can't download distributions, pass `-Pairgap.gradleDistributions=<folder of gradle-<version>-bin.zip>`.
+They run without this repo's agent attached, since TestKit starts Gradle processes and downloads Gradle; the sample
+builds themselves run under the agent, through the plugin.
 
 The README is written for people using the agent. Keep build, quality and contribution details here, and keep version
 numbers out of it.

@@ -153,6 +153,13 @@ listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { t
 }
 
 publishing {
+    // A local repository for the Gradle wiring's integration tests, so their sample builds need no other.
+    repositories {
+        maven {
+            name = "integration"
+            url = uri(rootProject.layout.buildDirectory.dir("integration-repo"))
+        }
+    }
     publications {
         create<MavenPublication>("agent") {
             artifactId = "airgap-agent"
