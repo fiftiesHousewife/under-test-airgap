@@ -34,5 +34,10 @@ git add docs/BACKLOG.md
 git diff --cached --quiet || git commit -q -m "Refresh backlog page" -m "$COAUTHOR"
 
 echo "== Push"
-UNDERTEST_SYNC=1 git push
+# A branch's first push links it to the same branch on origin; after that, a plain push.
+if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+  UNDERTEST_SYNC=1 git push
+else
+  UNDERTEST_SYNC=1 git push --set-upstream origin HEAD
+fi
 echo "== Done"
