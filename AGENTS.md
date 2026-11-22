@@ -62,6 +62,10 @@ Enforced by `./gradlew check`:
 This repo's tests make risky calls on purpose, always to addresses reserved for documentation (`192.0.2.1`) or names
 that can't resolve, and always with the agent refusing them. Never point a test at a real host.
 
+The repo runs its own builds under its own agent: the JUnit part's tests, the repo checks' tests and the repo checks
+themselves run with it attached, and fail on any risky call (see
+[This repo runs its own builds under its own agent, and fails on any risky call](docs/decisions/0009-this-repo-runs-its-own-builds-under-its-own-agent-and-fails-on-any-risky-call.md)).
+
 ## Before you finish
 Run `./gradlew check`. It must pass. Push only with `maintainer-tools/sync/sync.sh "What changed"`, which syncs the
 issues and backlog page before pushing; never with a plain `git push`.

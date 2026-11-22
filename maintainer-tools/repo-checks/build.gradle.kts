@@ -42,3 +42,36 @@ checkRepoFiles.configure {
 tasks.check {
     dependsOn(checkRepoFiles)
 }
+
+// This repo applies its own agent: the repo checks' tests and the repo checks themselves run with the agent this
+// build makes attached, and fail if they make any risky call at all. (The agent's own unit tests run without it, since
+// with it attached they would test the jar's copy of its classes, not the code being built.)
+val airgapAgent: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isTransitive = false
+}
+dependencies {
+    airgapAgent(project(mapOf("path" to ":agent", "configuration" to "agentJarElements")))
+}
+
+fun Task.guardedByTheAgent(run: String) {
+    val agent = files(airgapAgent)
+    val report = layout.buildDirectory.file("airgap/$name.jsonl")
+    inputs.files(agent)
+    (this as JavaForkOptions).jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-javaagent:${agent.singleFile.absolutePath}=report=${report.get().asFile.absolutePath};run=$run")
+    })
+    doFirst { report.get().asFile.delete() }
+    doLast {
+        if (report.get().asFile.exists()) {
+            throw GradleException("$path made risky calls, which the airgap agent refused; see ${report.get().asFile}")
+        }
+    }
+}
+
+tasks.test {
+    guardedByTheAgent("test")
+}
+checkRepoFiles.configure {
+    guardedByTheAgent("application")
+}

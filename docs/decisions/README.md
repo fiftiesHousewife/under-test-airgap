@@ -29,4 +29,5 @@ records by `./gradlew buildDecisionIndexes`.
 | Decision | Status | Who decides |
 |---|---|---|
 | [The code is held to strict quality checks run by the build, and pushes go through a script that syncs the issues](0007-the-code-is-held-to-strict-quality-checks-run-by-the-build-and-pushes-go-through-a-script-that-syncs-the-issues.md) | accepted (chosen in discussion) | Airgap maintainers |
+| [This repo runs its own builds under its own agent, and fails on any risky call](0009-this-repo-runs-its-own-builds-under-its-own-agent-and-fails-on-any-risky-call.md) | accepted (chosen in discussion) | Airgap maintainers |
 
