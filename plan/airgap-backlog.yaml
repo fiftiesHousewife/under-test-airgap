@@ -32,8 +32,6 @@ items:
     done_when:
       - "A project adds the agent with one line of build configuration"
       - "A release carries everything a security review needs"
-
-  # Decisions already made
   - key: "decide-the-agent-is-built-rather-than-adopted"
     status: "done"
     type: "decision"
@@ -130,8 +128,6 @@ items:
     done_when:
       - "Chosen in discussion by the airgap maintainers"
     decision_record: "docs/decisions/0008-every-hook-is-proved-on-every-supported-jdk-and-the-agent-checks-its-own-hooks-at-start.md"
-
-  # This repo
   - key: "build-and-ci-on-five-jdks"
     status: "done"
     type: "deliverable"
@@ -172,8 +168,6 @@ items:
       - "The build fails if PIT's mutation score there falls below the agreed threshold"
     blocked_by:
       - "agent-skeleton-with-self-check"
-
-  # The agent
   - key: "agent-skeleton-with-self-check"
     status: "done"
     type: "deliverable"
@@ -329,8 +323,6 @@ items:
       - "gradle-wiring"
       - "maven-wiring"
       - "spring-profiles-and-setting-origins"
-
-  # Using it
   - key: "gradle-wiring"
     type: "deliverable"
     title: "Gradle wiring: the agent on every test run, application start and the build itself"
