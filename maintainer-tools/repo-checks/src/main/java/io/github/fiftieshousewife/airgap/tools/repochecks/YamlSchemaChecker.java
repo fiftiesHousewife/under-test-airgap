@@ -1,4 +1,4 @@
-package io.github.fiftieshousewife.undertest.tools.repochecks;
+package io.github.fiftieshousewife.airgap.tools.repochecks;
 
 import com.networknt.schema.Error;
 import com.networknt.schema.Schema;

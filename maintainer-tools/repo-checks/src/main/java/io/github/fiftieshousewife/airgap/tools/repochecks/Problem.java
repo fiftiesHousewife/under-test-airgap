@@ -1,4 +1,4 @@
-package io.github.fiftieshousewife.undertest.tools.repochecks;
+package io.github.fiftieshousewife.airgap.tools.repochecks;
 
 import java.nio.file.Path;
 

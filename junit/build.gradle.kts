@@ -1,3 +1,5 @@
+import io.github.fiftieshousewife.airgap.build.runWithOwnAgent
+
 plugins {
     id("io.github.fiftieshousewife.java-conventions")
     id("io.github.fiftieshousewife.airgap-publishing")
@@ -7,10 +9,6 @@ plugins {
 // Java 8, so it runs on JUnit 5 and JUnit 6 alike. It talks to the agent by reflection, and does nothing without it.
 group = "io.github.fiftieshousewife.airgap"
 base.archivesName = "airgap-junit"
-
-// The listener goes onto projects' own test class paths, so it brings no logging library of its own.
-configurations.named("implementation") { dependencies.removeIf { it.group == "org.slf4j" } }
-configurations.named("runtimeOnly") { dependencies.removeIf { it.group == "org.apache.logging.log4j" } }
 
 dependencies {
     compileOnly(platform(libs.junit5.bom))
@@ -25,7 +23,7 @@ tasks.named<JavaCompile>("compileJava") {
 }
 
 // The tests run with the agent attached, as a project using this jar would.
-val agent: Configuration by configurations.creating {
+val agent: Configuration = configurations.create("agent") {
     isCanBeConsumed = false
     isTransitive = false
 }
@@ -34,18 +32,8 @@ dependencies {
 }
 
 tasks.test {
-    val agentFiles = files(agent)
-    val report = layout.buildDirectory.file("airgap-tests/calls.jsonl")
-    inputs.files(agentFiles)
-    doFirst { report.get().asFile.delete() }
-    jvmArgumentProviders.add(CommandLineArgumentProvider {
-        listOf(
-            "-Xbootclasspath/a:${agentFiles.singleFile.absolutePath}",
-            "-javaagent:${agentFiles.singleFile.absolutePath}=report=${report.get().asFile.absolutePath}" +
-                ";project=io.github.fiftieshousewife.airgap.junit",
-            "-Dairgap.test.report=${report.get().asFile.absolutePath}",
-        )
-    })
+    runWithOwnAgent(files(agent), layout.buildDirectory.file("airgap-tests/calls.jsonl"),
+        "project=io.github.fiftieshousewife.airgap.junit")
 }
 
 publishing {

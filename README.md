@@ -83,8 +83,8 @@ script fetches the agent from Maven Central. To fetch it from your company's rep
 ### 2. Read the report
 
 Each test task's report is written to `build/airgap/<task name>/calls.jsonl`, for example
-`build/airgap/test/calls.jsonl`, and is cleared when the task starts. With the init script it is
-`build/airgap/calls.jsonl`. If there is no report, the tests made no risky calls. A test that made a refused call
+`build/airgap/test/calls.jsonl`, and is cleared when the task starts, with the plugin or the init script. If there is
+no report, the tests made no risky calls. A test that made a refused call
 fails with an ordinary exception:
 
 ```text
@@ -132,7 +132,7 @@ for every task, and names the jar with `-Xbootclasspath/a:` too: without it, Hot
 class-data sharing in every JVM. Doing the same by hand, for the `test` task:
 
 ```kotlin
-val airgapAgent by configurations.creating
+val airgapAgent = configurations.create("airgapAgent")
 
 dependencies {
     airgapAgent("io.github.fiftieshousewife.airgap:airgap-agent:...")

@@ -4,8 +4,10 @@
 //
 // The agent comes from Maven Central, or from the repository named by -Dairgap.repository=<URL> (a company's own
 // repository, say), or from the jar named by -Dairgap.agent=<path>. -Dairgap.version=<version> picks a version.
-// The agent is fetched for this script alone: the build's own repositories and dependencies don't change. Each
-// project's report goes to <project>/build/airgap/calls.jsonl; no report means no risky calls.
+// The agent is fetched for this script alone: the build's own repositories and dependencies don't change. Each test
+// task's report goes to <project>/build/airgap/<task name>/calls.jsonl, as the plugin's does; no report means no risky
+// calls. The script doesn't apply the plugin, since the plugin's dependencies would come from the build's own
+// repositories.
 initscript {
     repositories {
         def repository = System.getProperty("airgap.repository")
@@ -37,11 +39,11 @@ def agentJar = System.getProperty("airgap.agent")
 
 allprojects {
     tasks.withType(Test).configureEach { test ->
-        def report = new File(test.project.layout.buildDirectory.get().asFile, "airgap/calls.jsonl")
+        if (agentJar == null || !agentJar.isFile()) {
+            throw new GradleException("airgap agent not found at ${agentJar}: pass -Dairgap.agent=<path to the jar>")
+        }
+        def report = new File(test.project.layout.buildDirectory.get().asFile, "airgap/${test.name}/calls.jsonl")
         test.doFirst {
-            if (agentJar == null || !agentJar.isFile()) {
-                throw new GradleException("airgap agent not found at ${agentJar}: pass -Dairgap.agent=<path to the jar>")
-            }
             report.delete()
         }
         test.jvmArgs("-Xbootclasspath/a:${agentJar.absolutePath}",

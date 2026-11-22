@@ -1,5 +1,8 @@
+import io.github.fiftieshousewife.airgap.build.runWithOwnAgent
+
 plugins {
     id("io.github.fiftieshousewife.java-conventions")
+    id("info.solidsoft.pitest")
     alias(libs.plugins.shadow)
     id("io.github.fiftieshousewife.airgap-publishing")
 }
@@ -8,10 +11,6 @@ plugins {
 // Byte Buddy, relocated under the agent's own package so it never meets the copy Mockito brings.
 group = "io.github.fiftieshousewife.airgap"
 base.archivesName = "airgap-agent"
-
-// The agent uses no logging library (see AGENTS.md), so nothing from the conventions' logging set is on its class path.
-configurations.named("implementation") { dependencies.removeIf { it.group == "org.slf4j" } }
-configurations.named("runtimeOnly") { dependencies.removeIf { it.group == "org.apache.logging.log4j" } }
 
 dependencies {
     implementation(libs.byte.buddy)
@@ -61,7 +60,7 @@ tasks.assemble {
 }
 
 // The agent jar, for other projects in this build (the JUnit part's tests) to attach.
-val agentJarElements: Configuration by configurations.creating {
+val agentJarElements: Configuration = configurations.create("agentJarElements") {
     isCanBeConsumed = true
     isCanBeResolved = false
 }
@@ -71,7 +70,7 @@ artifacts {
 
 // ---------- The agent's own tests: every hook, with the agent attached, on every supported JDK ----------
 // Compiled for Java 8 and run on JUnit 5, so the same tests run on JDK 8 and on every JDK since.
-val agentTest: SourceSet by sourceSets.creating
+val agentTest: SourceSet = sourceSets.create("agentTest")
 
 tasks.named<JavaCompile>(agentTest.compileJavaTaskName) {
     options.release = 8
@@ -109,19 +108,7 @@ testJdks.get().forEach { jdk ->
         } else {
             javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk) }
         }
-        inputs.file(agentJar)
-        val report = reportFile
-        val jar = agentJar
-        doFirst { report.get().asFile.delete() }
-        jvmArgumentProviders.add(CommandLineArgumentProvider {
-            listOf(
-                "-Xbootclasspath/a:${jar.get().asFile.absolutePath}",
-                "-javaagent:${jar.get().asFile.absolutePath}=report=${report.get().asFile.absolutePath}" +
-                    ";allow=allowed.example.invalid:8443,process:java,native:airgapallowed",
-                "-Dairgap.test.report=${report.get().asFile.absolutePath}",
-                "-Dairgap.test.agent=${jar.get().asFile.absolutePath}",
-            )
-        })
+        runWithOwnAgent(files(agentJar), reportFile, "allow=allowed.example.invalid:8443,process:java,native:airgapallowed")
     }
     tasks.check {
         dependsOn(task)
@@ -149,12 +136,34 @@ tasks.check {
 // every JDK, instead.
 val attachedOnly = listOf(
     "**/agent/AirgapAgent*", "**/agent/AgentStart*", "**/agent/Hooks*", "**/agent/SelfCheck*", "**/agent/advice/**",
-    "**/agent/Gate*",
+    "**/agent/Gate*", "**/agent/RunningTests*",
 )
 listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { task ->
     task.configure {
         classDirectories.setFrom(files(classDirectories.files.map { fileTree(it) { exclude(attachedOnly) } }))
     }
+}
+
+// Mutation testing: PIT plants bugs in the code that decides, refuses and reports each call, and the unit tests must
+// catch nearly all of them. The classes that only run with the agent attached are left out, as for coverage.
+pitest {
+    pitestVersion = libs.versions.pitest.asProvider()
+    junit5PluginVersion = libs.versions.pitest.junit5.get()
+    targetClasses = listOf("io.github.fiftieshousewife.airgap.agent.*")
+    excludedClasses = listOf(
+        "io.github.fiftieshousewife.airgap.agent.AirgapAgent*", "io.github.fiftieshousewife.airgap.agent.AgentStart*",
+        "io.github.fiftieshousewife.airgap.agent.Hooks*", "io.github.fiftieshousewife.airgap.agent.SelfCheck*",
+        "io.github.fiftieshousewife.airgap.agent.advice.*", "io.github.fiftieshousewife.airgap.agent.Gate*",
+        "io.github.fiftieshousewife.airgap.agent.RunningTests*",
+    )
+    excludedTestClasses = listOf("*AgentTestReportsMatchSchemaTest")
+    jvmArgs = listOf("-Dairgap.schema=${reportSchema.asFile.absolutePath}")
+    outputFormats = listOf("HTML", "XML")
+    timestampedReports = false
+    mutationThreshold = libs.versions.min.mutation.score.map { it.toInt() }
+}
+tasks.check {
+    dependsOn(tasks.named("pitest"))
 }
 
 publishing {

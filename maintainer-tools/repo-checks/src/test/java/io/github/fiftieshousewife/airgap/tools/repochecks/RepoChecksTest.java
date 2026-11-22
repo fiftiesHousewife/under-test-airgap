@@ -1,4 +1,4 @@
-package io.github.fiftieshousewife.undertest.tools.repochecks;
+package io.github.fiftieshousewife.airgap.tools.repochecks;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;

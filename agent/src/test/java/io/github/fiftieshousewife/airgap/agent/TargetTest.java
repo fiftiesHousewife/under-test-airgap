@@ -76,6 +76,38 @@ class TargetTest {
     }
 
     @Test
+    void namesAReverseLookupByItsAddress() throws java.net.UnknownHostException {
+        final Target remote = Target.ofReverseLookup(InetAddress.getByAddress(new byte[] {(byte) 192, 0, 2, 9}));
+        assertAll(
+                () -> assertThat(remote.text()).isEqualTo("192.0.2.9"),
+                () -> assertThat(remote.isLocal()).isFalse(),
+                () -> assertThat(Target.ofReverseLookup(InetAddress.getLoopbackAddress()).isLocal()).isTrue());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1a.0.2.1", "192.0.2.x", "db:example", "fe80::1g"})
+    void looksUpNamesWithCharactersNoAddressHas(final String host) {
+        assertThat(Target.ofLookup(host).isLocal()).isFalse();
+    }
+
+    @Test
+    void readsJndiPortsOnlyWhenTheyAreThere() {
+        assertAll(
+                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid:/o=x").getPort()).isEqualTo(-1),
+                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid:123456/o=x").getPort()).isEqualTo(-1),
+                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid:9/o=x").getPort()).isEqualTo(9),
+                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid:65535").getPort()).isEqualTo(65535),
+                () -> assertThat(Target.ofJndi("ldap://[2001:db8::1]/o=x").getPort()).isEqualTo(-1),
+                () -> assertThat(Target.ofJndi("ldap://[2001:db8::1/o=x").getName()).as("no closing bracket")
+                        .isEqualTo("2001:db8::1"),
+                () -> assertThat(Target.ofJndi("ldap://a/o=x").getName()).isEqualTo("a"),
+                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid?x").getName())
+                        .isEqualTo("ldap.example.invalid"),
+                () -> assertThat(Target.isNetworkJndiName(":ldap://x")).isFalse(),
+                () -> assertThat(Target.isNetworkJndiName("l:x")).isFalse());
+    }
+
+    @Test
     void namesAProgramByItsCommand() {
         assertAll(
                 () -> assertThat(Target.ofCommand(List.of("/usr/bin/curl", "https://example.com")).text())

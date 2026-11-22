@@ -62,8 +62,19 @@ class SampleBuildTest {
                 "--init-script", System.getProperty("airgap.it.initScript")).build();
         assertAll(
                 () -> assertThat(result.getOutput()).contains("airgap: :test made risky calls"),
-                () -> assertThat(read("build/airgap/calls.jsonl")).contains("\"target\":\"sample-test.invalid\"",
-                        "\"outcome\":\"refused\""));
+                () -> assertThat(read("build/airgap/test/calls.jsonl")).as("each test task has its own report")
+                        .contains("\"target\":\"sample-test.invalid\"", "\"outcome\":\"refused\""));
+    }
+
+    /** A jar that isn't there is named in the failure, not met with a null pointer. */
+    @org.junit.jupiter.api.Test
+    void theInitScriptSaysSoWhenTheAgentIsMissing() throws IOException {
+        SampleBuild.write(sample, System.getProperty("airgap.it.currentJdk"), false);
+        final String missing = sample.resolve("no-such-agent.jar").toString();
+        final BuildResult result = runner("current").withArguments("test", "-Dairgap.agent=" + missing,
+                "--init-script", System.getProperty("airgap.it.initScript")).buildAndFail();
+
+        assertThat(result.getOutput()).contains("airgap agent not found at " + missing);
     }
 
     private GradleRunner runner(final String gradle) {

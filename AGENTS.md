@@ -63,7 +63,7 @@ Enforced by `./gradlew check`:
 
 | Standard | Enforced by |
 |---|---|
-| Line coverage at least 80% per project; the agent's refusal and reporting code much higher, by mutation testing | JaCoCo; PIT |
+| Line coverage at least 80% per project; and in the agent, PIT must catch at least 90% of the bugs it plants in the code that decides, refuses and reports calls (`min-mutation-score` in the version catalog) | JaCoCo; PIT |
 | No more than **three parameters** for any method or constructor. Use a Lombok `@Builder` instead | Checkstyle, PMD |
 | No record with more than three components | Checkstyle |
 | A test with more than one assertion wraps them in `assertAll(...)` | PMD |

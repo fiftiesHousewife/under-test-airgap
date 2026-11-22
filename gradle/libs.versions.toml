@@ -25,6 +25,8 @@ spotbugs = "4.10.5"
 findsecbugs = "1.14.0"
 pitest = "1.30.2"
 pitest-junit5 = "1.2.3"
+# The share of planted bugs the agent's unit tests must catch.
+min-mutation-score = "90"
 # Smallest line coverage a project may have; a project can raise it with quality.minLineCoverage.
 min-line-coverage = "0.80"
 

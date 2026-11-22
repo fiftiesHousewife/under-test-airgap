@@ -12,10 +12,6 @@ plugins {
 group = "io.github.fiftieshousewife.airgap"
 base.archivesName = "airgap-gradle-plugin"
 
-// A Gradle plugin uses Gradle's own logging; nothing from the conventions' logging set goes into its POM.
-configurations.named("implementation") { dependencies.removeIf { it.group == "org.slf4j" } }
-configurations.named("runtimeOnly") { dependencies.removeIf { it.group == "org.apache.logging.log4j" } }
-
 // java-gradle-plugin adds the API of the Gradle running this build; the plugin is compiled against the oldest it
 // supports instead, so a newer API can't slip in.
 listOf("api", "compileOnlyApi", "compileOnly", "implementation").forEach { name ->

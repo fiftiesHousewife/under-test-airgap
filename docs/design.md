@@ -213,7 +213,8 @@ An allowed call is still reported, so the report always shows everything the cod
 
 ## The report
 
-`build/airgap/calls.jsonl`: one JSON object per line, per call, checked against
+`build/airgap/<task name>/calls.jsonl` for each task (`build/airgap/calls.jsonl` when the agent is named by hand): one
+JSON object per line, per call, checked against
 [schema/airgap-report.schema.json](../schema/airgap-report.schema.json). Each line says:
 
 - **what:** its kind (`host-lookup`, `tcp`, `udp`, `database`, `http`, `jndi`, `mail`, `process`, `native-library`,

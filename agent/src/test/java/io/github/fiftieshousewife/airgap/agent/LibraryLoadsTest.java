@@ -41,6 +41,7 @@ class LibraryLoadsTest {
                 () -> assertThat(LibraryLoads.isJdks("java.lang.String")).isTrue(),
                 () -> assertThat(LibraryLoads.isJdks("sun.nio.ch.SocketChannelImpl")).isTrue(),
                 () -> assertThat(LibraryLoads.isJdks("javax.naming.InitialContext")).isTrue(),
+                () -> assertThat(LibraryLoads.isJdks("java.sql.Connection")).as("the platform loader's").isTrue(),
                 () -> assertThat(LibraryLoads.isJdks(LibraryLoadsTest.class.getName())).as("the class path's")
                         .isFalse(),
                 () -> assertThat(LibraryLoads.isJdks("com.sun.jna.Native")).as("not the JDK's, whatever its package")
