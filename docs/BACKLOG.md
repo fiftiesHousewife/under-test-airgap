@@ -30,4 +30,3 @@ Ordered by horizon (now, next, later), then items that are ready before items wa
 | | Item | Type | Owner | Done by | Waiting on |
 |---|---|---|---|---|---|
 | #27 | [Maven wiring: the agent on Surefire, Failsafe, application starts and Maven itself](https://github.com/fiftiesHousewife/under-test-airgap/issues/27) | deliverable | Technical Architect | ai | – |
-| #28 | [Releases publish the agent jar with a software bill of materials, ready for a security review](https://github.com/fiftiesHousewife/under-test-airgap/issues/28) | deliverable | Toolkit Owner | tool | – |
