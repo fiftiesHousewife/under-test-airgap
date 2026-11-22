@@ -1,0 +1,310 @@
+# The airgap agent: design
+
+How the airgap agent works, why it works that way, and where it stops. Words follow [GLOSSARY.md](../GLOSSARY.md);
+the decisions behind this design are in [docs/decisions/](decisions/README.md).
+
+## The problem
+
+Old code has to be run before it can be tested, and the first time anyone runs an old service, nobody knows what it
+will reach: production databases, live payment services, mail servers, file shares, scripts. Those first runs must not
+reach production.
+
+The machines the work happens on make that hard:
+
+- **Windows laptops**, and engineers **never have administrator rights**.
+- **No container runtime**.
+- **Nothing installed from the internet**; every new tool needs a security review and a place in the company's package
+  repository.
+- **Old JDKs and old builds:** projects build on JDK 8, 11, 17 and later, with Gradle or Maven, and JUnit 4 or 5.
+
+Pulling the network cable isn't possible, and the usual software equivalents all need something these machines don't
+allow: containers, operating-system sandboxes, firewall rules or packet capture.
+
+## What the airgap agent does
+
+It refuses risky calls from inside the JVM, and reports each one. Added to the command line as
+`-javaagent:airgap-agent.jar`, it rewrites the JDK's own risky methods as their classes load (with
+[Byte Buddy](https://bytebuddy.net), the library Mockito is built on). From then on, every caller, whichever library
+it goes through, reaches the agent's check first:
+
+- **Allowed** (on the allowlist): the call goes ahead, and is recorded.
+- **Otherwise:** the call is refused with the exception an unplugged machine would give, and recorded with the test
+  that was running, the code that made the call and, for Spring applications, the setting that supplied the address.
+
+The report is the point as much as the refusal. A project's first run under the agent lists everything its code tries
+to reach: the start of a list of everything it depends on.
+
+## What it guards against, and what it doesn't
+
+**It guards against accidental calls from old business code:** a test that opens the production database because
+that's what `application.yml` says, a start-up that fetches its configuration from a live server, a batch job that
+sends email. That code isn't trying to get past anything; it calls the JDK's ordinary APIs.
+
+**It doesn't guard against hostile code.** Anything running inside a JVM can, with enough effort, get past code in the
+same JVM: native code, deliberate tricks with the JDK's internals. Where code can't be trusted that far, it needs real
+network separation, such as CI runners that can't reach production, and its secrets scanned before it runs at all. See
+[The airgap agent guards against accidental calls from old code, not against hostile code](decisions/0002-the-airgap-agent-guards-against-accidental-calls-from-old-code-not-against-hostile-code.md).
+
+## Options considered
+
+Every way found of running code with no route out, and of recording what it tries, judged against the machines
+described in [The problem](#the-problem): Windows, no administrator rights, no containers, nothing installed without
+review, JDK 8 and later. The decision is in
+[The airgap agent is built rather than adopted, because no maintained tool does the job](decisions/0001-the-airgap-agent-is-built-rather-than-adopted-because-no-maintained-tool-does-the-job.md).
+Numbers in square brackets point to [References](#references).
+
+### Separating the machine from the network
+
+| Option | What it does | In a corporate environment |
+|---|---|---|
+| Pulling the network cable | Real separation | **Rejected:** laptops have no cable to pull, and Wi-Fi and VPN are managed centrally |
+| A container with no network (`docker` or `podman run --network none`), or an internal network whose only route is a logging proxy and DNS server | Real separation for one process tree; the proxy and DNS logs show every name tried [1] | **Rejected on laptops:** no container runtime. A good pattern where containers exist |
+| CI runners whose outbound traffic is blocked except to the package repository | Real separation, run by the platform team | **Used, but only in CI:** the right home for a project's very first run; doesn't help an engineer's own machine |
+| Kubernetes network policies that refuse all outbound traffic, with audit logging (on OpenShift, OVN-Kubernetes ACL logging) | Real separation, with a log line for every dropped connection and the policy that dropped it [2] | **Used, but only in CI**, where CI runs on Kubernetes; no help locally |
+| An outbound proxy that refuses and logs everything not on an allowlist, with the process's own network namespace (the design of Anthropic's sandbox-runtime) | Separation by namespace, and a log of every refused name [3] | **Rejected:** needs bubblewrap on Linux or `sandbox-exec` on macOS; nothing equivalent for a plain Windows user. The tool itself is a research preview with a past enforcement bug [4] |
+| Pointing the JVM's proxy settings (`http.proxyHost`, `https.proxyHost`) at nothing | Breaks calls made through `URLConnection` and clients that honour those settings | **Rejected:** raw sockets, JDBC drivers, NIO clients and anything that ignores the settings go straight past [5] |
+
+### Sandboxing the process with the operating system
+
+| Option | What it does | In a corporate environment |
+|---|---|---|
+| macOS `sandbox-exec` with a profile that refuses outbound network | Refuses the process and its children; denials appear in the system log [6] | **Rejected as the answer:** macOS only, and deprecated by Apple, though it still works. Most corporate laptops run Windows |
+| Linux Landlock (network rules from kernel 6.7), for example through landrun | Unprivileged refusal of TCP connections for a process and its children [7] [8] | **Rejected as the answer:** Linux only, TCP only, and needs a recent kernel |
+| Linux bubblewrap with its own network namespace | Unprivileged separation, where user namespaces are allowed | **Rejected as the answer:** Linux only; user namespaces are often switched off on managed machines |
+| Windows AppContainer, through tools such as landstrip or rappct | Runs a process with no network capability [9] [10] | **Rejected:** young tools, each needing its own security review; behaviour with loopback and name lookups is awkward |
+| Windows Sandbox | A throwaway virtual machine with networking switched off [11] | **Rejected:** a Windows feature that needs enabling by an administrator, and a whole virtual machine per run |
+| Windows Defender Firewall rules per program | Refuses a program's outbound traffic | **Rejected:** needs administrator rights |
+
+### Watching the traffic
+
+| Option | What it does | In a corporate environment |
+|---|---|---|
+| Packet capture (Wireshark, tcpdump) | Records every packet on the machine | **Rejected:** needs elevated rights and a capture driver, sees other people's and other programs' traffic, and records rather than refuses |
+| eBPF monitors (Falco, Tetragon) | Watch and refuse system calls in the kernel | **Rejected:** need root on a Linux host; nothing for a Windows laptop |
+| Recording proxies (WireMock's record mode, Hoverfly's capture mode) | Record HTTP traffic and replay it later | **Not for safety:** they only see traffic sent to them, and only HTTP. Useful later, to turn the calls the agent finds into recorded responses [12] |
+
+### Refusing inside the JVM
+
+| Option | What it does | In a corporate environment |
+|---|---|---|
+| The JDK's Security Manager with a policy refusing socket permissions | Refused network, file and process access by policy, across the whole JVM [13] | **Rejected:** deprecated from JDK 17 and disabled from JDK 24; OpenJDK provides no replacement and points to operating-system sandboxing [14] [15] |
+| A custom socket factory (`Socket.setSocketImplFactory`) | Replaces how plain sockets are made | **Rejected:** plain sockets only, not NIO channels, which Netty, newer HTTP clients and several JDBC drivers use; deprecated [5] |
+| The JDK's address-resolution hook (JEP 418) | Lets a provider answer, log or refuse every host lookup [16] | **Rejected as the answer:** JDK 18 and later only, and connections straight to an IP address skip lookups. Kept as a possible extra |
+| The JDK's own connection events in JDK Flight Recorder | Records socket connects, with host, port and stack trace | **Rejected as the answer:** records but doesn't refuse; only on recent JDKs; very fast connects can fall under its recording threshold [17] |
+| A JUnit extension on its own (JUnit 5 or 6) | Knows which test is running; can install the hooks above | **Rejected as the answer:** sees only tests, not the application or the build; limited to the weak hooks above; JUnit 6 needs Java 17. Kept as the part that reports and allows |
+| The JUnit extension loading an agent itself when tests start, as Mockito does | No command-line change | **Rejected:** JDK 21 and later warn about agents loaded this way, and plan to refuse them by default [18] |
+| [junit-airgap](https://klibs.io/project/garry-jeromson/junit-airgap) | Fails JUnit 4 and 5 tests that use the network, through a native agent [19] | **Rejected:** a single-author beta; a native library to approve for each operating system; tests only |
+| [Sniffy](https://github.com/sniffy/sniffy) | Refuses new socket connections in tests | **Rejected:** a JUnit 4 rule; no recent work found [20] |
+| Byteman scripts | Rewrite methods by rule, for example to trace every `Socket.connect` [21] | **Rejected as the answer:** a general tool needing its own rules for every JDK range; the airgap agent's hooks are the same idea, built in |
+| BlockHound | An agent that refuses blocking calls in reactive code [22] | **Not for this job,** but the same technique, and a model for allowing named exceptions |
+| [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer)'s sanitizers | Hooks risky JVM calls (network, command execution, JNDI, SQL) to find bugs while fuzzing [23] | **Rejected:** a fuzzing tool, not a way to run code offline. Its list of hooks informs ours |
+| [OpenRASP](https://github.com/baidu/openrasp) | A runtime protection agent that hooks process starts, outbound URLs and file access, with log and block modes [24] | **Rejected:** built to stop attacks on live servers; heavy; no release since 2022. Its list of hooks informs ours |
+| A Byte Buddy agent in place of the Security Manager | Applies the same rules by rewriting bytecode with Byte Buddy's `AgentBuilder` and `Advice` [25] [26] | **The approach chosen.** Kestra's agent is part of Kestra, not a library, so the airgap agent builds the same approach for this job |
+
+### In other languages
+
+Ruby's WebMock (`disable_net_connect!`), Python's pytest-socket and Node's nock (`disableNetConnect`) give "no network
+in tests" in one line. The JVM has nothing maintained that does the same [5].
+
+### References
+
+1. Docker documentation: none network driver. <https://docs.docker.com/engine/network/drivers/none/>
+2. Red Hat OpenShift documentation: audit logging for network security. <https://docs.redhat.com/en/documentation/openshift_container_platform/4.21/observability/network_security/logging-network-security>
+3. Anthropic sandbox-runtime. <https://github.com/anthropic-experimental/sandbox-runtime>
+4. GitLab advisory: sandbox-runtime network sandboxing. <https://advisories.gitlab.com/pkg/npm/@anthropic-ai/sandbox-runtime/>
+5. "Is there a way to block all external network access from a Java JUnit test?" (Stack Overflow). <https://stackoverflow.com/questions/67099279>
+6. Running code in a macOS sandbox. <https://lucaswiman.github.io/2023/06/04/macos-sandbox.html>
+7. Linux kernel documentation: Landlock (6.7). <https://docs.kernel.org/6.7/userspace-api/landlock.html>
+8. landrun. <https://github.com/Zouuup/landrun>
+9. landstrip (Windows AppContainer). <https://docs.rs/crate/landstrip/0.9.0/source/src/windows.rs>
+10. rappct (Windows AppContainer toolkit). <https://docs.rs/crate/rappct/latest/source/examples/network_demo.rs>
+11. Microsoft: Windows Sandbox configuration. <https://learn.microsoft.com/en-us/windows/security/application-security/application-isolation/windows-sandbox/windows-sandbox-configure-using-wsb-file>
+12. WireMock: record and playback. <https://wiremock.org/docs/record-playback/>
+13. Oracle: Java SE platform security architecture (JDK 17). <https://docs.oracle.com/en/java/javase/17/security/java-se-platform-security-architecture.html>
+14. JEP 411: Deprecate the Security Manager for Removal. <https://openjdk.org/jeps/411>
+15. JEP 486: Permanently Disable the Security Manager. <https://openjdk.org/jeps/486>
+16. JEP 418: Internet-Address Resolution SPI. <https://openjdk.org/jeps/418>
+17. OpenJDK review: add JFR event for connect operations. <https://mail.openjdk.org/archives/list/hotspot-jfr-dev@openjdk.org/thread/T7FYH5RBQYFK4WNGCDEKYUJ5AVKAQI3R>
+18. JEP 451: Prepare to Disallow the Dynamic Loading of Agents. <https://openjdk.org/jeps/451>
+19. junit-airgap. <https://klibs.io/project/garry-jeromson/junit-airgap>
+20. Sniffy. <https://github.com/sniffy/sniffy>
+21. Byteman sample script: SocketMonitor. <https://sources.debian.org/src/byteman/4.0.20-1/sample/scripts/SocketMonitor.btm>
+22. BlockHound. <https://github.com/reactor/BlockHound>
+23. Jazzer. <https://github.com/CodeIntelligenceTesting/jazzer>
+24. OpenRASP JavaScript plugin development. <https://github.com/baidu/openrasp/wiki/JavaScript-plugin-development>
+25. Kestra: replacing Java's SecurityManager with a Byte Buddy agent. <https://medium.com/kestra-engineering/replacing-javas-securitymanager-with-a-byte-buddy-agent-539f218c3eb5>
+26. Loïc Mathieu: replacing Java's SecurityManager with an agent using Byte Buddy. <https://www.loicmathieu.fr/wordpress/informatique/replacing-javas-securitymanager-with-an-agent-using-byte-buddy/>
+
+Two of these weren't checked directly. The Docker and WireMock pages are cited from their projects' documentation, not
+from this search. The JDK Flight Recorder connection events are known only from OpenJDK review threads; whether they
+ship in a given JDK still needs confirming, with that JDK's `jfr metadata`.
+
+## Where it runs
+
+The same agent jar is added to every JVM that runs the project's code:
+
+| JVM | Why | How it's added |
+|---|---|---|
+| Test runs | Tests are where old code first runs | Gradle: every `Test` task. Maven: Surefire's and Failsafe's `argLine` |
+| Application starts | Starting the application on its own is the next thing anyone tries | Gradle: every `JavaExec` task, and Spring Boot's `bootRun`. Maven: the plugin's `jvmArguments` |
+| The build itself | An old project's build scripts are its code too, and run first | Gradle: `org.gradle.jvmargs` in the engineer's own `gradle.properties` (in the Gradle user home, which wins over the project's). Maven: `MAVEN_OPTS` |
+| Forked JVMs | PIT and some test set-ups start more JVMs | PIT's `jvmArgs`; the agent also adds itself to JVMs started with `java` from a guarded JVM, where it can |
+
+In the build JVM the allowlist also holds the company's package repository, so dependencies can download; nothing
+else.
+
+## What counts as a risky call, and where it's caught
+
+The agent catches each call at the lowest point in the JDK that every route goes through, not at the public APIs, so
+no library is missed. Those low points differ between JDK versions, so the agent carries one set of hooks per version
+range, each proved by tests on that range (see [Testing it](#testing-it)).
+
+| Kind | Caught at (JDK internals vary by version) | Refused with |
+|---|---|---|
+| Host lookup | `InetAddress`'s name lookups (JDK 8 to 17: its name service; 18 and later: its resolver) | `UnknownHostException` |
+| TCP connection | The socket implementation's connect (JDK 8 to 12: `PlainSocketImpl`; 13 and later: `NioSocketImpl`), and `SocketChannel` connects | `ConnectException` |
+| UDP | `DatagramSocket` and `DatagramChannel` send and connect (also covers DNS done by JNDI) | `PortUnreachableException` |
+| Asynchronous channels | `AsynchronousSocketChannel` connects | a failed result with `ConnectException` |
+| JNDI and LDAP | `InitialContext` lookups and `ldap:`, `rmi:`, `dns:` URLs | `NamingException` |
+| Starting a process | `ProcessBuilder.start` (which `Runtime.exec` uses) | `IOException` ("cannot run program") |
+| Loading native code | `System.loadLibrary` and `System.load` | `UnsatisfiedLinkError` |
+| Ending the JVM | `System.exit` and `Runtime.halt` in a test run | `SecurityException` naming the airgap agent |
+| Writing files outside the project | `FileOutputStream`, `RandomAccessFile` and `Files` writes | Reported only, at first (see [Open questions](#open-questions)) |
+
+Higher-level calls are recognised too, only to describe them better in the report: a JDBC connection says
+`kind: database` with its URL, an HTTP client call says `kind: http` with its address, a mail transport says
+`kind: mail`.
+
+Local calls are always allowed: loopback addresses, and the machine's own name.
+
+## How a call is refused
+
+As an unplugged machine would refuse it: the same exception type, thrown at once, with a message that names the
+airgap agent. The code under test then takes the path it would take offline, and its tests fail or pass as they would
+without a network. A refused call never returns made-up success: a pretend answer would let invented behaviour into
+tests that record what the code does today. See
+[Refused calls fail as an unplugged machine would, never with made-up success](decisions/0003-refused-calls-fail-as-an-unplugged-machine-would-never-with-made-up-success.md).
+
+Three modes, chosen per run:
+
+| Mode | Refuses | Reports | Used for |
+|---|---|---|---|
+| `refuse` (the default) | Everything not allowed | Every call | Every run on an engineer's machine |
+| `report` | Nothing | Every call | CI runs on runners whose network is already blocked, to name what was tried |
+| `off` | Nothing | Nothing | Once a project is known to be safe, if its owners choose |
+
+## The allowlist
+
+What may go ahead, from three places:
+
+1. **Always:** loopback, and in the build JVM the company's package repository.
+2. **The project's own settings,** `testing/airgap.yaml` ([schema](../schema/airgap-settings.schema.json)): the
+   stand-ins its tests use, for example a WireMock port or a local database.
+3. **A test's own allowance:** `@AllowCalls("localhost:8089")` on a test class or method.
+
+An allowed call is still reported, so the report always shows everything the code touched.
+
+## The report
+
+`build/airgap/calls.jsonl`: one JSON object per line, per call, checked against
+[schema/airgap-report.schema.json](../schema/airgap-report.schema.json). Each line says:
+
+- **what:** its kind (`host-lookup`, `tcp`, `udp`, `database`, `http`, `jndi`, `mail`, `process`, `native-library`,
+  `exit`, `file-write`) and its target (host and port, URL, command, library or path);
+- **what happened:** `refused`, `allowed` or `reported`;
+- **who:** the test that was running, and the first frame of the project's own code that made the call, with a
+  trimmed stack;
+- **where the address came from,** for Spring applications: the setting's name and the file and line it was read from;
+- **which JVM:** the kind of run (test, application start, build) and its Java version.
+
+A summary at the end of the run lists each distinct target once, with how many calls and which tests made them: the
+list of everything the project depends on, for a person to confirm and give stand-ins. See
+[The report is one line of JSON per call, with a schema, and feeds the connection list](decisions/0006-the-report-is-one-line-of-json-per-call-with-a-schema-and-feeds-the-connection-list.md).
+
+## Knowing which test made a call
+
+The JUnit Platform listener, registered automatically through Java's service loader, tells the agent when each test
+starts and ends. The agent keeps the current test per thread, passed on to threads the test starts. Work handed to a
+shared thread pool loses that link, so every line also names the first frame of the project's own code, which is
+enough to find the caller.
+
+Projects on JUnit 4 move onto the JUnit Platform first: JUnit 4 tests keep running, unchanged, on its Vintage engine.
+JUnit 6 needs Java 17, so projects on JDK 8 to 16 use JUnit 5. The listener and extension are built against the JUnit 5
+API, which JUnit 6 also runs.
+
+## Spring applications
+
+In old Spring applications, the dangerous addresses usually come from configuration, and the default profile is often
+production: real hosts and passwords in a plain `application.properties`, with no profile at all. So the agent:
+
+- **Names the setting behind each refused address.** Spring Boot keeps the file and line each property came from; at a
+  refusal, the agent looks up which property holds the refused address and records its name and origin. The engineer
+  then knows exactly what the test settings have to override.
+- **Records the profiles Spring activates,** however they were set, and stops the run if one matches the production
+  profile names it's given.
+- **Catches configuration fetched at start-up** (Spring Cloud Config, Vault, a JNDI data source): a refused call before
+  the application has even started, and a dependency the code itself never names.
+
+Together these let an engineer write a test profile, one override per refused address with a stand-in or a dummy
+secret, until a run's report is clean.
+
+Spring applications without Spring Boot (and Spring before 3.1, which has no profiles) get the refusal and the caller;
+the setting is named where the agent can tell which property source held it.
+
+## Living alongside other agents
+
+The JVMs it joins often carry other agents: JaCoCo (coverage), PIT (mutation testing) and Mockito's inline mock maker.
+The agent:
+
+- **keeps its own copy of Byte Buddy** under its own package name, so it never clashes with the copy Mockito brings;
+- **is added first** on the command line, so it sees classes before the others rewrite them;
+- **is tested together with each of them** in this repo's build.
+
+## Approval inside a company
+
+One jar, Apache-2.0, built from source in this repo; its only dependency, Byte Buddy (Apache-2.0), is inside it. No
+native code, no network access of its own, and it writes only to the build folder. Each release publishes a software
+bill of materials, so a security review has everything in one place.
+
+## Testing it
+
+The agent's value is a promise that no ordinary call gets past it, and its hooks reach into JDK internals that change
+between versions. The most dangerous failure is a hook that silently stops matching, so the tests are built to make
+that impossible to miss (see
+[Every hook is proved on every supported JDK, and the agent checks its own hooks at start](decisions/0008-every-hook-is-proved-on-every-supported-jdk-and-the-agent-checks-its-own-hooks-at-start.md)):
+
+- **Every hook, on every JDK it supports:** the build runs the agent's tests on JDK 8, 11, 17, 21 and 25, through
+  Gradle's toolchains. Each hook has a test that makes the call and checks it was refused with the right exception, at
+  once, and reported correctly.
+- **Every route to each kind of call:** plain sockets, NIO, the JDK's HTTP client, Apache HttpClient, OkHttp, Netty,
+  JDBC drivers and JNDI, so no library finds a way round.
+- **That nothing leaves the machine:** each test aims at an address reserved for documentation (`192.0.2.1`) or a name
+  that can't resolve, and checks the refusal came before any connection timeout could.
+- **The agent checks itself at start:** it lists the hooks it expects for the running JDK and the ones it installed,
+  and refuses to start, naming the gap, if they differ. A JDK it can't fully guard stops the run rather than being
+  guarded partly.
+- **With the other agents** (JaCoCo, PIT, Mockito) in the same JVM.
+- **On old code:** example old services (Spring with Gradle, Spring with Maven, plain Java), run end to end, whose
+  reports must match saved, approved reports.
+- **Mutation testing at a high bar:** PIT must kill nearly every planted bug in the refusal and reporting code, since a
+  bug there means a call gets through.
+
+## Its limits
+
+- **Native code** loaded before the agent, or code that uses the JDK's internals to go round it, isn't caught.
+- **Programs other than Java** are refused at the point of starting, but if a start is allowed, the program runs
+  unguarded.
+- **Windows file-share paths** (`\\server\share`) are opened by the operating system, not through the JVM's sockets,
+  so the agent doesn't see them. Writes to them are reported as file writes outside the project, once file writes are
+  hooked; reads aren't caught.
+- **Gradle daemons are reused** between builds: the agent goes into the daemon's own settings, so a daemon started
+  before it was added has to be stopped first.
+- **It's no substitute for a secrets scan, or for network separation** where code can't be trusted; it's the safety net
+  for runs on an engineer's own machine.
+
+## Open questions
+
+- **Writing files outside the project:** refuse, or only report? Old batch jobs write to fixed paths such as
+  `C:\data\out`; refusing finds them, but breaks runs that would otherwise teach something. Proposed: report only at
+  first.
+- **Non-Java projects** (Node, shell scripts) aren't covered.

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/fiftieshousewife/under-test-airgap/schema/airgap-report.schema.json",
+  "title": "One line of the airgap agent's report (build/airgap/calls.jsonl)",
+  "description": "Each line of the report is one JSON object matching this schema: one risky call, refused, allowed or reported, with who made it. Words follow GLOSSARY.md.",
+  "type": "object",
+  "required": ["kind", "target", "outcome", "run", "caller"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": ["host-lookup", "tcp", "udp", "database", "http", "jndi", "mail", "process", "native-library", "exit", "file-write"],
+      "description": "What kind of risky call it was. database, http and mail are recognised from higher-level calls and describe the call better than tcp alone."
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the call tried to reach: host and port, URL, JNDI name, command, library, exit status or file path."
+    },
+    "outcome": {
+      "enum": ["refused", "allowed", "reported"],
+      "description": "refused: stopped, with the exception an unplugged machine would throw. allowed: on the allowlist, and went ahead. reported: the agent was in report mode, so the call went ahead and was only recorded."
+    },
+    "allowed_by": {
+      "enum": ["always", "settings", "test"],
+      "description": "For an allowed call, which part of the allowlist allowed it: always (the machine itself, or the package repository in the build), the project's settings file, or the test's own allowance."
+    },
+    "run": {
+      "type": "object",
+      "required": ["kind", "java_version"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["test", "application", "build"]},
+        "java_version": {"type": "string"}
+      },
+      "description": "Which JVM made the call."
+    },
+    "test": {
+      "type": "string",
+      "description": "The test that was running, as class.method, when the call was made on a thread the test owns. Absent for calls outside tests, or from shared thread pools."
+    },
+    "caller": {
+      "type": "string",
+      "description": "The first stack frame in the project's own code, as class.method(File.java:line)."
+    },
+    "stack": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "A trimmed stack trace, innermost first."
+    },
+    "setting": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "description": "The property that held the address, for example spring.datasource.url."},
+        "from": {"type": "string", "description": "Where the property's value was read, as file:line, where known."}
+      },
+      "description": "For Spring applications: the setting that supplied the address, where the agent can tell."
+    },
+    "profiles": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "For Spring applications: the profiles active when the call was made."
+    }
+  }
+}

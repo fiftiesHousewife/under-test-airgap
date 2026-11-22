@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/fiftieshousewife/under-test-airgap/schema/airgap-settings.schema.json",
+  "title": "A project's airgap settings (testing/airgap.yaml)",
+  "description": "What the airgap agent allows in one project, beyond the machine itself, and how it treats production profiles. Words follow GLOSSARY.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "enum": ["refuse", "report", "off"],
+      "default": "refuse",
+      "description": "refuse: stop every call not allowed (the default). report: let every call go ahead, and record it. off: neither."
+    },
+    "allow": {
+      "type": "array",
+      "description": "Stand-ins the project's tests use.",
+      "items": {
+        "type": "object",
+        "required": ["target", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string",
+            "pattern": "^[^\\s]+$",
+            "description": "host:port (localhost:8089), a host on its own, or a JDBC or HTTP URL prefix."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the stand-in is, for example \"WireMock standing in for the postcode service\"."
+          }
+        }
+      }
+    },
+    "production_profiles": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Spring profile names that mean production. A run with any of them active stops at once."
+    },
+    "file_writes": {
+      "enum": ["report", "refuse"],
+      "default": "report",
+      "description": "Whether writes to files outside the project are only reported (the default) or refused."
+    }
+  }
+}
