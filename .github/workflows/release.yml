@@ -66,8 +66,11 @@ jobs:
             echo "Every hook is proved on JDK 8, 11, 17, 21 and 25. The Gradle plugin is proved on Gradle 5.6, 6.9, 7.6, 8.14 and 9."
             echo "Each jar's software bill of materials (CycloneDX) is attached, and published beside it on Maven Central."
           } > release-notes.md
-          gh release create "$VERSION" --title "$VERSION" --notes-file release-notes.md --verify-tag \
-            "agent/build/libs/airgap-agent-$v.jar" \
-            "junit/build/libs/airgap-junit-$v.jar" \
-            "gradle-plugin/build/libs/airgap-gradle-plugin-$v.jar" \
-            "agent/build/reports/cyclonedx-direct/bom.json#airgap-agent-$v-cyclonedx.json"
+          # Each file is uploaded under its own name (gh's "file#label" changes only the label shown), so the bills of
+          # materials are copied to their published names first.
+          mkdir -p release-assets
+          for part in agent junit gradle-plugin; do
+            cp "$part/build/libs/airgap-$part-$v.jar" release-assets/
+            cp "$part/build/reports/cyclonedx-direct/bom.json" "release-assets/airgap-$part-$v-cyclonedx.json"
+          done
+          gh release create "$VERSION" --title "$VERSION" --notes-file release-notes.md --verify-tag release-assets/*
