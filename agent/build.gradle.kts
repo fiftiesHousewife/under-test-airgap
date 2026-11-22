@@ -115,6 +115,44 @@ testJdks.get().forEach { jdk ->
     }
 }
 
+// The JDK's own routes: on every JDK, its classes are read, and every public method that can reach a risky call without
+// passing a hook must be on a reviewed list. Run without the agent: the hooks are read from Hook, as the self-check does.
+val jdkRoutes: SourceSet = sourceSets.create("jdkRoutes")
+tasks.named<JavaCompile>(jdkRoutes.compileJavaTaskName) {
+    options.release = 8
+    options.compilerArgs.add("-Xlint:-options")
+}
+dependencies {
+    "jdkRoutesImplementation"(sourceSets.main.get().output)
+    "jdkRoutesImplementation"(libs.byte.buddy)
+    "jdkRoutesImplementation"(platform(libs.junit5.bom))
+    "jdkRoutesImplementation"(libs.junit5.jupiter.api)
+    "jdkRoutesImplementation"(libs.assertj.core)
+    "jdkRoutesCompileOnly"(libs.spotbugs.annotations)
+    "jdkRoutesRuntimeOnly"("org.junit.jupiter:junit-jupiter-engine")
+    "jdkRoutesRuntimeOnly"(libs.junit5.platform.launcher)
+}
+testJdks.get().forEach { jdk ->
+    val task = tasks.register<Test>("jdkRoutesOnJdk$jdk") {
+        group = "verification"
+        description = "Checks every public route in JDK $jdk to a risky call passes a hook, or is reviewed."
+        testClassesDirs = jdkRoutes.output.classesDirs
+        classpath = jdkRoutes.runtimeClasspath
+        useJUnitPlatform()
+        maxHeapSize = "2g"
+        val jdkHome = providers.gradleProperty("airgap.jdk$jdk")
+        if (jdkHome.isPresent) {
+            executable = File(jdkHome.get(), "bin/java").absolutePath
+        } else {
+            javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk) }
+        }
+        systemProperty("airgap.routes.out", layout.buildDirectory.file("jdk-routes/jdk$jdk.tsv").get().asFile.absolutePath)
+    }
+    tasks.check {
+        dependsOn(task)
+    }
+}
+
 // Every line the agent wrote during its own tests, on every JDK, must match the report's schema.
 val checkAgentTestReports = tasks.register<Test>("checkAgentTestReports") {
     group = "verification"
@@ -136,7 +174,7 @@ tasks.check {
 // every JDK, instead.
 val attachedOnly = listOf(
     "**/agent/AirgapAgent*", "**/agent/AgentStart*", "**/agent/Hooks*", "**/agent/SelfCheck*", "**/agent/advice/**",
-    "**/agent/Gate*", "**/agent/RunningTests*",
+    "**/agent/Gate*", "**/agent/RunningTests*", "**/agent/NativeGate*", "**/agent/SctpGate*",
 )
 listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { task ->
     task.configure {
@@ -154,7 +192,8 @@ pitest {
         "io.github.fiftieshousewife.airgap.agent.AirgapAgent*", "io.github.fiftieshousewife.airgap.agent.AgentStart*",
         "io.github.fiftieshousewife.airgap.agent.Hooks*", "io.github.fiftieshousewife.airgap.agent.SelfCheck*",
         "io.github.fiftieshousewife.airgap.agent.advice.*", "io.github.fiftieshousewife.airgap.agent.Gate*",
-        "io.github.fiftieshousewife.airgap.agent.RunningTests*",
+        "io.github.fiftieshousewife.airgap.agent.RunningTests*", "io.github.fiftieshousewife.airgap.agent.NativeGate*",
+        "io.github.fiftieshousewife.airgap.agent.SctpGate*",
     )
     excludedTestClasses = listOf("*AgentTestReportsMatchSchemaTest")
     jvmArgs = listOf("-Dairgap.schema=${reportSchema.asFile.absolutePath}")

@@ -43,7 +43,7 @@ final class Hooks {
                 .ignore(nameStartsWith("io.github.fiftieshousewife.airgap."))
                 .assureReadEdgeTo(instrumentation, Gate.class);
         for (final Hook hook : Hook.values()) {
-            if (!without.contains(hook.id())) {
+            if (!without.contains(hook.id()) && hook.appliesHere()) {
                 final Advice advice = Advice.to(hook.getAdvice(), adviceFiles);
                 builder = builder.type(named(hook.getTypeName()))
                         .transform((type, description, loader, module, domain) ->
@@ -71,12 +71,8 @@ final class Hooks {
      */
     private static void loadHookedClasses() {
         for (final Hook hook : Hook.values()) {
-            try {
-                Class.forName(hook.getTypeName(), false, null);
-            } catch (ClassNotFoundException notOnThisJdk) {
-                // The self-check reports the hook as missing.
-                continue;
-            }
+            // A class this JDK lacks is reported by the self-check, as a hook missing.
+            Hook.load(hook.getTypeName());
         }
     }
 }

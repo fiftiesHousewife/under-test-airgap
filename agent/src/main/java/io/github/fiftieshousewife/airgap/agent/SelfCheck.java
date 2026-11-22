@@ -35,9 +35,11 @@ import net.bytebuddy.description.type.TypeDescription;
  *
  * <p>Every probe is harmless even if its hook is missing: lookups and connects go to a name that can't resolve,
  * reverse lookups and packets to the machine itself, the program started and the libraries loaded don't exist, and
- * the JNDI contexts have no provider to connect with. Ending the JVM can't be probed that way, since a missing hook
- * would end it: those hooks are proved by their methods being there to rewrite, in {@code java.lang.Runtime}, the
- * class the native-library probes prove rewritten.</p>
+ * the JNDI contexts have no provider to connect with. A few hooks can't be probed that way: ending the JVM (a missing
+ * hook would end it), the machine asking its own name (which doesn't refuse), SCTP (not every platform supports it)
+ * and the foreign function API (probing it sets off the JDK's warning about native access). Those are proved by
+ * their methods being there to rewrite, in classes the other probes prove rewritten, or, for SCTP and the foreign
+ * function API, by the agent's own tests.</p>
  */
 @SuppressFBWarnings(value = "UNENCRYPTED_SOCKET",
         justification = "The probes never connect: the hook refuses them, and their target can't resolve")
@@ -76,8 +78,11 @@ final class SelfCheck {
     static void run(final List<String> installErrors, final Set<String> without) {
         final List<String> missing = new ArrayList<>();
         for (final Hook hook : Hook.values()) {
-            final boolean inPlace = isExit(hook) ? !without.contains(hook.id()) && isThereToRewrite(hook)
-                    : reaches(hook, probe(hook));
+            if (!hook.appliesHere()) {
+                continue;
+            }
+            final boolean inPlace = PROBES.containsKey(hook) ? reaches(hook, probe(hook))
+                    : !without.contains(hook.id()) && isThereToRewrite(hook);
             if (!inPlace) {
                 missing.add(hook.id());
             }
@@ -108,12 +113,10 @@ final class SelfCheck {
         }
     }
 
-    private static boolean isExit(final Hook hook) {
-        return hook == Hook.EXIT || hook == Hook.HALT;
-    }
-
+    /** For a hook with no harmless probe: whether its class has the methods it rewrites. */
     private static boolean isThereToRewrite(final Hook hook) {
-        return !TypeDescription.ForLoadedType.of(Runtime.class).getDeclaredMethods()
+        final Class<?> type = Hook.load(hook.getTypeName());
+        return type != null && !TypeDescription.ForLoadedType.of(type).getDeclaredMethods()
                 .filter(hook.getMethods()).isEmpty();
     }
 
@@ -132,6 +135,9 @@ final class SelfCheck {
         probes.put(Hook.HOST_LOOKUP_REVERSE, () -> InetAddress.getByAddress(new byte[] {127, 0, 0, 1}).getHostName());
         probes.put(Hook.TCP_SOCKET, () -> closing(new Socket(), socket -> socket.connect(nowhere(), 1)));
         probes.put(Hook.TCP_CHANNEL, () -> closing(SocketChannel.open(), channel -> channel.connect(nowhere())));
+        probes.put(Hook.TCP_SOCKET_ADAPTOR,
+                () -> closing(SocketChannel.open(), channel -> channel.socket().connect(nowhere(), 1)));
+        probes.put(Hook.TCP_REACHABILITY, SelfCheck::pingTheMachineItself);
         probes.put(Hook.TCP_ASYNC,
                 () -> closing(AsynchronousSocketChannel.open(), channel -> channel.connect(nowhere())));
         probes.put(Hook.TCP_ASYNC_HANDLER,
@@ -155,6 +161,11 @@ final class SelfCheck {
         probes.put(Hook.NATIVE_LIBRARY_RUNTIME_BY_NAME, () -> Runtime.getRuntime().loadLibrary(NO_SUCH_LIBRARY));
         probes.put(Hook.NATIVE_LIBRARY_RUNTIME_BY_PATH, () -> Runtime.getRuntime().load(noSuchLibraryFile()));
         return probes;
+    }
+
+    @SuppressFBWarnings(value = "RV_RETURN_VALUE_IGNORED", justification = "The probe needs only the call made")
+    private static void pingTheMachineItself() throws IOException {
+        InetAddress.getLoopbackAddress().isReachable(null, 0, 1);
     }
 
     private static String noSuchLibraryFile() {

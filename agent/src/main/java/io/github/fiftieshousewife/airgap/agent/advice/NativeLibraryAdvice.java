@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NativeGate;
 import net.bytebuddy.asm.Advice;
 
 /**
@@ -14,6 +14,6 @@ public final class NativeLibraryAdvice {
 
     @Advice.OnMethodEnter
     static void enter(@Advice.Argument(0) final String library) {
-        Gate.nativeLibrary(library);
+        NativeGate.nativeLibrary(library);
     }
 }

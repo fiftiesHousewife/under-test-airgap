@@ -1,28 +1,37 @@
 package io.github.fiftieshousewife.airgap.agent;
 
 import static net.bytebuddy.matcher.ElementMatchers.named;
+import static net.bytebuddy.matcher.ElementMatchers.none;
 import static net.bytebuddy.matcher.ElementMatchers.takesArgument;
 import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
 
 import io.github.fiftieshousewife.airgap.agent.advice.AsyncConnectAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.AsyncConnectHandlerAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.ExitAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.ForeignLibraryAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.JndiCompositeNameAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.JndiNameAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.JndiProviderAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.LookupAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.NativeLibraryAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.OwnNameAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.ProcessAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.ReachabilityAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.ReverseLookupAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.SctpSendAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.TcpAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.UdpAddressAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.UdpAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.UdpChannelSendAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.UdpPacketAdvice;
 import java.net.DatagramPacket;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.Locale;
 import javax.naming.Name;
 import net.bytebuddy.description.method.MethodDescription;
@@ -36,9 +45,15 @@ import net.bytebuddy.matcher.ElementMatcher;
  */
 public enum Hook {
 
-    /** {@code InetAddress.getAllByName}, which {@code getByName} also reaches, on every supported JDK. */
-    HOST_LOOKUP_ALL("java.net.InetAddress", named("getAllByName").and(takesArguments(String.class)),
-            LookupAdvice.class),
+    /**
+     * The JDK's own forward lookup, above its cache, which {@code getByName}, {@code getAllByName} and the JDK's own
+     * name checks (in {@code SocketPermission}, security policies and RMI) all reach: on each JDK, its private
+     * {@code getAllByName0} with the most parameters.
+     */
+    HOST_LOOKUP_ALL("java.net.InetAddress", innermostLookup(), LookupAdvice.class),
+
+    /** {@code InetAddress.getLocalHost}: the machine asking its own name, which is local, so lookups in it go ahead. */
+    HOST_LOOKUP_OWN_NAME("java.net.InetAddress", named("getLocalHost").and(takesArguments(0)), OwnNameAdvice.class),
 
     /** Reverse lookups: {@code getHostName} and {@code getCanonicalHostName}, for an address with no name. */
     HOST_LOOKUP_REVERSE("java.net.InetAddress",
@@ -47,6 +62,26 @@ public enum Hook {
     /** Every plain socket connect, which all of {@code Socket}'s constructors and {@code connect} methods reach. */
     TCP_SOCKET("java.net.Socket", named("connect").and(takesArguments(SocketAddress.class, int.class)),
             TcpAdvice.class),
+
+    /**
+     * The socket a {@code SocketChannel} hands out: from JDK 13 its {@code connect} goes straight to the channel's
+     * blocking connect, past both the channel's and {@code Socket}'s.
+     */
+    TCP_SOCKET_ADAPTOR("sun.nio.ch.SocketAdaptor", named("connect").and(takesArguments(SocketAddress.class, int.class)),
+            TcpAdvice.class),
+
+    /** {@code InetAddress.isReachable}, which sends ICMP or TCP echo packets to the address. */
+    TCP_REACHABILITY("java.net.InetAddress",
+            named("isReachable").and(takesArguments(NetworkInterface.class, int.class, int.class)),
+            ReachabilityAdvice.class),
+
+    /** SCTP channels' connect, where the JDK supports SCTP (Linux). */
+    TCP_SCTP_CONNECT("sun.nio.ch.sctp.SctpChannelImpl", named("connect").and(takesArguments(SocketAddress.class)),
+            TcpAdvice.class),
+
+    /** SCTP multi-channels' send, which makes an association with the address the message names. */
+    TCP_SCTP_SEND("sun.nio.ch.sctp.SctpMultiChannelImpl",
+            named("send").and(takesArguments(2)).and(takesArgument(0, ByteBuffer.class)), SctpSendAdvice.class),
 
     /** NIO socket channels, used by Netty, the JDK's HTTP client and many drivers. */
     TCP_CHANNEL("sun.nio.ch.SocketChannelImpl", named("connect").and(takesArguments(SocketAddress.class)),
@@ -119,6 +154,16 @@ public enum Hook {
     NATIVE_LIBRARY_RUNTIME_BY_PATH("java.lang.Runtime", named("load").and(takesArguments(String.class)),
             NativeLibraryAdvice.class),
 
+    /** JDK 22's foreign function API loading a library by name: {@code SymbolLookup.libraryLookup(String, Arena)}. */
+    NATIVE_LIBRARY_FOREIGN_BY_NAME("java.lang.foreign.SymbolLookup",
+            named("libraryLookup").and(takesArguments(2)).and(takesArgument(0, String.class)),
+            ForeignLibraryAdvice.class),
+
+    /** {@code SymbolLookup.libraryLookup(Path, Arena)}. */
+    NATIVE_LIBRARY_FOREIGN_BY_PATH("java.lang.foreign.SymbolLookup",
+            named("libraryLookup").and(takesArguments(2)).and(takesArgument(0, Path.class)),
+            ForeignLibraryAdvice.class),
+
     /** {@code System.exit} and {@code Runtime.exit}. */
     EXIT("java.lang.Runtime", named("exit").and(takesArguments(int.class)), ExitAdvice.class),
 
@@ -133,6 +178,67 @@ public enum Hook {
         this.typeName = typeName;
         this.methods = methods;
         this.advice = advice;
+    }
+
+    /** The private {@code getAllByName0} with the most parameters: the one the others reach, which reads the cache. */
+    private static ElementMatcher<MethodDescription> innermostLookup() {
+        Method innermost = null;
+        for (final Method method : InetAddress.class.getDeclaredMethods()) {
+            if ("getAllByName0".equals(method.getName()) && Modifier.isPrivate(method.getModifiers())
+                    && (innermost == null || method.getParameterCount() > innermost.getParameterCount())) {
+                innermost = method;
+            }
+        }
+        return innermost == null ? none()
+                : named("getAllByName0").and(takesArguments(innermost.getParameterTypes()));
+    }
+
+    /**
+     * Whether the hook has anything to rewrite on this JDK. The socket adaptor goes round the channel's connect only
+     * from JDK 13, SCTP and the foreign function API are in some JDKs only, and every other hook is in every one.
+     *
+     * @return true if the hook applies to the running JDK
+     */
+    public boolean appliesHere() {
+        switch (this) {
+            case TCP_SOCKET_ADAPTOR:
+                return declares("sun.nio.ch.SocketChannelImpl", "blockingConnect");
+            case TCP_SCTP_CONNECT:
+            case TCP_SCTP_SEND:
+            case NATIVE_LIBRARY_FOREIGN_BY_NAME:
+            case NATIVE_LIBRARY_FOREIGN_BY_PATH:
+                return declares(typeName, "");
+            default:
+                return true;
+        }
+    }
+
+    private static boolean declares(final String type, final String method) {
+        final Class<?> loaded = load(type);
+        if (loaded == null) {
+            return false;
+        }
+        for (final Method declared : loaded.getDeclaredMethods()) {
+            if (declared.getName().startsWith(method)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Loads a hooked class without initialising it, through the system class loader, which sees the JDK's classes
+     * from every module.
+     *
+     * @param type the class
+     * @return the class, or {@code null} if this JDK has none
+     */
+    static Class<?> load(final String type) {
+        try {
+            return Class.forName(type, false, ClassLoader.getSystemClassLoader());
+        } catch (ClassNotFoundException | LinkageError notOnThisJdk) {
+            return null;
+        }
     }
 
     private static ElementMatcher<MethodDescription> processStart() {

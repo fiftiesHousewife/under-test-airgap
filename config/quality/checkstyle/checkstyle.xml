@@ -25,6 +25,8 @@
         <module name="ParameterNumber">
             <property name="max" value="3"/>
             <property name="tokens" value="METHOD_DEF, CTOR_DEF"/>
+            <!-- An overriding method takes its parameters from the type it overrides, such as ASM's visitors. -->
+            <property name="ignoreOverriddenMethods" value="true"/>
         </module>
         <module name="RecordComponentNumber">
             <property name="max" value="3"/>

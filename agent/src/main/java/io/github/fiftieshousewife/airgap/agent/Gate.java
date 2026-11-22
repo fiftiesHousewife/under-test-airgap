@@ -20,8 +20,11 @@ import java.util.concurrent.Future;
  */
 public final class Gate {
 
-    private static final ThreadLocal<Boolean> DECIDING = new ThreadLocal<>();
+    static final ThreadLocal<Boolean> DECIDING = new ThreadLocal<>();
     private static final ThreadLocal<Kind> PROBING = new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> OWN_NAME = new ThreadLocal<>();
+    /** The echo port {@code isReachable} tries over TCP when it can't send ICMP. */
+    private static final int ECHO_PORT = 7;
     private static volatile Decider decider;
 
     private Gate() {
@@ -43,6 +46,11 @@ public final class Gate {
         }
     }
 
+    /** @return the decider, or {@code null} before the gate is open */
+    static Decider currentDecider() {
+        return decider;
+    }
+
     static void open(final Decider opened) {
         decider = opened;
     }
@@ -62,9 +70,29 @@ public final class Gate {
      * @param host the name; {@code null} means the machine itself
      */
     public static void lookup(final String host) {
-        if (host != null) {
+        if (host != null && OWN_NAME.get() == null) {
             check(Kind.HOST_LOOKUP, Target.ofLookup(host));
         }
+    }
+
+    /** The machine is looking up its own name: lookups on this thread go ahead until it has. */
+    public static void enterOwnName() {
+        OWN_NAME.set(Boolean.TRUE);
+    }
+
+    /** The machine has its own name. */
+    public static void leaveOwnName() {
+        OWN_NAME.remove();
+    }
+
+    /**
+     * Whether an address may be pinged: {@code isReachable} sends ICMP echo requests, or TCP ones to port 7.
+     *
+     * @param address the address
+     * @return true if refused, so the check is skipped and answers that it can't be reached
+     */
+    public static boolean reachability(final InetAddress address) {
+        return refusal(Kind.TCP, Target.ofAddress(address, ECHO_PORT)) != null;
     }
 
     /**
@@ -178,31 +206,6 @@ public final class Gate {
     }
 
     /**
-     * A native library is being loaded. The JDK's own (asked for by a JDK class) and the build tool's own go ahead
-     * unchecked.
-     *
-     * @param library the library's name or path
-     */
-    public static void nativeLibrary(final String library) {
-        stopIfProbing(Kind.NATIVE_LIBRARY);
-        final Decider current = decider;
-        if (current == null || DECIDING.get() != null) {
-            return;
-        }
-        final boolean theirOwn;
-        DECIDING.set(Boolean.TRUE);
-        try {
-            final String asking = LibraryLoads.askingClass(new Throwable().getStackTrace());
-            theirOwn = LibraryLoads.isJdks(asking) || current.isBuildToolsOwn(asking);
-        } finally {
-            DECIDING.remove();
-        }
-        if (!theirOwn) {
-            check(Kind.NATIVE_LIBRARY, Target.ofLibrary(library));
-        }
-    }
-
-    /**
      * The JVM is being ended. Checked only while a test is running on this thread, so test runners and build tools
      * end their JVMs as usual.
      *
@@ -261,14 +264,14 @@ public final class Gate {
      * While probing, stops the call before it does anything. A native library or an exit met while probing another
      * kind of hook is the JDK's own work (loading a library a probed class needs), so it isn't stopped.
      */
-    private static void stopIfProbing(final Kind kind) {
+    static void stopIfProbing(final Kind kind) {
         final Kind probing = PROBING.get();
         if (probing != null && (probing == kind || kind != Kind.NATIVE_LIBRARY && kind != Kind.EXIT)) {
             throw new Reached(kind);
         }
     }
 
-    private static void check(final Kind kind, final Target target) {
+    static void check(final Kind kind, final Target target) {
         final Throwable refusal = refusal(kind, target);
         if (refusal != null) {
             Gate.<RuntimeException>sneakyThrow(refusal);
@@ -276,7 +279,7 @@ public final class Gate {
     }
 
     /** @return what to throw if the call is refused, or {@code null} if it may go ahead */
-    private static Throwable refusal(final Kind kind, final Target target) {
+    static Throwable refusal(final Kind kind, final Target target) {
         stopIfProbing(kind);
         final Decider current = decider;
         if (current == null || DECIDING.get() != null) {
@@ -291,7 +294,7 @@ public final class Gate {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T extends Throwable> void sneakyThrow(final Throwable thrown) throws T {
+    static <T extends Throwable> void sneakyThrow(final Throwable thrown) throws T {
         throw (T) thrown;
     }
 }

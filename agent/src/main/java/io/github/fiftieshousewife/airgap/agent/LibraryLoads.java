@@ -15,7 +15,8 @@ final class LibraryLoads {
     }
 
     /**
-     * The class that called {@code System.loadLibrary}, {@code System.load} or their {@code Runtime} versions,
+     * The class that called {@code System.loadLibrary}, {@code System.load}, their {@code Runtime} versions or
+     * {@code SymbolLookup.libraryLookup},
      * through reflection or method handles if need be.
      *
      * @param frames the stack, innermost first
@@ -33,7 +34,8 @@ final class LibraryLoads {
     }
 
     private static boolean isLoadMethodsClass(final String type) {
-        return "java.lang.System".equals(type) || "java.lang.Runtime".equals(type);
+        return "java.lang.System".equals(type) || "java.lang.Runtime".equals(type)
+                || "java.lang.foreign.SymbolLookup".equals(type);
     }
 
     private static boolean isPassingOn(final String type) {

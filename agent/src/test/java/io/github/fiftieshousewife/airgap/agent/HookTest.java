@@ -39,4 +39,27 @@ class HookTest {
         assertThat(Arrays.stream(Kind.values()).map(Kind::getReportName))
                 .containsExactly("host-lookup", "tcp", "udp", "process", "jndi", "native-library", "exit");
     }
+
+    @Test
+    void knowsWhichHooksApplyOnThisJdk() {
+        assertAll(
+                () -> assertThat(Hook.HOST_LOOKUP_ALL.appliesHere()).isTrue(),
+                () -> assertThat(Hook.TCP_SOCKET_ADAPTOR.appliesHere()).as("from JDK 13").isTrue(),
+                () -> assertThat(Hook.NATIVE_LIBRARY_FOREIGN_BY_NAME.appliesHere()).as("from JDK 22").isTrue(),
+                () -> assertThat(Hook.load("io.github.fiftieshousewife.airgap.agent.NoSuchClass")).isNull(),
+                () -> assertThat(Hook.load("java.net.InetAddress")).isEqualTo(java.net.InetAddress.class));
+    }
+
+    /** The lookup hook is on the one private getAllByName0 every lookup reaches: the one with the most parameters. */
+    @Test
+    void hooksTheJdksInnermostLookup() {
+        final net.bytebuddy.description.method.MethodList<?> hooked =
+                net.bytebuddy.description.type.TypeDescription.ForLoadedType.of(java.net.InetAddress.class)
+                        .getDeclaredMethods().filter(Hook.HOST_LOOKUP_ALL.getMethods());
+
+        assertThat(hooked).singleElement().satisfies(method -> assertAll(
+                () -> assertThat(method.getName()).isEqualTo("getAllByName0"),
+                () -> assertThat(method.isPrivate()).isTrue(),
+                () -> assertThat(method.getParameters().size()).isGreaterThan(1)));
+    }
 }

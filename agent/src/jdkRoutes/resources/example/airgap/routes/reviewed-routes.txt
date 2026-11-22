@@ -1,0 +1,22 @@
+# Public JDK methods that can reach a risky call's last step without passing one of the agent's hooks, each with why
+# it is safe. One per line: the method as owner.name(descriptor), then # and the reason. Read by JdkRoutesTest.
+
+# The socket implementations' own connect: abstract, run by the JDK's own implementations, which code reaches only
+# through Socket, whose connect is hooked. The JDK doesn't hand its implementations out; a project's own SocketImpl
+# connects through code of its own.
+java/net/SocketImpl.connect(Ljava/lang/String;I)V # reached only through Socket.connect, which is hooked
+java/net/SocketImpl.connect(Ljava/net/InetAddress;I)V # reached only through Socket.connect, which is hooked
+java/net/SocketImpl.connect(Ljava/net/SocketAddress;I)V # reached only through Socket.connect, which is hooked
+
+# The same for datagram sockets (JDK 8 to 17), reached only through DatagramSocket, whose connect and send are hooked.
+java/net/DatagramSocketImpl.connect(Ljava/net/InetAddress;I)V # reached only through DatagramSocket.connect, hooked
+java/net/DatagramSocketImpl.send(Ljava/net/DatagramPacket;)V # reached only through DatagramSocket.send, hooked
+
+# JDK 18's resolver interface: only an InetAddressResolverProvider is handed the built-in resolver, and every lookup
+# made through InetAddress passes the lookup hook before it reaches a resolver.
+java/net/spi/InetAddressResolver.lookupByName(Ljava/lang/String;Ljava/net/spi/InetAddressResolver$LookupPolicy;)Ljava/util/stream/Stream; # a resolver provider's own plumbing
+java/net/spi/InetAddressResolver.lookupByAddress([B)Ljava/lang/String; # a resolver provider's own plumbing
+
+# A signal handler that passes a signal on to the JVM's own handler, which ends the JVM as the signal would: it runs on
+# the signal's own thread, outside any test, where an exit isn't refused anyway.
+sun/misc/SignalHandler.handle(Lsun/misc/Signal;)V # the JVM ending on a signal from outside
