@@ -14,6 +14,7 @@ import java.util.Set;
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.dynamic.ClassFileLocator;
+import net.bytebuddy.dynamic.Nexus;
 
 /**
  * Installs the hooks: rewrites the JDK's classes, those already loaded and those loaded later, so each risky method
@@ -32,6 +33,9 @@ final class Hooks {
         // The advice classes are loaded from the bootstrap class path, which Byte Buddy can't read class files from;
         // the agent's jar is also on the system class path, so their class files are read from there.
         final ClassFileLocator adviceFiles = ClassFileLocator.ForClassLoader.ofSystemLoader();
+        // Byte Buddy's nexus, which the hooks never use, reaches for sun.misc.Unsafe when a builder is made, and JDK 24
+        // and later print a warning about it. The property's name is shaded, so it turns off only the agent's own copy.
+        System.setProperty(Nexus.PROPERTY, Boolean.TRUE.toString());
         AgentBuilder builder = new AgentBuilder.Default()
                 .disableClassFormatChanges()
                 .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)

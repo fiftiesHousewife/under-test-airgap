@@ -80,8 +80,8 @@ dependencies {
 val gradleOnJdk = libs.versions.gradle.tested.get().split(",").zip(listOf("8", "11", "17", "21"))
 fun jdkHome(jdk: String): Provider<String> {
     val given = providers.gradleProperty("airgap.jdk$jdk")
-    // A compiler, not only a launcher: the sample build compiles code, and a Java runtime alone (such as macOS's
-    // browser plug-in) would be found as a launcher.
+    // A compiler, not only a launcher: the sample build compiles code, and a Java runtime without a compiler would
+    // be found as a launcher.
     return if (given.isPresent) given else javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(jdk) }
         .map { it.metadata.installationPath.asFile.absolutePath }
 }

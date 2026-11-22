@@ -41,24 +41,50 @@ written to a report.
 
 ## Getting started
 
-You need a Gradle build whose tests you want to run.
+You need a Gradle build, Gradle 5.6 or later, whose tests you want to run.
 
-### 1. Run the tests with the agent
+### 1. Add the plugin and run the tests
 
-Download [`airgap.init.gradle`](tools/try-it/airgap.init.gradle). It adds the agent to a build's tests without
-changing that build or its CI. In the project you want to test, run:
+In the project's `build.gradle.kts`:
 
-```bash
-./gradlew test --init-script /path/to/airgap.init.gradle
+```kotlin
+plugins {
+    id("io.github.fiftieshousewife.airgap") version "..." // the version your company approved
+}
+
+airgap {
+    packages.add("com.example.")       // your code's packages, so the report names your line of code
+}
 ```
 
-The script fetches the agent from Maven Central. To fetch it from your company's repository instead, add
+Then run `./gradlew test` as usual.
+
+Gradle finds the plugin on the Gradle Plugin Portal, where the `plugins` block looks by default. The plugin is also on
+Maven Central. If your builds can reach only Maven Central, or only a company repository that copies it, name that
+repository in `settings.gradle.kts`:
+
+```kotlin
+pluginManagement {
+    repositories {
+        mavenCentral() // or maven { url = uri("<your company's repository URL>") }
+    }
+}
+```
+
+The plugin fetches the agent and the JUnit listener through the project's own `repositories`, so that list needs
+`mavenCentral()` or a company copy of it.
+
+To try the agent without editing the build, use [`airgap.init.gradle`](tools/try-it/airgap.init.gradle) instead.
+It adds the agent to the build's tests for one run: `./gradlew test --init-script /path/to/airgap.init.gradle`. The
+script fetches the agent from Maven Central. To fetch it from your company's repository instead, add
 `-Dairgap.repository=<repository URL>`. To use a jar you already have, add `-Dairgap.agent=<path to the jar>`.
 
 ### 2. Read the report
 
-Each project's report is written to its own `build/airgap/calls.jsonl`. If there is no report, the tests made no
-risky calls. A test that made a refused call fails with an ordinary exception:
+Each test task's report is written to `build/airgap/<task name>/calls.jsonl`, for example
+`build/airgap/test/calls.jsonl`, and is cleared when the task starts. With the init script it is
+`build/airgap/calls.jsonl`. If there is no report, the tests made no risky calls. A test that made a refused call
+fails with an ordinary exception:
 
 ```text
 OrderServiceTest > placesAnOrder() FAILED
@@ -89,24 +115,33 @@ program a test starts on purpose:
 
 Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), or a program (`process:git`).
 
-### Adding the agent to a build
+### Applications
 
-To run a project's tests with the agent every time, apply the Gradle plugin. It works with Gradle 5.6 and later.
+The plugin also starts every `JavaExec` task with the agent, including Spring Boot's `bootRun`; its report goes to
+`build/airgap/<task name>/calls.jsonl` too. The `airgap` block's `allow` adds anything besides `localhost` that every
+run may reach, such as `allow.add("wiremock.test:8089")`.
+
+### Without the plugin
+
+A Java agent can't be an ordinary dependency. On the class path it does nothing, because the JVM starts an agent only
+when the agent's jar is named on its command line with `-javaagent:`, before any other code runs. The plugin does that
+for every task. Doing the same by hand, for the `test` task:
 
 ```kotlin
-plugins {
-    id("io.github.fiftieshousewife.airgap") version "..." // the version your company approved
+val airgapAgent by configurations.creating
+
+dependencies {
+    airgapAgent("io.github.fiftieshousewife.airgap:airgap-agent:...")
+    testImplementation("io.github.fiftieshousewife.airgap:airgap-junit:...") // for @AllowCalls and test names
 }
 
-airgap {
-    packages.add("com.example.")       // your code's packages, so the report names your line of code
-    allow.add("wiremock.test:8089")    // anything besides localhost the tests may reach
+tasks.test {
+    val report = layout.buildDirectory.file("airgap/test/calls.jsonl")
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-javaagent:${airgapAgent.singleFile}=report=${report.get().asFile};project=com.example.")
+    })
 }
 ```
-
-The plugin fetches the agent and the JUnit listener from the project's repositories. It starts every `Test` task and
-every `JavaExec` task with the agent, including Spring Boot's `bootRun`. Each task's report goes to
-`build/airgap/<task name>/calls.jsonl`, and is cleared when the task starts.
 
 Outside a build, name the agent on the `java` command:
 

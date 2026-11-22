@@ -104,5 +104,7 @@ passphrase, and a Gradle Plugin Portal API key. To check a release without publi
 `./gradlew :gradle-plugin:publishPlugins --validate-only`.
 
 ## Before you finish
-Run `./gradlew check`. It must pass. Push only with `maintainer-tools/sync/sync.sh "What changed"`, which syncs the
+Run `./gradlew check`. It must pass. Where Gradle's worker processes can't connect back to Gradle, as in some AI
+assistants' sandboxes, PMD and Checkstyle fail to start; run them as plain programs instead, with the same rules, over
+every source set: `./gradlew -I maintainer-tools/quality-cli/quality-cli.init.gradle pmdCli checkstyleCli`. Push only with `maintainer-tools/sync/sync.sh "What changed"`, which syncs the
 issues and backlog page before pushing; never with a plain `git push`.

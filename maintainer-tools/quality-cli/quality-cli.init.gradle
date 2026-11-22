@@ -1,0 +1,39 @@
+// Runs PMD and Checkstyle as their own command-line programs instead of in Gradle worker processes, for places
+// where worker processes can't connect back to Gradle, such as an AI assistant's sandbox. Same rule files and
+// tool versions as the build, over every source set; each fails on any violation, as the build's own tasks do.
+//
+//   ./gradlew -I maintainer-tools/quality-cli/quality-cli.init.gradle pmdCli checkstyleCli
+allprojects {
+    def javaSources = {
+        project.sourceSets.collectMany { it.java.srcDirs }.findAll { it.isDirectory() }
+    }
+    plugins.withId("pmd") {
+        tasks.register("pmdCli", JavaExec) {
+            group = "verification"
+            description = "Runs PMD on every source set, without a Gradle worker process."
+            onlyIf { !javaSources().isEmpty() }
+            classpath = project.configurations.detachedConfiguration(
+                project.dependencies.create("net.sourceforge.pmd:pmd-cli:${project.pmd.toolVersion}"),
+                project.dependencies.create("net.sourceforge.pmd:pmd-java:${project.pmd.toolVersion}"))
+            mainClass = "net.sourceforge.pmd.cli.PmdCli"
+            doFirst {
+                args "check", "--no-cache", "--no-progress", "-f", "text",
+                     "-R", rootProject.file("config/quality/pmd/ruleset.xml").path,
+                     "-d", javaSources().collect { it.path }.join(",")
+            }
+        }
+    }
+    plugins.withId("checkstyle") {
+        tasks.register("checkstyleCli", JavaExec) {
+            group = "verification"
+            description = "Runs Checkstyle on every source set, without a Gradle worker process."
+            onlyIf { !javaSources().isEmpty() }
+            classpath = project.configurations.detachedConfiguration(
+                project.dependencies.create("com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"))
+            mainClass = "com.puppycrawl.tools.checkstyle.Main"
+            doFirst {
+                args(["-c", rootProject.file("config/quality/checkstyle/checkstyle.xml").path] + javaSources().collect { it.path })
+            }
+        }
+    }
+}

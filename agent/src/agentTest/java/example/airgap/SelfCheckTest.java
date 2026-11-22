@@ -28,6 +28,15 @@ class SelfCheckTest {
         assertThat(result.exitCode).as(result.output).isZero();
     }
 
+    /** JDK 24 and later warn when sun.misc.Unsafe is used; the agent mustn't add that warning to anyone's output. */
+    @Test
+    void startsWithoutAWarningAboutSunMiscUnsafe() throws IOException, InterruptedException {
+        final Result result = runJava("report=" + new File(System.getProperty("java.io.tmpdir"),
+                "airgap-self-unsafe.jsonl"));
+
+        assertThat(result.output).doesNotContain("sun.misc.Unsafe");
+    }
+
     @Test
     void refusesToStartWhenAHookIsMissing() throws IOException, InterruptedException {
         final Result result = runJava("withoutHooks=tcp-socket;report=" + new File(System.getProperty("java.io.tmpdir"),
