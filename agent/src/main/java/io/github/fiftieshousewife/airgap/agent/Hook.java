@@ -36,10 +36,7 @@ import net.bytebuddy.matcher.ElementMatcher;
  */
 public enum Hook {
 
-    /** {@code InetAddress.getByName}. */
-    HOST_LOOKUP_ONE("java.net.InetAddress", named("getByName").and(takesArguments(String.class)), LookupAdvice.class),
-
-    /** {@code InetAddress.getAllByName}. */
+    /** {@code InetAddress.getAllByName}, which {@code getByName} also reaches, on every supported JDK. */
     HOST_LOOKUP_ALL("java.net.InetAddress", named("getAllByName").and(takesArguments(String.class)),
             LookupAdvice.class),
 

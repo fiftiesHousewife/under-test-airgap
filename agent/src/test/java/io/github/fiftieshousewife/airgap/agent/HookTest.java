@@ -12,7 +12,7 @@ class HookTest {
     void eachHookHasAnIdAClassMethodsAndAdvice() {
         assertAll(
                 () -> assertThat(Arrays.stream(Hook.values()).map(Hook::id)).doesNotHaveDuplicates()
-                        .contains("host-lookup-one", "tcp-socket", "tcp-channel", "udp-channel-send", "process",
+                        .contains("host-lookup-all", "tcp-socket", "tcp-channel", "udp-channel-send", "process",
                                 "jndi-name", "jndi-provider", "native-library-by-name", "exit", "halt"),
                 () -> assertThat(Hook.values()).allSatisfy(hook -> assertAll(
                         () -> assertThat(hook.getTypeName()).as(hook.id())

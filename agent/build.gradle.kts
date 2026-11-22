@@ -108,7 +108,7 @@ testJdks.get().forEach { jdk ->
         } else {
             javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk) }
         }
-        runWithOwnAgent(files(agentJar), reportFile, "allow=allowed.example.invalid:8443,process:java,native:airgapallowed")
+        runWithOwnAgent(files(agentJar), reportFile, "allow=allowed.example.invalid:8443,lookup-once.example.invalid,process:java,native:airgapallowed")
     }
     tasks.check {
         dependsOn(task)

@@ -127,8 +127,8 @@ final class SelfCheck {
 
     private static Map<Hook, Probe> buildProbes() {
         final Map<Hook, Probe> probes = new EnumMap<>(Hook.class);
-        probes.put(Hook.HOST_LOOKUP_ONE, () -> InetAddress.getByName(PROBE_HOST));
-        probes.put(Hook.HOST_LOOKUP_ALL, () -> InetAddress.getAllByName(PROBE_HOST));
+        // Through getByName, so a JDK where getByName stopped reaching getAllByName fails the check.
+        probes.put(Hook.HOST_LOOKUP_ALL, () -> InetAddress.getByName(PROBE_HOST));
         probes.put(Hook.HOST_LOOKUP_REVERSE, () -> InetAddress.getByAddress(new byte[] {127, 0, 0, 1}).getHostName());
         probes.put(Hook.TCP_SOCKET, () -> closing(new Socket(), socket -> socket.connect(nowhere(), 1)));
         probes.put(Hook.TCP_CHANNEL, () -> closing(SocketChannel.open(), channel -> channel.connect(nowhere())));

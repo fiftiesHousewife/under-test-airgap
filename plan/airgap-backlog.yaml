@@ -565,6 +565,8 @@ items:
     done_when:
       - "A connect to one of the machine's own addresses goes ahead, on every supported JDK"
   - key: "each-lookup-is-reported-once"
+    status: "done"
+    notes: "Done: getByName reaches getAllByName on every supported JDK, so only getAllByName is hooked, and the self-check probes it through getByName, so a JDK where that changed would fail to start the agent rather than miss calls."
     type: "deliverable"
     title: "Each host lookup is checked and reported once, not once per hook it passes"
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"

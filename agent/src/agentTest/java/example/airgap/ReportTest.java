@@ -2,6 +2,7 @@ package example.airgap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.io.IOException;
@@ -46,5 +47,18 @@ class ReportTest {
                 () -> assertThat(linesAbout("192.0.2.7")).singleElement().asString()
                         .contains("\"kind\":\"host-lookup\"", "\"outcome\":\"refused\""),
                 () -> assertThat(linesAbout("192.0.2.8")).hasSize(1));
+    }
+
+    /** getByName goes through getAllByName; the call is still one call, and one line. */
+    @Test
+    void recordsEachLookupOnce() throws IOException {
+        final String host = "lookup-once.example.invalid";
+        final Throwable thrown = catchThrowable(() -> InetAddress.getByName(host));
+
+        assertAll(
+                () -> assertThat(thrown).as("allowed, so it fails only because it can't resolve")
+                        .isInstanceOf(UnknownHostException.class).hasMessageNotContaining("airgap"),
+                () -> assertThat(linesAbout(host)).singleElement().asString()
+                        .contains("\"outcome\":\"allowed\""));
     }
 }
