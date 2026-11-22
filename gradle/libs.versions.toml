@@ -33,6 +33,10 @@ gradle-pitest-plugin = "1.19.0"
 gradle-spotbugs-plugin = "6.5.13"
 gradle-forbiddenapis-plugin = "3.11"
 gradle-versions-plugin = "0.67.0"
+# Publishing: Maven Central through its Central Portal, the Gradle Plugin Portal, and a CycloneDX bill of materials
+nmcp = "1.6.2"
+cyclonedx = "3.6.1"
+gradle-plugin-publish = "2.2.1"
 
 [libraries]
 spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugs" }
@@ -59,6 +63,9 @@ gradle-pitest-plugin = { module = "info.solidsoft.gradle.pitest:gradle-pitest-pl
 gradle-spotbugs-plugin = { module = "com.github.spotbugs.snom:spotbugs-gradle-plugin", version.ref = "gradle-spotbugs-plugin" }
 gradle-forbiddenapis-plugin = { module = "de.thetaphi:forbiddenapis", version.ref = "gradle-forbiddenapis-plugin" }
 gradle-versions-plugin = { module = "io.github.ben-manes:gradle-versions-plugin", version.ref = "gradle-versions-plugin" }
+gradle-nmcp-plugin = { module = "com.gradleup.nmcp:nmcp", version.ref = "nmcp" }
+gradle-cyclonedx-plugin = { module = "org.cyclonedx:cyclonedx-gradle-plugin", version.ref = "cyclonedx" }
 
 [plugins]
 shadow = { id = "com.gradleup.shadow", version.ref = "gradle-shadow-plugin" }
+plugin-publish = { id = "com.gradle.plugin-publish", version.ref = "gradle-plugin-publish" }

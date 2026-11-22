@@ -1,6 +1,8 @@
 plugins {
     id("io.github.fiftieshousewife.java-conventions")
-    `maven-publish`
+    `java-gradle-plugin`
+    alias(libs.plugins.plugin.publish)
+    id("io.github.fiftieshousewife.airgap-publishing")
 }
 
 // The Gradle wiring: a plugin that starts every Test and JavaExec task (and so bootRun) with the agent. It runs inside
@@ -13,6 +15,27 @@ base.archivesName = "airgap-gradle-plugin"
 // A Gradle plugin uses Gradle's own logging; nothing from the conventions' logging set goes into its POM.
 configurations.named("implementation") { dependencies.removeIf { it.group == "org.slf4j" } }
 configurations.named("runtimeOnly") { dependencies.removeIf { it.group == "org.apache.logging.log4j" } }
+
+// java-gradle-plugin adds the API of the Gradle running this build; the plugin is compiled against the oldest it
+// supports instead, so a newer API can't slip in.
+listOf("api", "compileOnlyApi", "compileOnly", "implementation").forEach { name ->
+    configurations.findByName(name)?.dependencies?.removeIf { it is FileCollectionDependency }
+}
+
+gradlePlugin {
+    website = "https://github.com/fiftiesHousewife/under-test-airgap"
+    vcsUrl = "https://github.com/fiftiesHousewife/under-test-airgap.git"
+    plugins {
+        create("airgap") {
+            id = "io.github.fiftieshousewife.airgap"
+            implementationClass = "io.github.fiftieshousewife.airgap.gradle.AirgapPlugin"
+            displayName = "airgap"
+            description = "Starts every test run and application start (including Spring Boot's bootRun) with the " +
+                "airgap agent, which refuses and reports calls to other machines, and gives the tests its JUnit listener."
+            tags = listOf("testing", "security", "network", "java-agent", "legacy-code")
+        }
+    }
+}
 
 dependencies {
     compileOnly(libs.gradle.api.oldest.supported)
@@ -92,44 +115,19 @@ tasks.check {
     dependsOn(integrationTestTask)
 }
 
-publishing {
-    repositories {
-        maven {
-            name = "integration"
-            url = uri(integrationRepo)
+// java-gradle-plugin's own publications: the plugin's jar, and the marker Gradle looks for when a build asks for the
+// plugin by id. Both go to Maven Central; the Gradle Plugin Portal gets the plugin from publishPlugins.
+publishing.publications.withType<MavenPublication>().configureEach {
+    if (name == "pluginMaven") {
+        artifactId = "airgap-gradle-plugin"
+        pom {
+            name = "airgap-gradle-plugin"
+            description = "Starts every Gradle test run and application start with the airgap agent."
         }
-    }
-    publications {
-        create<MavenPublication>("plugin") {
-            artifactId = "airgap-gradle-plugin"
-            from(components["java"])
-            pom {
-                name = "airgap-gradle-plugin"
-                description = "Starts every Gradle test run and application start with the airgap agent."
-                url = "https://github.com/fiftiesHousewife/under-test-airgap"
-                licenses {
-                    license {
-                        name = "Apache License 2.0"
-                        url = "https://www.apache.org/licenses/LICENSE-2.0"
-                    }
-                }
-            }
-        }
-        // The marker Gradle looks for when a build asks for the plugin by id in its plugins { } block.
-        create<MavenPublication>("pluginMarker") {
-            groupId = "io.github.fiftieshousewife.airgap"
-            artifactId = "io.github.fiftieshousewife.airgap.gradle.plugin"
-            val pluginVersion = project.version.toString()
-            pom {
-                name = "airgap-gradle-plugin marker"
-                packaging = "pom"
-                withXml {
-                    val dependency = asNode().appendNode("dependencies").appendNode("dependency")
-                    dependency.appendNode("groupId", "io.github.fiftieshousewife.airgap")
-                    dependency.appendNode("artifactId", "airgap-gradle-plugin")
-                    dependency.appendNode("version", pluginVersion)
-                }
-            }
+    } else {
+        pom {
+            name = "airgap-gradle-plugin marker"
+            description = "Points the plugin id io.github.fiftieshousewife.airgap at airgap-gradle-plugin."
         }
     }
 }

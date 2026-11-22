@@ -86,6 +86,23 @@ The repo runs its own builds under its own agent: the JUnit part's tests, the re
 themselves run with it attached, and fail on any risky call (see
 [This repo runs its own builds under its own agent, and fails on any risky call](docs/decisions/0009-this-repo-runs-its-own-builds-under-its-own-agent-and-fails-on-any-risky-call.md)).
 
+## Releasing
+A release publishes `airgap-agent`, `airgap-junit` and `airgap-gradle-plugin` to Maven Central, the plugin to the
+Gradle Plugin Portal, and a GitHub release. Each jar goes with its sources, Javadoc, a CycloneDX software bill of
+materials, and PGP signatures. The shared settings are in
+[`build-logic/src/main/kotlin/io.github.fiftieshousewife.airgap-publishing.gradle.kts`](build-logic/src/main/kotlin/io.github.fiftieshousewife.airgap-publishing.gradle.kts).
+
+1. Set `version=` in [`gradle.properties`](gradle.properties) and the default in
+   [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle), and push with `sync.sh`.
+2. Run `maintainer-tools/release/release.sh <version>`. It tags `main` and pushes the tag.
+3. [The release workflow](.github/workflows/release.yml) runs the whole build first (every JDK, every Gradle), and
+   publishes only if it passes.
+
+The workflow needs the repository secrets it lists at its top: a Central Portal user token, a signing key and its
+passphrase, and a Gradle Plugin Portal API key. To check a release without publishing it, run
+`./gradlew nmcpZipAggregation` (the Maven Central bundle, in `build/nmcp/zip/`) and
+`./gradlew :gradle-plugin:publishPlugins --validate-only`.
+
 ## Before you finish
 Run `./gradlew check`. It must pass. Push only with `maintainer-tools/sync/sync.sh "What changed"`, which syncs the
 issues and backlog page before pushing; never with a plain `git push`.

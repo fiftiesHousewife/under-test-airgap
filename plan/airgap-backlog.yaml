@@ -394,7 +394,7 @@ items:
   - key: "release-with-a-bill-of-materials"
     type: "deliverable"
     title: "Releases publish the agent jar with a software bill of materials, ready for a security review"
-    notes: "0.1.0 is published to Maven Local only. Still to do: Maven Central, sources and the bill of materials."
+    notes: "Ready: maintainer-tools/release/release.sh tags a version, and the release workflow runs every check and then publishes to Maven Central and the Gradle Plugin Portal, with sources, Javadoc, signatures and a CycloneDX bill of materials per jar, and makes a GitHub release that lists the JDKs and Gradle versions each part is proved on. Done once the first release is out."
     parent: "the-agent-is-ready-for-a-company-to-approve-and-use"
     phase: "set-up"
     horizon: "later"
@@ -403,5 +403,3 @@ items:
     done_when:
       - "A release publishes the jar, its sources and a software bill of materials to Maven Central"
       - "The release notes list the JDKs each hook is proved on"
-    blocked_by:
-      - "example-old-services-with-approved-reports"

@@ -1,6 +1,6 @@
 plugins {
     id("io.github.fiftieshousewife.java-conventions")
-    `maven-publish`
+    id("io.github.fiftieshousewife.airgap-publishing")
 }
 
 // The JUnit Platform listener (names the test behind each call) and @AllowCalls. Built against the JUnit 5 API, for
@@ -48,13 +48,6 @@ tasks.test {
 }
 
 publishing {
-    // A local repository for the Gradle wiring's integration tests, so their sample builds need no other.
-    repositories {
-        maven {
-            name = "integration"
-            url = uri(rootProject.layout.buildDirectory.dir("integration-repo"))
-        }
-    }
     publications {
         create<MavenPublication>("junit") {
             artifactId = "airgap-junit"
@@ -63,13 +56,6 @@ publishing {
                 name = "airgap-junit"
                 description = "The airgap agent's JUnit Platform listener, which names the test behind each call, and " +
                     "@AllowCalls, which lets a test allow a stand-in."
-                url = "https://github.com/fiftiesHousewife/under-test-airgap"
-                licenses {
-                    license {
-                        name = "Apache License 2.0"
-                        url = "https://www.apache.org/licenses/LICENSE-2.0"
-                    }
-                }
             }
         }
     }

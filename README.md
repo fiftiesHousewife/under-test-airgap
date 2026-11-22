@@ -194,6 +194,13 @@ Your tests don't need to do anything for the check.
 - Each test checks the call was refused before a connection could start.
 - Each test also checks the check at start fails when one of the agent's changes is left out.
 
+## For a security review
+
+The agent, `airgap-junit` and the Gradle plugin are on Maven Central under `io.github.fiftieshousewife.airgap`. Each
+jar is signed, and published with its sources and a CycloneDX software bill of materials (classifier `cyclonedx`,
+type `json`). The agent's jar holds the agent and one library, Byte Buddy, moved under the agent's own package.
+`airgap-junit` and the plugin have no dependencies.
+
 ## More information
 
 - [The design](docs/design.md): each risky call and where it's caught, the report, the allowlist, Spring, other

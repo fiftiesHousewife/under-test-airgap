@@ -13,7 +13,7 @@ import java.nio.file.StandardOpenOption;
 /**
  * The report file: one line of JSON per call. Several JVMs (forked test workers, say) may write the same file at
  * once, so each line is written whole under a file lock. Reporting never stops a refusal: if the file can't be
- * written, the call is still refused, and the failure is kept for {@link #lastFailure()}.
+ * written, the call is still refused, and the failure is kept for {@link #getLastFailure()}.
  */
 public final class JsonLinesReport implements Report {
 

@@ -1,6 +1,7 @@
 package io.github.fiftieshousewife.airgap.agent;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Builds one JSON object, field by field. The agent can't depend on a JSON library, since it would share the JVM
@@ -85,7 +86,7 @@ public final class Json {
         if (c == '\t') {
             return "\\t";
         }
-        return c < 0x20 ? String.format("\\u%04x", (int) c) : String.valueOf(c);
+        return c < 0x20 ? String.format(Locale.ROOT, "\\u%04x", (int) c) : String.valueOf(c);
     }
 
     @Override

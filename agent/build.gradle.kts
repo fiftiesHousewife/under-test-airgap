@@ -1,13 +1,17 @@
 plugins {
     id("io.github.fiftieshousewife.java-conventions")
     alias(libs.plugins.shadow)
-    `maven-publish`
+    id("io.github.fiftieshousewife.airgap-publishing")
 }
 
 // The airgap agent runs inside the projects it guards, on JDK 8 and later: Java 8 bytecode, and nothing in its jar but
 // Byte Buddy, relocated under the agent's own package so it never meets the copy Mockito brings.
 group = "io.github.fiftieshousewife.airgap"
 base.archivesName = "airgap-agent"
+
+// The agent uses no logging library (see AGENTS.md), so nothing from the conventions' logging set is on its class path.
+configurations.named("implementation") { dependencies.removeIf { it.group == "org.slf4j" } }
+configurations.named("runtimeOnly") { dependencies.removeIf { it.group == "org.apache.logging.log4j" } }
 
 dependencies {
     implementation(libs.byte.buddy)
@@ -153,28 +157,16 @@ listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { t
 }
 
 publishing {
-    // A local repository for the Gradle wiring's integration tests, so their sample builds need no other.
-    repositories {
-        maven {
-            name = "integration"
-            url = uri(rootProject.layout.buildDirectory.dir("integration-repo"))
-        }
-    }
     publications {
         create<MavenPublication>("agent") {
             artifactId = "airgap-agent"
             artifact(tasks.shadowJar)
+            artifact(tasks.named("sourcesJar"))
+            artifact(tasks.named("javadocJar"))
             pom {
                 name = "airgap-agent"
                 description = "A Java agent that refuses risky calls (network, host lookups, processes) inside the JVM, " +
                     "as an unplugged machine would, and reports each one with the code that made it."
-                url = "https://github.com/fiftiesHousewife/under-test-airgap"
-                licenses {
-                    license {
-                        name = "Apache License 2.0"
-                        url = "https://www.apache.org/licenses/LICENSE-2.0"
-                    }
-                }
             }
         }
     }

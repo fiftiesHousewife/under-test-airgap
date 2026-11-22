@@ -16,7 +16,7 @@ import java.net.InetSocketAddress;
 import java.net.PortUnreachableException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URL;
+import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
@@ -74,7 +74,7 @@ class RefusedCallsTest {
     void refusesHttpThroughUrlConnections() {
         assertThatThrownBy(() -> {
             final HttpURLConnection connection = (HttpURLConnection)
-                    new URL("http://" + DOCUMENTATION_ADDRESS + ":8080/orders").openConnection();
+                    URI.create("http://" + DOCUMENTATION_ADDRESS + ":8080/orders").toURL().openConnection();
             connection.setConnectTimeout(1000);
             connection.connect();
         }).isInstanceOf(ConnectException.class).hasMessageContaining(Refusals.REFUSED);
