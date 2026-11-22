@@ -25,6 +25,7 @@ in [The code is held to strict quality checks run by the build, and pushes go th
 | `examples/` | Old services run end to end under the agent, with their approved reports (added as the work starts) |
 | `maintainer-tools/` | Repo checks (`./gradlew check`, `buildDecisionIndexes`, `fixDecisionLinks`), the push script, and the hook that refuses a plain `git push` |
 | `tools/backlog-import/` | Loads the backlog into the issue tracker |
+| [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle) | Runs any Gradle build's tests under the agent, from outside, without changing that build |
 | `build-logic/`, `config/quality/` | Gradle conventions and the quality-check rules |
 
 ## Skills
@@ -37,6 +38,20 @@ in [The code is held to strict quality checks run by the build, and pushes go th
 
 External skills are declared in [`apm.yml`](apm.yml), pinned, and installed with `apm install`. For Claude Code, this
 repo's own skills are linked into `.claude/skills/`.
+
+## How the repo is built and tested
+The repo builds with Gradle on JDK 25, through toolchains, and tests on JDK 8, 11, 17, 21 and 25. Its JUnit parts
+support JUnit 5 and 6 on the JUnit Platform. Decisions are recorded in MADR form. The work, and what the agent
+catches today and next, is in [the backlog](plan/airgap-backlog.yaml).
+
+Testing is the centre of this project, because a hook that stops matching fails silently. Beyond what the README
+promises users (the self-check at start, every hook on every JDK, every common route, refusal before any connection):
+
+- example old services are run end to end, and their reports must match saved, approved ones;
+- mutation testing must show the tests catch nearly every bug planted in the refusal and reporting code.
+
+The README is written for people using the agent. Keep build, quality and contribution details here, and keep version
+numbers out of it.
 
 ## Code standards
 Enforced by `./gradlew check`:
