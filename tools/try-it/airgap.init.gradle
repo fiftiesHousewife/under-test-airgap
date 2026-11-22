@@ -15,16 +15,25 @@ initscript {
             mavenCentral()
         }
     }
+    // Gradle reads every class on the script's class path, and Gradle 6 and older can't read the newest JDKs' class
+    // files, which the agent carries for those JDKs; there, the agent gets a configuration of its own. Gradle 9
+    // doesn't allow one, and Gradle 7 and later read the agent's classes, so it goes on the class path there.
+    def ownConfiguration = org.gradle.util.GradleVersion.current() < org.gradle.util.GradleVersion.version("7.0")
+    if (ownConfiguration) {
+        configurations.maybeCreate("airgapAgent")
+    }
     dependencies {
         if (!System.getProperty("airgap.agent")) {
-            classpath "io.github.fiftieshousewife.airgap:airgap-agent:${System.getProperty("airgap.version", "0.1.0")}"
+            add(ownConfiguration ? "airgapAgent" : "classpath",
+                    "io.github.fiftieshousewife.airgap:airgap-agent:${System.getProperty("airgap.version", "0.1.0")}")
         }
     }
 }
 
 def agentJar = System.getProperty("airgap.agent")
         ? new File(System.getProperty("airgap.agent"))
-        : initscript.configurations.classpath.files.find { it.name.startsWith("airgap-agent-") }
+        : (initscript.configurations.findByName("airgapAgent") ?: initscript.configurations.classpath).files
+            .find { it.name.startsWith("airgap-agent-") }
 
 allprojects {
     tasks.withType(Test).configureEach { test ->

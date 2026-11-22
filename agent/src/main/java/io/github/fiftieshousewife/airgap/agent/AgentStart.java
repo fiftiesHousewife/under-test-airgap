@@ -26,6 +26,6 @@ public final class AgentStart {
             return;
         }
         Gate.open(new Decider(settings, new JsonLinesReport(settings.getReport())));
-        SelfCheck.run(Hooks.install(instrumentation, settings.getWithoutHooks()));
+        SelfCheck.run(Hooks.install(instrumentation, settings.getWithoutHooks()), settings.getWithoutHooks());
     }
 }

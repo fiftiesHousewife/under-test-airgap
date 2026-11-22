@@ -28,6 +28,14 @@ final class Ascii {
                 && equalsIgnoringCase(text.substring(text.length() - suffix.length()), suffix);
     }
 
+    static String lowerCase(final String text) {
+        final char[] letters = text.toCharArray();
+        for (int i = 0; i < letters.length; i++) {
+            letters[i] = lower(letters[i]);
+        }
+        return new String(letters);
+    }
+
     private static char lower(final char c) {
         return c >= 'A' && c <= 'Z' ? (char) (c + CASE_DISTANCE) : c;
     }

@@ -8,19 +8,26 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
-/** Writes the sample build: one class that makes a host lookup, and one JUnit 4 test that makes another. */
+/**
+ * Writes the sample build: one class that makes a host lookup, and one JUnit 4 test that makes another; with the
+ * plugin, or without it, for the try-it init script.
+ */
 @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Test code: the paths come from this build")
 final class SampleBuild {
 
     private SampleBuild() {
     }
 
-    static void write(final Path folder, final String jdk) throws IOException {
-        final String repo = uri(System.getProperty("airgap.it.repo"));
-        write(folder, "gradle.properties", "org.gradle.java.home=" + jdk.replace("\\", "/") + "\n");
+    static void write(final Path folder, final String jdk, final boolean withPlugin) throws IOException {
+        final String repo = repo();
+        // Without the plugin, the init script reads where the agent is from system properties. TestKit on Gradle 5
+        // and 6 doesn't pass -D arguments on to init scripts, so they go on the Gradle daemon's own command line.
+        final String forInitScript = withPlugin ? "" : "org.gradle.jvmargs=-Dairgap.repository=" + repo
+                + " -Dairgap.version=" + System.getProperty("airgap.it.version") + "\n";
+        write(folder, "gradle.properties", "org.gradle.java.home=" + jdk.replace("\\", "/") + "\n" + forInitScript);
         write(folder, "settings.gradle", "pluginManagement { repositories { maven { url '" + repo + "' } } }\n"
                 + "rootProject.name = 'sample'\n");
-        write(folder, "build.gradle", buildScript(repo));
+        write(folder, "build.gradle", withPlugin ? buildScript(repo) : plainBuildScript(repo));
         write(folder, "src/main/java/sample/Main.java", "package sample;\n"
                 + "public class Main {\n"
                 + "    public static void main(String[] args) {\n"
@@ -46,17 +53,13 @@ final class SampleBuild {
     }
 
     private static String buildScript(final String repo) {
-        final StringBuilder junit = new StringBuilder();
-        for (final String jar : System.getProperty("airgap.it.junit").split(File.pathSeparator)) {
-            junit.append(junit.length() == 0 ? "" : ", ").append('\'').append(jar.replace("\\", "/")).append('\'');
-        }
         return "plugins {\n"
                 + "    id 'java'\n"
                 + "    id 'io.github.fiftieshousewife.airgap' version '"
                 + System.getProperty("airgap.it.version") + "'\n"
                 + "}\n"
                 + "repositories { maven { url '" + repo + "' } }\n"
-                + "dependencies { testImplementation files(" + junit + ") }\n"
+                + "dependencies { testImplementation files(" + junitJars() + ") }\n"
                 + "airgap { packages.add('sample.') }\n"
                 + "task runSample(type: JavaExec) {\n"
                 + "    classpath = sourceSets.main.runtimeClasspath\n"
@@ -66,6 +69,24 @@ final class SampleBuild {
                 + "        main = 'sample.Main'\n"
                 + "    }\n"
                 + "}\n";
+    }
+
+    private static String plainBuildScript(final String repo) {
+        return "plugins { id 'java' }\n"
+                + "repositories { maven { url '" + repo + "' } }\n"
+                + "dependencies { testImplementation files(" + junitJars() + ") }\n";
+    }
+
+    private static String junitJars() {
+        final StringBuilder junit = new StringBuilder();
+        for (final String jar : System.getProperty("airgap.it.junit").split(File.pathSeparator)) {
+            junit.append(junit.length() == 0 ? "" : ", ").append('\'').append(jar.replace("\\", "/")).append('\'');
+        }
+        return junit.toString();
+    }
+
+    private static String repo() {
+        return uri(System.getProperty("airgap.it.repo"));
     }
 
     private static String uri(final String path) {

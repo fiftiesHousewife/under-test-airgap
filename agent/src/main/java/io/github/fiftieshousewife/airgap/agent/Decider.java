@@ -35,7 +35,7 @@ public final class Decider {
      * @param context the running test and its allowances
      * @return the exception to refuse the call with, or {@code null} to let it go ahead
      */
-    public Exception decide(final Kind kind, final Target target, final CallContext context) {
+    public Throwable decide(final Kind kind, final Target target, final CallContext context) {
         if (target.isLocal()) {
             return null;
         }
@@ -55,6 +55,16 @@ public final class Decider {
      */
     public boolean allows(final Kind kind, final Target target, final CallContext context) {
         return allowedBy(kind, target, context) != null;
+    }
+
+    /**
+     * Whether a class asking for a native library is the build tool's own, so its libraries go ahead unreported.
+     *
+     * @param className the class
+     * @return true for Gradle's and Maven's own classes
+     */
+    public boolean isBuildToolsOwn(final String className) {
+        return BuildTools.own(className, settings.getRun());
     }
 
     private String allowedBy(final Kind kind, final Target target, final CallContext context) {

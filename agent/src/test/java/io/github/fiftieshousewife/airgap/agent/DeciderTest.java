@@ -11,6 +11,7 @@ import java.net.PortUnreachableException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import javax.naming.CommunicationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -52,7 +53,33 @@ class DeciderTest {
                         .isInstanceOf(UnknownHostException.class),
                 () -> assertThat(decider.decide(Kind.PROCESS, Target.ofCommand(List.of("curl")), CallContext.NONE))
                         .isInstanceOf(IOException.class).hasMessageContaining(Refusals.REFUSED),
-                () -> assertThat(recorded).extracting(Call::getOutcome).containsOnly("refused").hasSize(5));
+                () -> assertThat(decider.decide(Kind.JNDI, Target.ofJndi("ldap://ldap.example.invalid/o=x"),
+                        CallContext.NONE)).isInstanceOf(CommunicationException.class)
+                        .hasMessageContaining(Refusals.REFUSED),
+                () -> assertThat(decider.decide(Kind.NATIVE_LIBRARY, Target.ofLibrary("native"), CallContext.NONE))
+                        .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED),
+                () -> assertThat(decider.decide(Kind.EXIT, Target.ofExit("exit", 1), CallContext.NONE))
+                        .isInstanceOf(SecurityException.class).hasMessageContaining(Refusals.REFUSED),
+                () -> assertThat(recorded).extracting(Call::getOutcome).containsOnly("refused").hasSize(8),
+                () -> assertThat(recorded).extracting(call -> schema.problems(call.toJson())).allSatisfy(
+                        problems -> assertThat(problems).isEmpty()));
+    }
+
+    @Test
+    void recognisesNativeLibrariesTheBuildToolLoadsForItself() {
+        final Decider test = decider("run=test");
+        final Decider build = decider("run=build");
+
+        assertAll(
+                () -> assertThat(test.isBuildToolsOwn("org.gradle.internal.nativeintegration.NativeServices")).isTrue(),
+                () -> assertThat(test.isBuildToolsOwn("net.rubygrapefruit.platform.internal.NativeLibraryLoader"))
+                        .isTrue(),
+                () -> assertThat(test.isBuildToolsOwn("org.apache.maven.cli.MavenCli")).isTrue(),
+                () -> assertThat(build.isBuildToolsOwn("org.fusesource.jansi.internal.JansiLoader")).isTrue(),
+                () -> assertThat(test.isBuildToolsOwn("org.fusesource.jansi.internal.JansiLoader"))
+                        .as("the console library is the build tool's only in the build JVM").isFalse(),
+                () -> assertThat(test.isBuildToolsOwn("io.netty.util.internal.NativeLibraryLoader")).isFalse(),
+                () -> assertThat(test.isBuildToolsOwn("org.sqlite.SQLiteJDBCLoader")).isFalse());
     }
 
     @Test

@@ -13,7 +13,16 @@ public enum Kind {
     UDP("udp"),
 
     /** Starting another program. */
-    PROCESS("process");
+    PROCESS("process"),
+
+    /** A JNDI lookup of a directory or registry on another machine: LDAP, RMI, DNS or CORBA. */
+    JNDI("jndi"),
+
+    /** Loading a native library, whose code the agent can't see into. */
+    NATIVE_LIBRARY("native-library"),
+
+    /** Ending the JVM, with {@code System.exit} or {@code Runtime.halt}, while a test is running. */
+    EXIT("exit");
 
     private final String reportName;
 

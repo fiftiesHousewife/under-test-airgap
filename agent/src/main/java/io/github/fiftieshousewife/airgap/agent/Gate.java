@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.net.SocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
 import java.util.List;
 
 /**
@@ -18,7 +19,7 @@ import java.util.List;
 public final class Gate {
 
     private static final ThreadLocal<Boolean> DECIDING = new ThreadLocal<>();
-    private static final ThreadLocal<Boolean> PROBING = new ThreadLocal<>();
+    private static final ThreadLocal<Kind> PROBING = new ThreadLocal<>();
     private static final InheritableThreadLocal<String> TEST = new InheritableThreadLocal<>();
     private static final InheritableThreadLocal<Allowlist> ALLOWANCES = new InheritableThreadLocal<>();
     private static volatile Decider decider;
@@ -26,12 +27,19 @@ public final class Gate {
     private Gate() {
     }
 
-    /** Thrown, only while the self-check probes a hook, to show the hook was reached. */
+    /** Thrown, only while the self-check probes a hook, to show the hook was reached, and which kind of hook. */
     public static final class Reached extends RuntimeException {
         private static final long serialVersionUID = 1L;
+        private final Kind kind;
 
-        Reached() {
+        Reached(final Kind kind) {
             super("airgap agent self-check: hook reached", null, false, false);
+            this.kind = kind;
+        }
+
+        /** @return the kind of hook reached */
+        Kind getKind() {
+            return kind;
         }
     }
 
@@ -39,8 +47,13 @@ public final class Gate {
         decider = opened;
     }
 
-    static void setProbing(final boolean on) {
-        PROBING.set(on ? Boolean.TRUE : null);
+    /**
+     * Puts this thread in probing mode, or takes it out.
+     *
+     * @param kind the kind of hook being probed, or {@code null} to stop probing
+     */
+    static void setProbing(final Kind kind) {
+        PROBING.set(kind);
     }
 
     /**
@@ -103,6 +116,65 @@ public final class Gate {
     }
 
     /**
+     * A JNDI name is being looked up, bound or listed. Only URLs whose provider reaches another machine are checked;
+     * names inside the JVM, such as {@code java:comp/env}, are left alone.
+     *
+     * @param name the name, as written
+     */
+    public static void jndi(final String name) {
+        if (name != null && Target.isNetworkJndiName(name)) {
+            check(Kind.JNDI, Target.ofJndi(name));
+        }
+    }
+
+    /**
+     * A JNDI context is being made from its settings, whose provider URL (a space-separated list) names the directory.
+     *
+     * @param environment the context's settings, or {@code null}
+     */
+    public static void jndiProvider(final Map<?, ?> environment) {
+        final Object urls = environment == null ? null : environment.get("java.naming.provider.url");
+        if (urls instanceof String) {
+            for (final String url : ((String) urls).trim().split("\\s+")) {
+                jndi(url);
+            }
+        }
+    }
+
+    /**
+     * A native library is being loaded. The JDK's own (asked for by a JDK class) and the build tool's own go ahead
+     * unchecked.
+     *
+     * @param library the library's name or path
+     */
+    public static void nativeLibrary(final String library) {
+        stopIfProbing(Kind.NATIVE_LIBRARY);
+        final Decider current = decider;
+        if (current == null || DECIDING.get() != null) {
+            return;
+        }
+        final String asking = LibraryLoads.askingClass(new Throwable().getStackTrace());
+        if (LibraryLoads.isJdks(asking) || current.isBuildToolsOwn(asking)) {
+            return;
+        }
+        check(Kind.NATIVE_LIBRARY, Target.ofLibrary(library));
+    }
+
+    /**
+     * The JVM is being ended. Checked only while a test is running on this thread, so test runners and build tools
+     * end their JVMs as usual.
+     *
+     * @param method {@code exit} or {@code halt}
+     * @param status the status
+     */
+    public static void exit(final String method, final int status) {
+        stopIfProbing(Kind.EXIT);
+        if (TEST.get() != null) {
+            check(Kind.EXIT, Target.ofExit(method, status));
+        }
+    }
+
+    /**
      * A test is starting on this thread.
      *
      * @param test the test, as {@code class.method}
@@ -150,15 +222,24 @@ public final class Gate {
                 allowances == null ? new Allowlist(Collections.<String>emptyList()) : allowances);
     }
 
-    private static void check(final Kind kind, final Target target) {
-        if (PROBING.get() != null) {
-            throw new Reached();
+    /**
+     * While probing, stops the call before it does anything. A native library or an exit met while probing another
+     * kind of hook is the JDK's own work (loading a library a probed class needs), so it isn't stopped.
+     */
+    private static void stopIfProbing(final Kind kind) {
+        final Kind probing = PROBING.get();
+        if (probing != null && (probing == kind || kind != Kind.NATIVE_LIBRARY && kind != Kind.EXIT)) {
+            throw new Reached(kind);
         }
+    }
+
+    private static void check(final Kind kind, final Target target) {
+        stopIfProbing(kind);
         final Decider current = decider;
         if (current == null || DECIDING.get() != null) {
             return;
         }
-        final Exception refusal;
+        final Throwable refusal;
         DECIDING.set(Boolean.TRUE);
         try {
             refusal = current.decide(kind, target, context());

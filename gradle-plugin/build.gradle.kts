@@ -96,12 +96,16 @@ val integrationTestTask = tasks.register<Test>("integrationTest") {
     dependsOn(":agent:publishAllPublicationsToIntegrationRepository",
         ":junit:publishAllPublicationsToIntegrationRepository", "publishAllPublicationsToIntegrationRepository")
     inputs.files(sampleTestLibraries)
+    // The jars the sample builds use, so a change to the agent or the JUnit part runs these tests again.
+    inputs.files(fileTree(integrationRepo) { include("**/*.jar") }).withPropertyName("publishedJars")
     val homes = gradleOnJdk.map { (gradle, jdk) -> jdkHome(jdk).map { "$gradle=$it" } }
     val currentJdk = jdkHome("25")
     val repo = integrationRepo
     val libraries = files(sampleTestLibraries)
     val version = project.version.toString()
     val distributions = providers.gradleProperty("airgap.gradleDistributions")
+    val initScript = rootProject.file("tools/try-it/airgap.init.gradle")
+    inputs.file(initScript).withPropertyName("initScript")
     jvmArgumentProviders.add(CommandLineArgumentProvider {
         listOfNotNull(
             "-Dairgap.it.gradleVersions=${homes.joinToString(",") { it.get() }}",
@@ -109,6 +113,7 @@ val integrationTestTask = tasks.register<Test>("integrationTest") {
             "-Dairgap.it.repo=${repo.get().asFile.absolutePath}",
             "-Dairgap.it.version=$version",
             "-Dairgap.it.junit=${libraries.files.joinToString(File.pathSeparator) { it.absolutePath }}",
+            "-Dairgap.it.initScript=${initScript.absolutePath}",
             distributions.orNull?.let { "-Dairgap.it.distributions=$it" },
         )
     })

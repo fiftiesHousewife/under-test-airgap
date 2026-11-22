@@ -28,13 +28,27 @@ class SelfCheckTest {
         assertThat(result.exitCode).as(result.output).isZero();
     }
 
-    /** JDK 24 and later warn when sun.misc.Unsafe is used; the agent mustn't add that warning to anyone's output. */
+    /**
+     * JDK 24 and later warn when sun.misc.Unsafe is used, or a native library loaded without native access; the
+     * agent, and its self-check's probes, mustn't add either warning to anyone's output.
+     */
     @Test
-    void startsWithoutAWarningAboutSunMiscUnsafe() throws IOException, InterruptedException {
+    void startsWithoutAWarningFromTheJdk() throws IOException, InterruptedException {
         final Result result = runJava("report=" + new File(System.getProperty("java.io.tmpdir"),
-                "airgap-self-unsafe.jsonl"));
+                "airgap-self-warnings.jsonl"));
 
-        assertThat(result.output).doesNotContain("sun.misc.Unsafe");
+        assertThat(result.output).doesNotContain("sun.misc.Unsafe", "restricted method", "WARNING");
+    }
+
+    /** Test runners end their own JVM once the tests finish; with no test running, an exit goes ahead. */
+    @Test
+    void letsTheJvmEndWhenNoTestIsRunning() throws IOException, InterruptedException {
+        final String agent = "-javaagent:" + System.getProperty("airgap.test.agent") + "=report="
+                + new File(System.getProperty("java.io.tmpdir"), "airgap-self-exit.jsonl");
+        final Result result = run(Paths.java(), "-cp", System.getProperty("java.class.path"), agent,
+                EndsWithSeven.class.getName());
+
+        assertThat(result.exitCode).as(result.output).isEqualTo(EndsWithSeven.STATUS);
     }
 
     @Test
@@ -47,10 +61,23 @@ class SelfCheckTest {
                 () -> assertThat(result.output).contains("couldn't put its hooks in place for [tcp-socket]"));
     }
 
+    /** The exit hooks can't be probed by exiting, so they're checked another way; leaving one out must still show. */
+    @Test
+    void refusesToStartWhenTheExitHookIsMissing() throws IOException, InterruptedException {
+        final Result result = runJava("withoutHooks=exit;report=" + new File(System.getProperty("java.io.tmpdir"),
+                "airgap-self-missing-exit.jsonl"));
+
+        assertAll(
+                () -> assertThat(result.exitCode).as(result.output).isNotZero(),
+                () -> assertThat(result.output).contains("couldn't put its hooks in place for [exit]"));
+    }
+
     private static Result runJava(final String agentSettings) throws IOException, InterruptedException {
         final String agent = "-javaagent:" + System.getProperty("airgap.test.agent") + "=" + agentSettings;
-        final String[] command = {Paths.java(), agent,
-            "-version"};
+        return run(Paths.java(), agent, "-version");
+    }
+
+    private static Result run(final String... command) throws IOException, InterruptedException {
         final Process process = new ProcessBuilder(Arrays.asList(command)).redirectErrorStream(true).start();
         final String output = read(process.getInputStream());
         process.waitFor(30, TimeUnit.SECONDS);

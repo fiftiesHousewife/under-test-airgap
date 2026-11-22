@@ -30,12 +30,13 @@ written to a report.
 
 | Refused and reported now | Coming |
 |---|---|
-| Host lookups | JNDI and LDAP lookups |
-| TCP connections, through sockets, NIO channels and asynchronous channels | Loading native libraries |
-| UDP traffic | `System.exit` |
-| Starting other programs | Opening files on shared drives: `\\server\share` paths and mapped network drives |
-| | Writing files outside the project folder |
-| | For Spring applications, the setting, file and line that gave each address |
+| Host lookups | Opening files on shared drives: `\\server\share` paths and mapped network drives |
+| TCP connections, through sockets, NIO channels and asynchronous channels | Writing files outside the project folder |
+| UDP traffic | For Spring applications, the setting, file and line that gave each address |
+| Starting other programs | |
+| JNDI lookups of LDAP, RMI, DNS and CORBA directories on other machines | |
+| Loading native libraries, other than the JDK's and the build tool's own | |
+| `System.exit` and `Runtime.halt` while a test is running, so the test fails instead of the run ending | |
 
 [The design](docs/design.md) describes each of these.
 
@@ -113,7 +114,9 @@ program a test starts on purpose:
 - **for a whole run**, use the agent's `allow` setting (see [Settings](#settings)), for example
   `allow=wiremock.test:8089,process:git`.
 
-Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), or a program (`process:git`).
+Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), a program (`process:git`), or a
+native library (`native:sqlitejdbc`, which matches `libsqlitejdbc.so` and `sqlitejdbc.dll` too). Nothing allows a
+test to end the JVM.
 
 ### Applications
 
@@ -171,7 +174,7 @@ Settings follow `=` after the agent's jar on the command line, separated by `;`:
 |---|---|
 | `mode=refuse` | Refuse and report every risky call that isn't allowed (the default). `report` lets calls go ahead and reports them. `off` does nothing |
 | `report=build/airgap/calls.jsonl` | Where the report is written (the default shown) |
-| `allow=wiremock.test:8089,process:git` | Addresses and programs to allow for the whole run: `host`, `host:port` or `process:name`. `localhost` is always allowed |
+| `allow=wiremock.test:8089,process:git` | What to allow for the whole run: `host`, `host:port`, `process:name` or `native:name`. `localhost` is always allowed |
 | `run=test` | The kind of JVM, for the report: `test`, `application` or `build` |
 | `project=com.example.` | Package prefixes of your own code, so the report names the line of your code that made each call |
 
@@ -210,8 +213,10 @@ could change one so that the agent's change no longer fits. Calls would then go 
 
 So each time a JVM starts with the agent, before the program runs, the agent checks itself. For each kind of risky
 call it catches, it makes one test call (a host lookup of `airgap-self-check.invalid`, a connection to that name, a
-UDP packet to the same machine, a start of a program that doesn't exist) and confirms the agent's change caught it.
-None of these test calls can reach another machine, even if the check fails.
+UDP packet to the same machine, a start of a program that doesn't exist, a JNDI lookup with no directory to ask, a
+load of a library that doesn't exist) and confirms the agent's change caught it. None of these test calls can reach
+another machine, even if the check fails. Ending the JVM can't be tried that way, so for `exit` and `halt` the check
+confirms the methods are there to change.
 
 If any test call isn't caught, the JVM stops before the program starts, with a message such as:
 

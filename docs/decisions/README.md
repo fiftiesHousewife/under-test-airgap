@@ -24,6 +24,8 @@ records by `./gradlew buildDecisionIndexes`.
 | [The report is one line of JSON per call, with a schema, and feeds the connection list](0006-the-report-is-one-line-of-json-per-call-with-a-schema-and-feeds-the-connection-list.md) | accepted (chosen in discussion) | Airgap maintainers |
 | [Every hook is proved on every supported JDK, and the agent checks its own hooks at start](0008-every-hook-is-proved-on-every-supported-jdk-and-the-agent-checks-its-own-hooks-at-start.md) | accepted (chosen in discussion) | Airgap maintainers |
 | [The Gradle wiring supports Gradle 5.6 and later, proved on each major version](0010-the-gradle-wiring-supports-gradle-5-6-and-later-proved-on-each-major-version.md) | accepted (chosen in discussion) | Airgap maintainers |
+| [An exit is refused only while a test is running](0011-an-exit-is-refused-only-while-a-test-is-running.md) | accepted (chosen in discussion) | Airgap maintainers |
+| [Native libraries are refused unless allowed, except the JDK's and the build tool's own](0012-native-libraries-are-refused-unless-allowed-except-the-jdks-and-the-build-tools-own.md) | accepted (chosen in discussion) | Airgap maintainers |
 
 ## How this repo works
 

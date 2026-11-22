@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class AllowlistTest {
 
     private final Allowlist allowlist = new Allowlist(List.of("WireMock.example.invalid:8089", "files.example.invalid",
-            "process:git", "2001:db8::1"));
+            "process:git", "2001:db8::1", "native:SQLiteJDBC", "ldap.example.invalid:636"));
 
     private static Target remote(final String host, final int port) {
         return Target.ofAddress(InetSocketAddress.createUnresolved(host, port));
@@ -38,5 +38,34 @@ class AllowlistTest {
                 () -> assertThat(allowlist.allows(Kind.PROCESS, Target.ofCommand(List.of("files.example.invalid"))))
                         .isFalse(),
                 () -> assertThat(allowlist.allows(Kind.TCP, remote("git", 22))).isFalse());
+    }
+
+    @Test
+    void allowsNativeLibrariesOnlyByNativeEntries() {
+        assertAll(
+                () -> assertThat(allowlist.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary("sqlitejdbc"))).isTrue(),
+                () -> assertThat(allowlist.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary("/tmp/x/libsqlitejdbc.so")))
+                        .isTrue(),
+                () -> assertThat(allowlist.allows(Kind.NATIVE_LIBRARY,
+                        Target.ofLibrary("C:\\Temp\\sqlitejdbc.dll"))).isTrue(),
+                () -> assertThat(allowlist.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary("libsqlitejdbc.dylib")))
+                        .isTrue(),
+                () -> assertThat(allowlist.allows(Kind.NATIVE_LIBRARY,
+                        Target.ofLibrary("netty_transport_native_epoll"))).isFalse(),
+                () -> assertThat(allowlist.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary("git"))).isFalse(),
+                () -> assertThat(allowlist.allows(Kind.TCP, remote("native", 0))).isFalse());
+    }
+
+    @Test
+    void allowsJndiByHostAndNeverAllowsAnExit() {
+        assertAll(
+                () -> assertThat(allowlist.allows(Kind.JNDI, Target.ofJndi("ldaps://ldap.example.invalid:636/o=x")))
+                        .isTrue(),
+                () -> assertThat(allowlist.allows(Kind.JNDI, Target.ofJndi("ldap://ldap.example.invalid:389/o=x")))
+                        .isFalse(),
+                () -> assertThat(allowlist.allows(Kind.JNDI, Target.ofJndi("ldap://files.example.invalid/o=x")))
+                        .isTrue(),
+                () -> assertThat(new Allowlist(List.of("exit(1)", "exit")).allows(Kind.EXIT, Target.ofExit("exit", 1)))
+                        .isFalse());
     }
 }

@@ -22,7 +22,15 @@ import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SocketChannel;
+import java.io.File;
+import java.util.Hashtable;
 import java.util.concurrent.TimeUnit;
+import javax.naming.CommunicationException;
+import javax.naming.CompositeName;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+import javax.naming.directory.InitialDirContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -30,12 +38,14 @@ import org.junit.jupiter.api.Timeout;
 /**
  * Every hooked kind of call, made for real with the agent attached, is refused at once with the exception an
  * unplugged machine would throw. Every target is either a name that can't resolve or an address reserved for
- * documentation, so nothing could leave the machine even if a hook failed; and every test has a short timeout, so a
- * refusal that didn't happen shows as a failure, not a slow pass.
+ * documentation, so nothing could leave the machine even if a hook failed; and every test has a timeout well short of
+ * a network timeout, so a refusal that didn't happen shows as a failure, not a slow pass. It allows for a cold start:
+ * the first JNDI call alone takes around half a second.
  */
-@Timeout(value = 2, unit = TimeUnit.SECONDS)
-@SuppressFBWarnings(value = {"UNENCRYPTED_SOCKET", "UNENCRYPTED_SERVER_SOCKET"},
-        justification = "Plain connections are what the agent must refuse; the one allowed is to the machine itself")
+@Timeout(value = 10, unit = TimeUnit.SECONDS)
+@SuppressFBWarnings(value = {"UNENCRYPTED_SOCKET", "UNENCRYPTED_SERVER_SOCKET", "DM_EXIT"},
+        justification = "Plain connections and exits are what the agent must refuse; the one connection allowed is to"
+                + " the machine itself")
 class RefusedCallsTest {
 
     private static final String UNRESOLVABLE = "db.prod.example.invalid";
@@ -130,5 +140,67 @@ class RefusedCallsTest {
                 () -> assertThat(Gate.isAllowed("allowed.example.invalid", 9999)).isFalse(),
                 () -> assertThat(Gate.isAllowed(UNRESOLVABLE, 5432)).isFalse(),
                 () -> assertThat(Gate.isAllowed("localhost", 5432)).isTrue());
+    }
+
+    @Test
+    void refusesJndiLookupsOfOtherMachines() {
+        assertAll(
+                () -> assertThatThrownBy(() -> new InitialContext().lookup("ldap://" + UNRESOLVABLE + "/o=orders"))
+                        .isInstanceOf(CommunicationException.class).hasMessageContaining(Refusals.REFUSED),
+                () -> assertThatThrownBy(() -> new InitialContext().lookup(
+                        new CompositeName("rmi://" + DOCUMENTATION_ADDRESS + ":1099/orders")))
+                        .isInstanceOf(CommunicationException.class).hasMessageContaining(Refusals.REFUSED),
+                () -> assertThatThrownBy(() -> new InitialDirContext().getAttributes(
+                        "dns://" + DOCUMENTATION_ADDRESS + "/example.com"))
+                        .isInstanceOf(CommunicationException.class).hasMessageContaining(Refusals.REFUSED));
+    }
+
+    @Test
+    void refusesADirectoryNamedInTheJndiSettings() {
+        final Hashtable<String, String> environment = new Hashtable<>();
+        environment.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        environment.put(Context.PROVIDER_URL, "ldap://" + UNRESOLVABLE + ":389/dc=example,dc=com");
+
+        assertThatThrownBy(() -> new InitialDirContext(environment))
+                .isInstanceOf(CommunicationException.class).hasMessageContaining(Refusals.REFUSED);
+    }
+
+    @Test
+    void leavesJndiNamesInsideTheJvmAlone() {
+        assertThatThrownBy(() -> new InitialContext().lookup("java:comp/env/jdbc/orders"))
+                .isInstanceOf(NamingException.class).hasMessageNotContaining(Refusals.REFUSED);
+    }
+
+    @Test
+    void refusesLoadingNativeLibraries() {
+        final String path = new File(System.getProperty("java.io.tmpdir"), "libairgap-example.so").getAbsolutePath();
+        assertAll(
+                () -> assertThatThrownBy(() -> System.loadLibrary("airgapexample"))
+                        .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED),
+                () -> assertThatThrownBy(() -> System.load(path))
+                        .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED),
+                () -> assertThatThrownBy(() -> Runtime.getRuntime().loadLibrary("airgapexample"))
+                        .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED));
+    }
+
+    @Test
+    void letsAnAllowedNativeLibraryLoad() {
+        assertThatThrownBy(() -> System.loadLibrary("airgapallowed"))
+                .as("allowed, so it fails only because the library isn't there")
+                .isInstanceOf(UnsatisfiedLinkError.class).hasMessageNotContaining(Refusals.REFUSED);
+    }
+
+    @Test
+    void refusesEndingTheJvmDuringATest() {
+        Gate.enterTest(RefusedCallsTest.class.getName() + ".refusesEndingTheJvmDuringATest");
+        try {
+            assertAll(
+                    () -> assertThatThrownBy(() -> System.exit(3))
+                            .isInstanceOf(SecurityException.class).hasMessageContaining(Refusals.REFUSED),
+                    () -> assertThatThrownBy(() -> Runtime.getRuntime().halt(3))
+                            .isInstanceOf(SecurityException.class).hasMessageContaining(Refusals.REFUSED));
+        } finally {
+            Gate.leaveTest();
+        }
     }
 }

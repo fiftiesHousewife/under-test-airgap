@@ -36,7 +36,7 @@ public class AirgapExtension {
         return mode;
     }
 
-    /** @return the stand-ins to allow: {@code host}, {@code host:port} or {@code process:name} */
+    /** @return the stand-ins to allow: {@code host}, {@code host:port}, {@code process:name} or {@code native:name} */
     public ListProperty<String> getAllow() {
         return allow;
     }

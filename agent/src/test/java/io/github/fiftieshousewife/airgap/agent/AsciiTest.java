@@ -24,4 +24,12 @@ class AsciiTest {
                 () -> assertThat(Ascii.endsWithIgnoringCase("host", ".localhost")).isFalse(),
                 () -> assertThat(Ascii.endsWithIgnoringCase("app.example", ".localhost")).isFalse());
     }
+
+    @Test
+    void lowersOnlyTheLettersAToZ() {
+        assertAll(
+                () -> assertThat(Ascii.lowerCase("LDAP://Host-1")).isEqualTo("ldap://host-1"),
+                () -> assertThat(Ascii.lowerCase("İSTANBUL")).as("no Unicode folding").isEqualTo("İstanbul"),
+                () -> assertThat(Ascii.lowerCase("")).isEmpty());
+    }
 }

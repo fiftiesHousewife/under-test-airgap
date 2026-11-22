@@ -116,7 +116,7 @@ testJdks.get().forEach { jdk ->
         jvmArgumentProviders.add(CommandLineArgumentProvider {
             listOf(
                 "-javaagent:${jar.get().asFile.absolutePath}=report=${report.get().asFile.absolutePath}" +
-                    ";allow=allowed.example.invalid:8443,process:java",
+                    ";allow=allowed.example.invalid:8443,process:java,native:airgapallowed",
                 "-Dairgap.test.report=${report.get().asFile.absolutePath}",
                 "-Dairgap.test.agent=${jar.get().asFile.absolutePath}",
             )

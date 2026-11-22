@@ -22,7 +22,7 @@
           "target": {
             "type": "string",
             "pattern": "^[^\\s]+$",
-            "description": "host:port (localhost:8089), a host on its own, or a JDBC or HTTP URL prefix."
+            "description": "host:port (localhost:8089), a host on its own, a JDBC or HTTP URL prefix, process:name for a program, or native:name for a native library."
           },
           "reason": {
             "type": "string",

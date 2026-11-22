@@ -170,10 +170,10 @@ range, each proved by tests on that range (see [Testing it](#testing-it)).
 | TCP connection | The socket implementation's connect (JDK 8 to 12: `PlainSocketImpl`; 13 and later: `NioSocketImpl`), and `SocketChannel` connects | `ConnectException` |
 | UDP | `DatagramSocket` and `DatagramChannel` send and connect (also covers DNS done by JNDI) | `PortUnreachableException` |
 | Asynchronous channels | `AsynchronousSocketChannel` connects | a failed result with `ConnectException` |
-| JNDI and LDAP | `InitialContext` lookups and `ldap:`, `rmi:`, `dns:` URLs | `NamingException` |
+| JNDI and LDAP | `InitialContext`'s names: URLs with the `ldap:`, `ldaps:`, `rmi:`, `dns:` and CORBA schemes, and the directory a context's settings name as its provider URL. Names inside the JVM (`java:comp/env`) are left alone; the connections JNDI providers make are caught by the network hooks too | `CommunicationException`, the `NamingException` an unreachable directory gives |
 | Starting a process | `ProcessBuilder.start` (which `Runtime.exec` uses) | `IOException` ("cannot run program") |
-| Loading native code | `System.loadLibrary` and `System.load` | `UnsatisfiedLinkError` |
-| Ending the JVM | `System.exit` and `Runtime.halt` in a test run | `SecurityException` naming the airgap agent |
+| Loading native code | `System.loadLibrary`, `System.load` and their `Runtime` versions, except the JDK's own libraries and the build tool's own (see [Native libraries are refused unless allowed, except the JDK's and the build tool's own](decisions/0012-native-libraries-are-refused-unless-allowed-except-the-jdks-and-the-build-tools-own.md)) | `UnsatisfiedLinkError` |
+| Ending the JVM | `System.exit` (through `Runtime.exit`) and `Runtime.halt`, only while a test is running on the thread, so test runners end their JVMs as usual (see [An exit is refused only while a test is running](decisions/0011-an-exit-is-refused-only-while-a-test-is-running.md)) | `SecurityException` naming the airgap agent |
 | Writing files outside the project | `FileOutputStream`, `RandomAccessFile` and `Files` writes | Reported only, at first (see [Open questions](#open-questions)) |
 
 Higher-level calls are recognised too, only to describe them better in the report: a JDBC connection says
@@ -296,7 +296,10 @@ that impossible to miss (see
 
 ## Its limits
 
-- **Native code** loaded before the agent, or code that uses the JDK's internals to go round it, isn't caught.
+- **Native code** loaded before the agent, or allowed with `native:`, or code that uses the JDK's internals to go
+  round it, isn't caught.
+- **An exit outside a test** isn't refused: with no `airgap-junit` on the tests' class path, or from a shared thread
+  pool, the agent can't tell the project's exit from the test runner's.
 - **Programs other than Java** are refused at the point of starting, but if a start is allowed, the program runs
   unguarded.
 - **Shared drives** (`\\server\share` paths and mapped network drives) are opened by the operating system, not

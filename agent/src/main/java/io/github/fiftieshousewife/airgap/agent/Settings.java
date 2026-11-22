@@ -17,7 +17,8 @@ import java.util.Set;
  * <ul>
  *   <li>{@code mode}: {@code refuse} (the default), {@code report} or {@code off}</li>
  *   <li>{@code report}: where to write the report; {@code build/airgap/calls.jsonl} by default</li>
- *   <li>{@code allow}: comma-separated stand-ins to allow: {@code host}, {@code host:port} or {@code process:name}</li>
+ *   <li>{@code allow}: comma-separated stand-ins to allow: {@code host}, {@code host:port}, {@code process:name} or
+ *       {@code native:name}</li>
  *   <li>{@code run}: what kind of JVM this is, for the report: {@code test} (the default), {@code application} or
  *       {@code build}</li>
  *   <li>{@code project}: comma-separated package prefixes of the project's own code, to name the caller exactly</li>

@@ -5,14 +5,20 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Arrays;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.Builder;
 
 /**
- * What a risky call tried to reach: a host and port, or a program. Worked out without any lookup of its own, so it
- * never makes the risky call it describes.
+ * What a risky call tried to reach: a host and port, a JNDI URL, a program, a native library or an exit. Worked out
+ * without any lookup of its own, so it never makes the risky call it describes.
  */
+@Builder(access = AccessLevel.PRIVATE)
 public final class Target {
 
     private static final int NO_PORT = -1;
+    /** JNDI URL schemes whose providers reach other machines. Others ({@code java:}, a provider's own) stay inside. */
+    private static final List<String> NETWORK_JNDI_SCHEMES = Arrays.asList("ldap", "ldaps", "rmi", "dns", "iiop",
+            "iiopname", "corbaname");
     private static final List<String> LOCAL_NAMES = Arrays.asList("localhost", "localhost.localdomain",
             "ip6-localhost", "::1", "[::1]", "0:0:0:0:0:0:0:1");
 
@@ -26,14 +32,16 @@ public final class Target {
         UNRESOLVED
     }
 
+    /** What the allowlist matches: the host, the program or the library. */
     private final String name;
-    private final int port;
+    @Builder.Default
+    private final int port = NO_PORT;
     private final Reach reach;
+    /** What the report shows, when it isn't the name and port: a JNDI URL. */
+    private final String shown;
 
-    private Target(final String name, final int port, final Reach reach) {
-        this.name = name;
-        this.port = port;
-        this.reach = reach;
+    private static Target of(final String name, final int port, final Reach reach) {
+        return builder().name(name).port(port).reach(reach).build();
     }
 
     private static Reach localOrRemote(final boolean local) {
@@ -48,7 +56,7 @@ public final class Target {
      * @return the target
      */
     public static Target ofLookup(final String host) {
-        return new Target(host, NO_PORT, localOrRemote(isLocalName(host) || isAddressLiteral(host)));
+        return of(host, NO_PORT, localOrRemote(isLocalName(host) || isAddressLiteral(host)));
     }
 
     /**
@@ -59,14 +67,14 @@ public final class Target {
      */
     public static Target ofAddress(final SocketAddress address) {
         if (!(address instanceof InetSocketAddress)) {
-            return new Target(String.valueOf(address), NO_PORT, Reach.LOCAL);
+            return of(String.valueOf(address), NO_PORT, Reach.LOCAL);
         }
         final InetSocketAddress internet = (InetSocketAddress) address;
         final String host = internet.getHostString();
         if (internet.isUnresolved()) {
-            return new Target(host, internet.getPort(), isLocalName(host) ? Reach.LOCAL : Reach.UNRESOLVED);
+            return of(host, internet.getPort(), isLocalName(host) ? Reach.LOCAL : Reach.UNRESOLVED);
         }
-        return new Target(host, internet.getPort(), localOrRemote(isLocalAddress(internet.getAddress())));
+        return of(host, internet.getPort(), localOrRemote(isLocalAddress(internet.getAddress())));
     }
 
     /**
@@ -78,7 +86,7 @@ public final class Target {
      */
     public static Target ofAddress(final InetAddress address, final int port) {
         if (address == null) {
-            return new Target("(none)", port, Reach.LOCAL);
+            return of("(none)", port, Reach.LOCAL);
         }
         return ofAddress(new InetSocketAddress(address, port));
     }
@@ -91,7 +99,85 @@ public final class Target {
      */
     public static Target ofCommand(final List<String> command) {
         final String program = command.isEmpty() ? "" : command.get(0);
-        return new Target(program, NO_PORT, Reach.REMOTE);
+        return of(program, NO_PORT, Reach.REMOTE);
+    }
+
+    /**
+     * Whether a JNDI name is a URL whose provider reaches another machine.
+     *
+     * @param name the name given to the lookup
+     * @return true for {@code ldap:}, {@code ldaps:}, {@code rmi:}, {@code dns:} and the CORBA schemes
+     */
+    public static boolean isNetworkJndiName(final String name) {
+        final int colon = name.indexOf(':');
+        return colon > 0 && NETWORK_JNDI_SCHEMES.contains(Ascii.lowerCase(name.substring(0, colon)));
+    }
+
+    /**
+     * A JNDI URL being looked up, judged by its host. With no host, LDAP, RMI and CORBA providers use the machine
+     * itself, and DNS uses the system's DNS servers.
+     *
+     * @param url the URL, such as {@code ldap://ldap.example.com:389/dc=example,dc=com}
+     * @return the target, shown as the URL
+     */
+    public static Target ofJndi(final String url) {
+        final int colon = url.indexOf(':');
+        final boolean dns = Ascii.equalsIgnoringCase("dns", url.substring(0, Math.max(colon, 0)));
+        final String afterScheme = url.substring(colon + 1);
+        String authority = "";
+        if (afterScheme.startsWith("//")) {
+            final int end = indexOfAny(afterScheme, 2, "/?#");
+            authority = afterScheme.substring(2, end);
+        }
+        authority = authority.substring(authority.lastIndexOf('@') + 1);
+        final String host = hostOf(authority);
+        final Reach reach = host.isEmpty() ? localOrRemote(!dns) : localOrRemote(isLocalName(host));
+        return builder().name(host).port(portOf(authority)).reach(reach).shown(url).build();
+    }
+
+    private static int indexOfAny(final String text, final int from, final String characters) {
+        for (int i = from; i < text.length(); i++) {
+            if (characters.indexOf(text.charAt(i)) >= 0) {
+                return i;
+            }
+        }
+        return text.length();
+    }
+
+    private static String hostOf(final String authority) {
+        if (authority.startsWith("[")) {
+            final int close = authority.indexOf(']');
+            return close < 0 ? authority.substring(1) : authority.substring(1, close);
+        }
+        final int colon = authority.indexOf(':');
+        return colon < 0 ? authority : authority.substring(0, colon);
+    }
+
+    private static int portOf(final String authority) {
+        final int colon = authority.lastIndexOf(':');
+        final String digits = colon < 0 || authority.indexOf(']', colon) >= 0 ? "" : authority.substring(colon + 1);
+        return digits.isEmpty() || !onlyDigits(digits) || digits.length() > 5 ? NO_PORT : Integer.parseInt(digits);
+    }
+
+    /**
+     * A native library being loaded.
+     *
+     * @param library its name as given to {@code loadLibrary}, or its path as given to {@code load}
+     * @return the target
+     */
+    public static Target ofLibrary(final String library) {
+        return of(library, NO_PORT, Reach.REMOTE);
+    }
+
+    /**
+     * The JVM being ended.
+     *
+     * @param method {@code exit} or {@code halt}
+     * @param status the status it would end with
+     * @return the target, shown as {@code exit(1)}
+     */
+    public static Target ofExit(final String method, final int status) {
+        return of(method + "(" + status + ")", NO_PORT, Reach.REMOTE);
     }
 
     /**
@@ -149,7 +235,7 @@ public final class Target {
         return address.isLoopbackAddress() || address.isAnyLocalAddress();
     }
 
-    /** @return the host name or address, or the program */
+    /** @return the host name or address, the program, the library or the exit */
     public String getName() {
         return name;
     }
@@ -169,8 +255,11 @@ public final class Target {
         return reach == Reach.UNRESOLVED;
     }
 
-    /** @return the target as the report shows it: {@code host:port}, or the name alone */
+    /** @return the target as the report shows it: {@code host:port}, a URL, or the name alone */
     public String text() {
+        if (shown != null) {
+            return shown;
+        }
         return port == NO_PORT ? name : name + ":" + port;
     }
 }

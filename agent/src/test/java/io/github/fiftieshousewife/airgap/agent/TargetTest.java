@@ -69,4 +69,48 @@ class TargetTest {
                 () -> assertThat(Target.ofCommand(List.of()).getName()).isEmpty(),
                 () -> assertThat(Target.ofCommand(List.of("curl")).isLocal()).isFalse());
     }
+
+    @Test
+    void namesAJndiCallByItsUrlAndJudgesItByItsHost() {
+        final Target ldap = Target.ofJndi("ldap://ldap.example.invalid:389/dc=example,dc=com");
+        final Target rmi = Target.ofJndi("rmi://[2001:db8::1]:1099/orders");
+        final Target dns = Target.ofJndi("dns:/example.com");
+
+        assertAll(
+                () -> assertThat(ldap.text()).isEqualTo("ldap://ldap.example.invalid:389/dc=example,dc=com"),
+                () -> assertThat(ldap.getName()).isEqualTo("ldap.example.invalid"),
+                () -> assertThat(ldap.getPort()).isEqualTo(389),
+                () -> assertThat(ldap.isLocal()).isFalse(),
+                () -> assertThat(rmi.getName()).isEqualTo("2001:db8::1"),
+                () -> assertThat(rmi.getPort()).isEqualTo(1099),
+                () -> assertThat(Target.ofJndi("LDAP://user@ldap.example.invalid/o=x").getName())
+                        .isEqualTo("ldap.example.invalid"),
+                () -> assertThat(Target.ofJndi("ldap://localhost:389/o=x").isLocal()).isTrue(),
+                () -> assertThat(Target.ofJndi("ldap:///o=x").isLocal()).as("no host means the machine itself")
+                        .isTrue(),
+                () -> assertThat(dns.isLocal()).as("no host means the system's DNS servers").isFalse(),
+                () -> assertThat(dns.getPort()).isEqualTo(-1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ldap://h/o", "LDAPS://h/o", "rmi://h/x", "dns://h/x", "dns:x", "iiop://h/x",
+        "iiopname://h/x", "corbaname:iiop:h#x"})
+    void recognisesJndiNamesThatReachOtherMachines(final String name) {
+        assertThat(Target.isNetworkJndiName(name)).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"java:comp/env/jdbc/orders", "jdbc/orders", "", "ldap", "file:/tmp/x", "x:ldap://h"})
+    void leavesOtherJndiNamesAlone(final String name) {
+        assertThat(Target.isNetworkJndiName(name)).isFalse();
+    }
+
+    @Test
+    void namesLibrariesAndExits() {
+        assertAll(
+                () -> assertThat(Target.ofLibrary("/opt/lib/libnative.so").text()).isEqualTo("/opt/lib/libnative.so"),
+                () -> assertThat(Target.ofLibrary("netty_transport_native_epoll").isLocal()).isFalse(),
+                () -> assertThat(Target.ofExit("halt", 3).text()).isEqualTo("halt(3)"),
+                () -> assertThat(Target.ofExit("exit", 0).isLocal()).isFalse());
+    }
 }

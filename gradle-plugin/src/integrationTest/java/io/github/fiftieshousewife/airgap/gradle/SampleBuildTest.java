@@ -41,7 +41,7 @@ class SampleBuildTest {
     @ParameterizedTest(name = "Gradle {0}")
     @MethodSource("gradleVersions")
     void theTestsAndTheApplicationRunWithTheAgent(final String gradle, final String jdk) throws IOException {
-        SampleBuild.write(sample, jdk);
+        SampleBuild.write(sample, jdk, true);
         final BuildResult result = runner(gradle).withArguments("test", "runSample", "--stacktrace").build();
         final String testReport = read("build/airgap/test/calls.jsonl");
         final String runReport = read("build/airgap/runSample/calls.jsonl");
@@ -51,6 +51,19 @@ class SampleBuildTest {
                         "\"run\":{\"kind\":\"test\"", "\"caller\":\"sample.SampleTest.lookupIsRefused("),
                 () -> assertThat(runReport).contains("\"target\":\"sample-main.invalid\"",
                         "\"run\":{\"kind\":\"application\"", "\"caller\":\"sample.Main.main("));
+    }
+
+    /** The try-it init script adds the agent to a build that doesn't use the plugin, on every supported Gradle. */
+    @ParameterizedTest(name = "Gradle {0}")
+    @MethodSource("gradleVersions")
+    void theInitScriptRunsTheTestsWithTheAgent(final String gradle, final String jdk) throws IOException {
+        SampleBuild.write(sample, jdk, false);
+        final BuildResult result = runner(gradle).withArguments("test", "--stacktrace",
+                "--init-script", System.getProperty("airgap.it.initScript")).build();
+        assertAll(
+                () -> assertThat(result.getOutput()).contains("airgap: :test made risky calls"),
+                () -> assertThat(read("build/airgap/calls.jsonl")).contains("\"target\":\"sample-test.invalid\"",
+                        "\"outcome\":\"refused\""));
     }
 
     private GradleRunner runner(final String gradle) {
