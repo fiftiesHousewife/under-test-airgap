@@ -44,6 +44,7 @@ class AirgapPluginTest {
         final String report = project.getLayout().getBuildDirectory().file("airgap/test/calls.jsonl").get().getAsFile()
                 .getAbsolutePath();
         assertThat(arguments((Test) project.getTasks().getByName("test"))).containsExactly(
+                "-Xbootclasspath/a:" + agentJar.getAbsolutePath(),
                 "-javaagent:" + agentJar.getAbsolutePath() + "=report=" + report + ";mode=refuse;run=test");
     }
 

@@ -59,7 +59,10 @@ fun Task.guardedByTheAgent(run: String) {
     val report = layout.buildDirectory.file("airgap/$name.jsonl")
     inputs.files(agent)
     (this as JavaForkOptions).jvmArgumentProviders.add(CommandLineArgumentProvider {
-        listOf("-javaagent:${agent.singleFile.absolutePath}=report=${report.get().asFile.absolutePath};run=$run")
+        listOf(
+            "-Xbootclasspath/a:${agent.singleFile.absolutePath}",
+            "-javaagent:${agent.singleFile.absolutePath}=report=${report.get().asFile.absolutePath};run=$run",
+        )
     })
     doFirst { report.get().asFile.delete() }
     doLast {

@@ -44,7 +44,8 @@ allprojects {
             }
             report.delete()
         }
-        test.jvmArgs("-javaagent:${agentJar.absolutePath}=report=${report.absolutePath}")
+        test.jvmArgs("-Xbootclasspath/a:${agentJar.absolutePath}",
+                "-javaagent:${agentJar.absolutePath}=report=${report.absolutePath}")
         test.outputs.upToDateWhen { false }
         test.doLast {
             if (report.isFile()) {

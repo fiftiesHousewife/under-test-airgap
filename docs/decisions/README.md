@@ -26,6 +26,7 @@ records by `./gradlew buildDecisionIndexes`.
 | [The Gradle wiring supports Gradle 5.6 and later, proved on each major version](0010-the-gradle-wiring-supports-gradle-5-6-and-later-proved-on-each-major-version.md) | accepted (chosen in discussion) | Airgap maintainers |
 | [An exit is refused only while a test is running](0011-an-exit-is-refused-only-while-a-test-is-running.md) | accepted (chosen in discussion) | Airgap maintainers |
 | [Native libraries are refused unless allowed, except the JDK's and the build tool's own](0012-native-libraries-are-refused-unless-allowed-except-the-jdks-and-the-build-tools-own.md) | accepted (chosen in discussion) | Airgap maintainers |
+| [A native library is the JDK's own only when a JDK class loader can see the class asking for it](0013-a-native-library-is-the-jdks-own-only-when-a-jdk-class-loader-can-see-the-class-asking-for-it.md) | proposed | Airgap maintainers |
 
 ## How this repo works
 

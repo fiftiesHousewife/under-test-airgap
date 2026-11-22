@@ -51,6 +51,9 @@ class DeciderTest {
                 () -> assertThat(decider.decide(Kind.TCP, remote("db.example.invalid", 5432), CallContext.NONE))
                         .as("an address nobody looked up fails as the lookup would")
                         .isInstanceOf(UnknownHostException.class),
+                () -> assertThat(decider.decide(Kind.UDP, remote("db.example.invalid", 53), CallContext.NONE))
+                        .as("a UDP address nobody looked up fails as the JDK refuses one")
+                        .isExactlyInstanceOf(java.net.SocketException.class),
                 () -> assertThat(decider.decide(Kind.PROCESS, Target.ofCommand(List.of("curl")), CallContext.NONE))
                         .isInstanceOf(IOException.class).hasMessageContaining(Refusals.REFUSED),
                 () -> assertThat(decider.decide(Kind.JNDI, Target.ofJndi("ldap://ldap.example.invalid/o=x"),
@@ -60,7 +63,7 @@ class DeciderTest {
                         .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED),
                 () -> assertThat(decider.decide(Kind.EXIT, Target.ofExit("exit", 1), CallContext.NONE))
                         .isInstanceOf(SecurityException.class).hasMessageContaining(Refusals.REFUSED),
-                () -> assertThat(recorded).extracting(Call::getOutcome).containsOnly("refused").hasSize(8),
+                () -> assertThat(recorded).extracting(Call::getOutcome).containsOnly("refused").hasSize(9),
                 () -> assertThat(recorded).extracting(call -> schema.problems(call.toJson())).allSatisfy(
                         problems -> assertThat(problems).isEmpty()));
     }
@@ -113,6 +116,25 @@ class DeciderTest {
                 () -> assertThat(recorded).singleElement().satisfies(call -> assertAll(
                         () -> assertThat(call.getOutcome()).isEqualTo("reported"),
                         () -> assertThat(call.getRun()).isEqualTo("build"))));
+    }
+
+    @Test
+    void refusesACallItCantReportAndSaysWhy() {
+        final Report broken = call -> {
+            throw new IOException("disk full");
+        };
+        final Decider refusing = new Decider(Settings.parse("allow=allowed.example.invalid"), broken);
+        final Decider reporting = new Decider(Settings.parse("mode=report"), broken);
+
+        assertAll(
+                () -> assertThat(reporting.decide(Kind.TCP, remote("db.example.invalid", 5432), CallContext.NONE))
+                        .as("even in report mode, since nobody would know it happened")
+                        .isInstanceOf(UnknownHostException.class)
+                        .hasMessageContaining(Refusals.REFUSED).hasMessageContaining("disk full"),
+                () -> assertThat(refusing.decide(Kind.TCP, remote("allowed.example.invalid", 443), CallContext.NONE))
+                        .as("even when allowed").hasMessageContaining("couldn't write it to its report"),
+                () -> assertThat(refusing.decide(Kind.TCP, remote("localhost", 443), CallContext.NONE))
+                        .as("the machine itself is never reported, so never refused").isNull());
     }
 
     @Test

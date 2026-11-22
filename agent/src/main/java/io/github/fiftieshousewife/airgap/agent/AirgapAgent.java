@@ -37,8 +37,12 @@ public final class AirgapAgent {
                     + " own failure to start is passed on unchanged, so the JVM shows why it stopped")
     public static void premain(final String arguments, final Instrumentation instrumentation)
             throws IOException, URISyntaxException, ReflectiveOperationException {
-        final File jar = new File(AirgapAgent.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-        instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(jar));
+        // Named with -Xbootclasspath/a as well, the jar is on the bootstrap class path from the start, and HotSpot's
+        // class-data sharing has no warning to print about it being added later.
+        if (AirgapAgent.class.getClassLoader() != null) {
+            final File jar = new File(AirgapAgent.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(jar));
+        }
         final Class<?> start = Class.forName(START, true, null);
         try {
             start.getMethod("start", String.class, Instrumentation.class).invoke(null, arguments, instrumentation);

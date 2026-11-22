@@ -1,12 +1,14 @@
 package io.github.fiftieshousewife.airgap.agent;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.SocketAddress;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 
 /**
  * Where every hook sends its call. The hooks are copied into the JDK's own methods, so this class is loaded by the
@@ -20,8 +22,6 @@ public final class Gate {
 
     private static final ThreadLocal<Boolean> DECIDING = new ThreadLocal<>();
     private static final ThreadLocal<Kind> PROBING = new ThreadLocal<>();
-    private static final InheritableThreadLocal<String> TEST = new InheritableThreadLocal<>();
-    private static final InheritableThreadLocal<Allowlist> ALLOWANCES = new InheritableThreadLocal<>();
     private static volatile Decider decider;
 
     private Gate() {
@@ -68,12 +68,44 @@ public final class Gate {
     }
 
     /**
+     * An address's name is being looked up. Refused, the caller gets the address back as its name, as offline.
+     *
+     * @param address the address
+     * @return true if refused, so the lookup is skipped
+     */
+    public static boolean reverseLookup(final InetAddress address) {
+        return address != null && refusal(Kind.HOST_LOOKUP, Target.ofReverseLookup(address)) != null;
+    }
+
+    /**
      * A TCP connection is being made.
      *
      * @param address where to
      */
     public static void tcp(final SocketAddress address) {
         check(Kind.TCP, Target.ofAddress(address));
+    }
+
+    /**
+     * An asynchronous TCP connection is being made, which reports its failure through a future or handler.
+     *
+     * @param address where to
+     * @return what it fails with if refused, or {@code null} if it may go ahead
+     */
+    public static Throwable tcpRefusal(final SocketAddress address) {
+        return refusal(Kind.TCP, Target.ofAddress(address));
+    }
+
+    /**
+     * A future that has failed.
+     *
+     * @param failure why
+     * @return the future
+     */
+    public static Future<Void> failedFuture(final Throwable failure) {
+        final CompletableFuture<Void> future = new CompletableFuture<>();
+        future.completeExceptionally(failure);
+        return future;
     }
 
     /**
@@ -92,7 +124,11 @@ public final class Gate {
      * @param port the port
      */
     public static void udp(final InetAddress address, final int port) {
-        check(Kind.UDP, Target.ofAddress(address, port));
+        final Throwable refusal = refusal(Kind.UDP, Target.ofAddress(address, port));
+        if (refusal instanceof IOException) {
+            // This connect declares no checked exception; from JDK 14 the JDK's own failure is this one.
+            throw new UncheckedIOException((IOException) refusal);
+        }
     }
 
     /**
@@ -153,11 +189,17 @@ public final class Gate {
         if (current == null || DECIDING.get() != null) {
             return;
         }
-        final String asking = LibraryLoads.askingClass(new Throwable().getStackTrace());
-        if (LibraryLoads.isJdks(asking) || current.isBuildToolsOwn(asking)) {
-            return;
+        final boolean theirOwn;
+        DECIDING.set(Boolean.TRUE);
+        try {
+            final String asking = LibraryLoads.askingClass(new Throwable().getStackTrace());
+            theirOwn = LibraryLoads.isJdks(asking) || current.isBuildToolsOwn(asking);
+        } finally {
+            DECIDING.remove();
         }
-        check(Kind.NATIVE_LIBRARY, Target.ofLibrary(library));
+        if (!theirOwn) {
+            check(Kind.NATIVE_LIBRARY, Target.ofLibrary(library));
+        }
     }
 
     /**
@@ -169,7 +211,7 @@ public final class Gate {
      */
     public static void exit(final String method, final int status) {
         stopIfProbing(Kind.EXIT);
-        if (TEST.get() != null) {
+        if (currentTest() != null) {
             check(Kind.EXIT, Target.ofExit(method, status));
         }
     }
@@ -180,18 +222,17 @@ public final class Gate {
      * @param test the test, as {@code class.method}
      */
     public static void enterTest(final String test) {
-        TEST.set(test);
+        RunningTests.enter(test);
     }
 
     /** @return the test running on this thread, or {@code null} */
     public static String currentTest() {
-        return TEST.get();
+        return RunningTests.current();
     }
 
-    /** The test on this thread has finished. */
+    /** The test on this thread has finished, for this thread and every thread it started. */
     public static void leaveTest() {
-        TEST.remove();
-        ALLOWANCES.remove();
+        RunningTests.leave();
     }
 
     /**
@@ -200,7 +241,7 @@ public final class Gate {
      * @param targets entries as an allowlist takes them: {@code host}, {@code host:port} or {@code process:name}
      */
     public static void allowForThread(final String... targets) {
-        ALLOWANCES.set(new Allowlist(Arrays.asList(targets)));
+        RunningTests.allow(targets);
     }
 
     /**
@@ -213,13 +254,7 @@ public final class Gate {
     public static boolean isAllowed(final String host, final int port) {
         final Target target = Target.ofAddress(java.net.InetSocketAddress.createUnresolved(host, port));
         final Decider current = decider;
-        return target.isLocal() || current != null && current.allows(Kind.TCP, target, context());
-    }
-
-    private static CallContext context() {
-        final Allowlist allowances = ALLOWANCES.get();
-        return new CallContext(TEST.get(),
-                allowances == null ? new Allowlist(Collections.<String>emptyList()) : allowances);
+        return target.isLocal() || current != null && current.allows(Kind.TCP, target, RunningTests.context());
     }
 
     /**
@@ -234,20 +269,24 @@ public final class Gate {
     }
 
     private static void check(final Kind kind, final Target target) {
+        final Throwable refusal = refusal(kind, target);
+        if (refusal != null) {
+            Gate.<RuntimeException>sneakyThrow(refusal);
+        }
+    }
+
+    /** @return what to throw if the call is refused, or {@code null} if it may go ahead */
+    private static Throwable refusal(final Kind kind, final Target target) {
         stopIfProbing(kind);
         final Decider current = decider;
         if (current == null || DECIDING.get() != null) {
-            return;
+            return null;
         }
-        final Throwable refusal;
         DECIDING.set(Boolean.TRUE);
         try {
-            refusal = current.decide(kind, target, context());
+            return current.decide(kind, target, RunningTests.context());
         } finally {
             DECIDING.remove();
-        }
-        if (refusal != null) {
-            Gate.<RuntimeException>sneakyThrow(refusal);
         }
     }
 

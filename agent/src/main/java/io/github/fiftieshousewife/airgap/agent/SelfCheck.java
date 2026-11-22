@@ -4,13 +4,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.MulticastSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
+import java.nio.channels.CompletionHandler;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
@@ -31,10 +34,10 @@ import net.bytebuddy.description.type.TypeDescription;
  * has changed under it, and the agent refuses to start rather than guard partly.
  *
  * <p>Every probe is harmless even if its hook is missing: lookups and connects go to a name that can't resolve,
- * packets to the machine itself, the program started and the libraries loaded don't exist, and the JNDI contexts have
- * no provider to connect with. Ending the JVM can't be probed that way, since a missing hook would end it: those
- * hooks are proved by their methods being there to rewrite, in {@code java.lang.Runtime}, the class the
- * native-library probes prove rewritten.</p>
+ * reverse lookups and packets to the machine itself, the program started and the libraries loaded don't exist, and
+ * the JNDI contexts have no provider to connect with. Ending the JVM can't be probed that way, since a missing hook
+ * would end it: those hooks are proved by their methods being there to rewrite, in {@code java.lang.Runtime}, the
+ * class the native-library probes prove rewritten.</p>
  */
 @SuppressFBWarnings(value = "UNENCRYPTED_SOCKET",
         justification = "The probes never connect: the hook refuses them, and their target can't resolve")
@@ -42,6 +45,18 @@ final class SelfCheck {
 
     static final String PROBE_HOST = "airgap-self-check.invalid";
     private static final String NO_SUCH_LIBRARY = "airgap-self-check-no-such-library";
+    /** A handler for the asynchronous connect's probe, which the hook stops before it could be called. */
+    private static final CompletionHandler<Void, Object> IGNORED = new CompletionHandler<Void, Object>() {
+        @Override
+        public void completed(final Void result, final Object attachment) {
+            // Never called: the probe's connect can't resolve its address.
+        }
+
+        @Override
+        public void failed(final Throwable thrown, final Object attachment) {
+            // Never called: the probe's connect can't resolve its address.
+        }
+    };
     private static final Map<Hook, Probe> PROBES = buildProbes();
 
     private SelfCheck() {
@@ -49,7 +64,7 @@ final class SelfCheck {
 
     /** A hooked call made only to see whether its hook is reached. */
     private interface Probe {
-        void call() throws IOException, NamingException;
+        void call() throws IOException, NamingException, ReflectiveOperationException;
     }
 
     /**
@@ -82,7 +97,11 @@ final class SelfCheck {
         } catch (Gate.Reached reached) {
             // A JNDI probe whose own hook is missing could reach a network hook instead; that doesn't count.
             return reached.getKind() == hook.kind();
-        } catch (IOException | NamingException | RuntimeException | UnsatisfiedLinkError notReached) {
+        } catch (InvocationTargetException wrapped) {
+            final Throwable cause = wrapped.getCause();
+            return cause instanceof Gate.Reached && ((Gate.Reached) cause).getKind() == hook.kind();
+        } catch (IOException | NamingException | ReflectiveOperationException | RuntimeException
+                | UnsatisfiedLinkError notReached) {
             return false;
         } finally {
             Gate.setProbing(null);
@@ -110,14 +129,18 @@ final class SelfCheck {
         final Map<Hook, Probe> probes = new EnumMap<>(Hook.class);
         probes.put(Hook.HOST_LOOKUP_ONE, () -> InetAddress.getByName(PROBE_HOST));
         probes.put(Hook.HOST_LOOKUP_ALL, () -> InetAddress.getAllByName(PROBE_HOST));
+        probes.put(Hook.HOST_LOOKUP_REVERSE, () -> InetAddress.getByAddress(new byte[] {127, 0, 0, 1}).getHostName());
         probes.put(Hook.TCP_SOCKET, () -> closing(new Socket(), socket -> socket.connect(nowhere(), 1)));
         probes.put(Hook.TCP_CHANNEL, () -> closing(SocketChannel.open(), channel -> channel.connect(nowhere())));
         probes.put(Hook.TCP_ASYNC,
                 () -> closing(AsynchronousSocketChannel.open(), channel -> channel.connect(nowhere())));
+        probes.put(Hook.TCP_ASYNC_HANDLER,
+                () -> closing(AsynchronousSocketChannel.open(), channel -> channel.connect(nowhere(), null, IGNORED)));
         probes.put(Hook.UDP_SOCKET_CONNECT, () -> closing(new DatagramSocket(), socket -> socket.connect(nowhere())));
         probes.put(Hook.UDP_SOCKET_CONNECT_ADDRESS,
                 () -> closing(new DatagramSocket(), socket -> socket.connect(InetAddress.getLoopbackAddress(), 9)));
         probes.put(Hook.UDP_SOCKET_SEND, () -> closing(new DatagramSocket(), socket -> socket.send(loopbackPacket())));
+        probes.put(Hook.UDP_MULTICAST_SEND, SelfCheck::sendWithATimeToLive);
         probes.put(Hook.UDP_CHANNEL_CONNECT,
                 () -> closing(DatagramChannel.open(), channel -> channel.connect(nowhere())));
         probes.put(Hook.UDP_CHANNEL_SEND,
@@ -136,6 +159,14 @@ final class SelfCheck {
 
     private static String noSuchLibraryFile() {
         return new File(System.getProperty("java.io.tmpdir"), NO_SUCH_LIBRARY).getAbsolutePath();
+    }
+
+    /** The deprecated {@code MulticastSocket.send(packet, ttl)}, called by reflection as the API checks require. */
+    private static void sendWithATimeToLive() throws IOException, ReflectiveOperationException {
+        try (MulticastSocket socket = new MulticastSocket()) {
+            MulticastSocket.class.getMethod("send", DatagramPacket.class, byte.class)
+                    .invoke(socket, loopbackPacket(), (byte) 1);
+        }
     }
 
     private static DatagramPacket loopbackPacket() {

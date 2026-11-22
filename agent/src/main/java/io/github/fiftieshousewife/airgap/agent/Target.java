@@ -160,6 +160,16 @@ public final class Target {
     }
 
     /**
+     * An address whose name is being looked up.
+     *
+     * @param address the address
+     * @return the target, named by the address as written; the machine itself counts as local
+     */
+    public static Target ofReverseLookup(final InetAddress address) {
+        return of(address.getHostAddress(), NO_PORT, localOrRemote(isLocalAddress(address)));
+    }
+
+    /**
      * A native library being loaded.
      *
      * @param library its name as given to {@code loadLibrary}, or its path as given to {@code load}
@@ -192,7 +202,7 @@ public final class Target {
                 return true;
             }
         }
-        return host.startsWith("127.") || Ascii.endsWithIgnoringCase(host, ".localhost");
+        return isIpv4(host) && host.startsWith("127.") || Ascii.endsWithIgnoringCase(host, ".localhost");
     }
 
     /** Whether a host is an address written as numbers, which needs no lookup. Checked by hand, not by pattern. */
@@ -206,7 +216,7 @@ public final class Target {
             return false;
         }
         for (final String part : parts) {
-            if (part.isEmpty() || part.length() > 3 || !onlyDigits(part)) {
+            if (part.isEmpty() || part.length() > 3 || !onlyDigits(part) || Integer.parseInt(part) > 255) {
                 return false;
             }
         }
@@ -215,7 +225,8 @@ public final class Target {
 
     private static boolean onlyDigits(final String text) {
         for (int i = 0; i < text.length(); i++) {
-            if (!Character.isDigit(text.charAt(i))) {
+            final char c = text.charAt(i);
+            if (c < '0' || c > '9') {
                 return false;
             }
         }

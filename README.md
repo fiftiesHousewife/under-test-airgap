@@ -30,7 +30,7 @@ written to a report.
 
 | Refused and reported now | Coming |
 |---|---|
-| Host lookups | Opening files on shared drives: `\\server\share` paths and mapped network drives |
+| Host lookups, and reverse lookups of an address's name | Opening files on shared drives: `\\server\share` paths and mapped network drives |
 | TCP connections, through sockets, NIO channels and asynchronous channels | Writing files outside the project folder |
 | UDP traffic | For Spring applications, the setting, file and line that gave each address |
 | Starting other programs | |
@@ -128,7 +128,8 @@ run may reach, such as `allow.add("wiremock.test:8089")`.
 
 A Java agent can't be an ordinary dependency. On the class path it does nothing, because the JVM starts an agent only
 when the agent's jar is named on its command line with `-javaagent:`, before any other code runs. The plugin does that
-for every task. Doing the same by hand, for the `test` task:
+for every task, and names the jar with `-Xbootclasspath/a:` too: without it, HotSpot 17 and later print a warning about
+class-data sharing in every JVM. Doing the same by hand, for the `test` task:
 
 ```kotlin
 val airgapAgent by configurations.creating
@@ -139,9 +140,14 @@ dependencies {
 }
 
 tasks.test {
+    val agent = files(airgapAgent)
     val report = layout.buildDirectory.file("airgap/test/calls.jsonl")
+    inputs.files(agent) // a new agent runs the tests again
     jvmArgumentProviders.add(CommandLineArgumentProvider {
-        listOf("-javaagent:${airgapAgent.singleFile}=report=${report.get().asFile};project=com.example.")
+        listOf(
+            "-Xbootclasspath/a:${agent.singleFile}",
+            "-javaagent:${agent.singleFile}=report=${report.get().asFile};project=com.example.",
+        )
     })
 }
 ```
@@ -149,7 +155,7 @@ tasks.test {
 Outside a build, name the agent on the `java` command:
 
 ```bash
-java -javaagent:airgap-agent.jar="report=build/airgap/calls.jsonl;project=com.example." -jar old-service.jar
+java -Xbootclasspath/a:airgap-agent.jar -javaagent:airgap-agent.jar="report=build/airgap/calls.jsonl;project=com.example." -jar old-service.jar
 ```
 
 ### Running the build itself with the agent
@@ -160,7 +166,7 @@ it to `org.gradle.jvmargs` in your own `gradle.properties`, in the Gradle user h
 package repository, so dependencies can download, and `java`, so Gradle can start its test workers:
 
 ```properties
-org.gradle.jvmargs=-Xmx2g -javaagent:/path/to/airgap-agent.jar=run=build;report=/path/to/build-calls.jsonl;allow=repo.example.com:443,process:java
+org.gradle.jvmargs=-Xmx2g -Xbootclasspath/a:/path/to/airgap-agent.jar -javaagent:/path/to/airgap-agent.jar=run=build;report=/path/to/build-calls.jsonl;allow=repo.example.com:443,process:java
 ```
 
 `org.gradle.jvmargs` replaces Gradle's default memory setting, so keep an `-Xmx`. Gradle reuses running daemons, so

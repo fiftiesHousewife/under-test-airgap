@@ -1,6 +1,5 @@
 package io.github.fiftieshousewife.airgap.agent;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -12,13 +11,13 @@ import java.nio.file.StandardOpenOption;
 
 /**
  * The report file: one line of JSON per call. Several JVMs (forked test workers, say) may write the same file at
- * once, so each line is written whole under a file lock. Reporting never stops a refusal: if the file can't be
- * written, the call is still refused, and the failure is kept for {@link #getLastFailure()}.
+ * once, so each line is written whole under a file lock. No report must mean no risky calls, so the agent won't start
+ * if it can't write the report's folder ({@link #checkWritable()}), and a line that can't be written is an error the
+ * caller hears of.
  */
 public final class JsonLinesReport implements Report {
 
     private final Path file;
-    private volatile IOException lastFailure;
 
     /**
      * A report written to a file.
@@ -29,17 +28,46 @@ public final class JsonLinesReport implements Report {
         this.file = file.toAbsolutePath();
     }
 
-    @Override
-    public void record(final Call call) {
-        final byte[] line = (call.toJson() + "\n").getBytes(StandardCharsets.UTF_8);
+    /**
+     * Makes the report's folder, and checks the report can be written there, without writing it.
+     *
+     * @throws IllegalStateException if it can't, naming the folder
+     */
+    public void checkWritable() {
+        final Path folder = file.getParent();
         try {
-            final Path folder = file.getParent();
             if (folder != null) {
                 Files.createDirectories(folder);
             }
-            write(line);
         } catch (IOException e) {
-            lastFailure = e;
+            throw cantWrite(folder, e.toString());
+        }
+        if (folder != null && !Files.isWritable(folder) || Files.exists(file) && !Files.isWritable(file)) {
+            throw cantWrite(folder, "not writable");
+        }
+    }
+
+    private IllegalStateException cantWrite(final Path folder, final String why) {
+        return new IllegalStateException("The airgap agent can't write its report " + file + " in " + folder
+                + " (" + why + "), so it won't start: without its report, nobody would know what was refused.");
+    }
+
+    @Override
+    public void record(final Call call) throws IOException {
+        final byte[] line = (call.toJson() + "\n").getBytes(StandardCharsets.UTF_8);
+        final Path folder = file.getParent();
+        if (folder != null) {
+            Files.createDirectories(folder);
+        }
+        // A file channel fails on an interrupted thread, and code that is shutting down interrupts its threads; the
+        // flag is cleared for the write and put back after.
+        final boolean interrupted = Thread.interrupted();
+        try {
+            write(line);
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -51,11 +79,5 @@ public final class JsonLinesReport implements Report {
                 channel.write(buffer);
             }
         }
-    }
-
-    /** @return the last failure to write the report, or {@code null} if every line was written */
-    @SuppressFBWarnings(value = "EI_EXPOSE_REP", justification = "The failure is handed over for reading only")
-    public IOException getLastFailure() {
-        return lastFailure;
     }
 }

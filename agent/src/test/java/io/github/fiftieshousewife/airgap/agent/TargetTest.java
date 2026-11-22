@@ -25,11 +25,25 @@ class TargetTest {
         assertThat(Target.isLocalName(host)).isTrue();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"127.example.invalid", "127.0.0.1.example.invalid", "127.0.0", "127.0.0.256",
+        "localhost.example.invalid"})
+    void looksUpNamesThatOnlyStartLikeTheMachineItself(final String host) {
+        assertThat(Target.isLocalName(host)).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"999.0.2.1", "192.0.2.256", "192.0.2", "192.0.2.1.5", "192..2.1"})
+    void looksUpNamesThatOnlyLookLikeIpv4Addresses(final String host) {
+        assertThat(Target.ofLookup(host).isLocal()).isFalse();
+    }
+
     @Test
     void treatsLookupsOfTheMachineAndOfWrittenAddressesAsLocal() {
         assertAll(
                 () -> assertThat(Target.ofLookup("localhost").isLocal()).isTrue(),
                 () -> assertThat(Target.ofLookup("192.0.2.1").isLocal()).isTrue(),
+                () -> assertThat(Target.ofLookup("255.255.255.255").isLocal()).isTrue(),
                 () -> assertThat(Target.ofLookup("2001:db8::1").isLocal()).isTrue(),
                 () -> assertThat(Target.ofLookup("db.example.invalid").isLocal()).isFalse(),
                 () -> assertThat(Target.ofLookup("db.example.invalid").text()).isEqualTo("db.example.invalid"));

@@ -25,7 +25,9 @@ public final class AgentStart {
         if (settings.getMode() == Mode.OFF) {
             return;
         }
-        Gate.open(new Decider(settings, new JsonLinesReport(settings.getReport())));
+        final JsonLinesReport report = new JsonLinesReport(settings.getReport());
+        report.checkWritable();
+        Gate.open(new Decider(settings, report));
         SelfCheck.run(Hooks.install(instrumentation, settings.getWithoutHooks()), settings.getWithoutHooks());
     }
 }

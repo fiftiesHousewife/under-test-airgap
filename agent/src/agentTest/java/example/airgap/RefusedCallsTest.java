@@ -3,7 +3,9 @@ package example.airgap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.sun.airgapexample.NativeLoader;
 import io.github.fiftieshousewife.airgap.agent.Gate;
 import io.github.fiftieshousewife.airgap.agent.Refusals;
 import java.io.IOException;
@@ -13,9 +15,11 @@ import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.MulticastSocket;
 import java.net.PortUnreachableException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -23,7 +27,13 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SocketChannel;
 import java.io.File;
+import java.io.UncheckedIOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Hashtable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import javax.naming.CommunicationException;
 import javax.naming.CompositeName;
@@ -75,9 +85,11 @@ class RefusedCallsTest {
                         .isInstanceOf(ConnectException.class).hasMessageContaining(Refusals.REFUSED),
                 () -> assertThatThrownBy(() -> {
                     try (AsynchronousSocketChannel channel = AsynchronousSocketChannel.open()) {
-                        channel.connect(remote);
+                        channel.connect(remote).get(5, TimeUnit.SECONDS);
                     }
-                }).isInstanceOf(ConnectException.class).hasMessageContaining(Refusals.REFUSED));
+                }).as("a failed future, as connect declares no checked exception")
+                        .isInstanceOf(ExecutionException.class).cause()
+                        .isInstanceOf(ConnectException.class).hasMessageContaining(Refusals.REFUSED));
     }
 
     @Test
@@ -103,7 +115,15 @@ class RefusedCallsTest {
                     try (DatagramSocket socket = new DatagramSocket()) {
                         socket.connect(remote.getAddress(), 53);
                     }
-                }).isInstanceOf(PortUnreachableException.class).hasMessageContaining(Refusals.REFUSED),
+                }).as("unchecked, as this connect declares no checked exception")
+                        .isInstanceOf(UncheckedIOException.class).cause()
+                        .isInstanceOf(PortUnreachableException.class).hasMessageContaining(Refusals.REFUSED),
+                () -> assertThatThrownBy(() -> {
+                    try (DatagramSocket socket = new DatagramSocket()) {
+                        socket.connect(InetSocketAddress.createUnresolved(UNRESOLVABLE, 53));
+                    }
+                }).as("as the JDK refuses an address nobody looked up")
+                        .isExactlyInstanceOf(SocketException.class).hasMessageContaining(Refusals.REFUSED),
                 () -> assertThatThrownBy(() -> {
                     try (DatagramChannel channel = DatagramChannel.open()) {
                         channel.send(ByteBuffer.allocate(1), remote);
@@ -114,10 +134,52 @@ class RefusedCallsTest {
     @Test
     void refusesStartingPrograms() {
         assertAll(
-                () -> assertThatThrownBy(() -> new ProcessBuilder("curl", "https://example.com").start())
+                () -> assertThatThrownBy(() -> new ProcessBuilder("sh", "-c", "exit 0").start())
                         .isInstanceOf(IOException.class).hasMessageContaining(Refusals.REFUSED),
                 () -> assertThatThrownBy(() -> Runtime.getRuntime().exec(new String[] {"sh", "-c", "echo"}))
                         .isInstanceOf(IOException.class).hasMessageContaining(Refusals.REFUSED));
+    }
+
+    @Test
+    void refusesNamesThatOnlyLookLikeAddresses() {
+        assertAll(
+                () -> assertThatThrownBy(() -> InetAddress.getByName("127.orders.example.invalid"))
+                        .isInstanceOf(UnknownHostException.class).hasMessageContaining(Refusals.REFUSED),
+                () -> assertThatThrownBy(() -> InetAddress.getByName("999.0.2.1"))
+                        .isInstanceOf(UnknownHostException.class).hasMessageContaining(Refusals.REFUSED));
+    }
+
+    /** The old multicast send with a time-to-live: deprecated, so called by reflection, but in every supported JDK. */
+    @Test
+    void refusesMulticastPacketsSentWithATimeToLive() throws IOException, NoSuchMethodException {
+        final Method send = MulticastSocket.class.getMethod("send", DatagramPacket.class, byte.class);
+        try (MulticastSocket socket = new MulticastSocket()) {
+            final DatagramPacket packet = new DatagramPacket(new byte[1], 1,
+                    new InetSocketAddress(DOCUMENTATION_ADDRESS, 53));
+            assertThatThrownBy(() -> send.invoke(socket, packet, (byte) 1))
+                    .isInstanceOf(InvocationTargetException.class).cause()
+                    .isInstanceOf(PortUnreachableException.class).hasMessageContaining(Refusals.REFUSED);
+        }
+    }
+
+    @Test
+    void refusesProgramsStartedAsAPipeline() {
+        final Method startPipeline = pipelineMethod();
+        assumeTrue(startPipeline != null, "ProcessBuilder.startPipeline came in JDK 9");
+        final List<ProcessBuilder> pipeline = Arrays.asList(
+                new ProcessBuilder("sh", "-c", "exit 0"), new ProcessBuilder("sh", "-c", "cat"));
+
+        assertThatThrownBy(() -> startPipeline.invoke(null, pipeline))
+                .isInstanceOf(InvocationTargetException.class).cause()
+                .isInstanceOf(IOException.class).hasMessageContaining(Refusals.REFUSED);
+    }
+
+    private static Method pipelineMethod() {
+        try {
+            return ProcessBuilder.class.getMethod("startPipeline", List.class);
+        } catch (NoSuchMethodException beforeJdk9) {
+            return null;
+        }
     }
 
     @Test
@@ -180,6 +242,19 @@ class RefusedCallsTest {
                 () -> assertThatThrownBy(() -> System.load(path))
                         .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED),
                 () -> assertThatThrownBy(() -> Runtime.getRuntime().loadLibrary("airgapexample"))
+                        .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED));
+    }
+
+    @Test
+    void refusesNativeLibrariesHoweverTheyAreAskedFor() throws NoSuchMethodException {
+        final Method loadLibrary = System.class.getMethod("loadLibrary", String.class);
+        assertAll(
+                () -> assertThatThrownBy(() -> NativeLoader.load("airgapexample"))
+                        .as("a class path class in a package like the JDK's")
+                        .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED),
+                () -> assertThatThrownBy(() -> loadLibrary.invoke(null, "airgapexample"))
+                        .as("through reflection")
+                        .isInstanceOf(InvocationTargetException.class).cause()
                         .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED));
     }
 

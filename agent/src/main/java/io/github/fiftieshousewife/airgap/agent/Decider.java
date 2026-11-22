@@ -1,6 +1,7 @@
 package io.github.fiftieshousewife.airgap.agent;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.IOException;
 
 /**
  * Decides each risky call: allowed, refused, or (in {@link Mode#REPORT}) let through and reported; and records it.
@@ -41,7 +42,13 @@ public final class Decider {
         }
         final String allowedBy = allowedBy(kind, target, context);
         final boolean refused = allowedBy == null && settings.getMode() == Mode.REFUSE;
-        report.record(call(kind, target, context).outcome(outcome(refused, allowedBy)).allowedBy(allowedBy).build());
+        try {
+            report.record(call(kind, target, context).outcome(outcome(refused, allowedBy)).allowedBy(allowedBy)
+                    .build());
+        } catch (IOException unreported) {
+            // A call nobody would know about must not happen, whatever the mode or allowlist says.
+            return Refusals.forUnreportedCall(kind, target, unreported);
+        }
         return refused ? Refusals.forCall(kind, target) : null;
     }
 

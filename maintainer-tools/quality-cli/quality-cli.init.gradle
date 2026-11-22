@@ -11,29 +11,27 @@ allprojects {
         tasks.register("pmdCli", JavaExec) {
             group = "verification"
             description = "Runs PMD on every source set, without a Gradle worker process."
-            onlyIf { !javaSources().isEmpty() }
+            def sources = javaSources()
+            enabled = !sources.isEmpty()
             classpath = project.configurations.detachedConfiguration(
                 project.dependencies.create("net.sourceforge.pmd:pmd-cli:${project.pmd.toolVersion}"),
                 project.dependencies.create("net.sourceforge.pmd:pmd-java:${project.pmd.toolVersion}"))
             mainClass = "net.sourceforge.pmd.cli.PmdCli"
-            doFirst {
-                args "check", "--no-cache", "--no-progress", "-f", "text",
-                     "-R", rootProject.file("config/quality/pmd/ruleset.xml").path,
-                     "-d", javaSources().collect { it.path }.join(",")
-            }
+            args "check", "--no-cache", "--no-progress", "-f", "text",
+                 "-R", rootProject.file("config/quality/pmd/ruleset.xml").path,
+                 "-d", sources.collect { it.path }.join(",")
         }
     }
     plugins.withId("checkstyle") {
         tasks.register("checkstyleCli", JavaExec) {
             group = "verification"
             description = "Runs Checkstyle on every source set, without a Gradle worker process."
-            onlyIf { !javaSources().isEmpty() }
+            def sources = javaSources()
+            enabled = !sources.isEmpty()
             classpath = project.configurations.detachedConfiguration(
                 project.dependencies.create("com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"))
             mainClass = "com.puppycrawl.tools.checkstyle.Main"
-            doFirst {
-                args(["-c", rootProject.file("config/quality/checkstyle/checkstyle.xml").path] + javaSources().collect { it.path })
-            }
+            args(["-c", rootProject.file("config/quality/checkstyle/checkstyle.xml").path] + sources.collect { it.path })
         }
     }
 }

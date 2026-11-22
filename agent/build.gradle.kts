@@ -115,6 +115,7 @@ testJdks.get().forEach { jdk ->
         doFirst { report.get().asFile.delete() }
         jvmArgumentProviders.add(CommandLineArgumentProvider {
             listOf(
+                "-Xbootclasspath/a:${jar.get().asFile.absolutePath}",
                 "-javaagent:${jar.get().asFile.absolutePath}=report=${report.get().asFile.absolutePath}" +
                     ";allow=allowed.example.invalid:8443,process:java,native:airgapallowed",
                 "-Dairgap.test.report=${report.get().asFile.absolutePath}",

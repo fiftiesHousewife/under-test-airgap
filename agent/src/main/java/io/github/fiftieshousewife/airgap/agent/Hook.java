@@ -4,6 +4,8 @@ import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.takesArgument;
 import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
 
+import io.github.fiftieshousewife.airgap.agent.advice.AsyncConnectAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.AsyncConnectHandlerAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.ExitAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.JndiCompositeNameAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.JndiNameAdvice;
@@ -11,6 +13,7 @@ import io.github.fiftieshousewife.airgap.agent.advice.JndiProviderAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.LookupAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.NativeLibraryAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.ProcessAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.ReverseLookupAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.TcpAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.UdpAddressAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.UdpAdvice;
@@ -40,6 +43,10 @@ public enum Hook {
     HOST_LOOKUP_ALL("java.net.InetAddress", named("getAllByName").and(takesArguments(String.class)),
             LookupAdvice.class),
 
+    /** Reverse lookups: {@code getHostName} and {@code getCanonicalHostName}, for an address with no name. */
+    HOST_LOOKUP_REVERSE("java.net.InetAddress",
+            named("getHostFromNameService").and(takesArgument(0, InetAddress.class)), ReverseLookupAdvice.class),
+
     /** Every plain socket connect, which all of {@code Socket}'s constructors and {@code connect} methods reach. */
     TCP_SOCKET("java.net.Socket", named("connect").and(takesArguments(SocketAddress.class, int.class)),
             TcpAdvice.class),
@@ -48,9 +55,14 @@ public enum Hook {
     TCP_CHANNEL("sun.nio.ch.SocketChannelImpl", named("connect").and(takesArguments(SocketAddress.class)),
             TcpAdvice.class),
 
-    /** Asynchronous socket channels, both {@code connect} methods. */
+    /** Asynchronous socket channels' {@code connect} that returns a future. */
     TCP_ASYNC("sun.nio.ch.AsynchronousSocketChannelImpl",
-            named("connect").and(takesArgument(0, SocketAddress.class)), TcpAdvice.class),
+            named("connect").and(takesArguments(SocketAddress.class)), AsyncConnectAdvice.class),
+
+    /** Asynchronous socket channels' {@code connect} that calls a handler. */
+    TCP_ASYNC_HANDLER("sun.nio.ch.AsynchronousSocketChannelImpl",
+            named("connect").and(takesArguments(3)).and(takesArgument(0, SocketAddress.class)),
+            AsyncConnectHandlerAdvice.class),
 
     /** {@code DatagramSocket.connect(SocketAddress)}. */
     UDP_SOCKET_CONNECT("java.net.DatagramSocket", named("connect").and(takesArguments(SocketAddress.class)),
@@ -64,6 +76,10 @@ public enum Hook {
     UDP_SOCKET_SEND("java.net.DatagramSocket", named("send").and(takesArguments(DatagramPacket.class)),
             UdpPacketAdvice.class),
 
+    /** {@code MulticastSocket.send} with a time-to-live, which doesn't go through {@code DatagramSocket.send}. */
+    UDP_MULTICAST_SEND("java.net.MulticastSocket",
+            named("send").and(takesArguments(DatagramPacket.class, byte.class)), UdpPacketAdvice.class),
+
     /** {@code DatagramChannel.connect}, which also carries the JDK's own DNS client on newer JDKs. */
     UDP_CHANNEL_CONNECT("sun.nio.ch.DatagramChannelImpl", named("connect").and(takesArguments(SocketAddress.class)),
             UdpAdvice.class),
@@ -72,8 +88,11 @@ public enum Hook {
     UDP_CHANNEL_SEND("sun.nio.ch.DatagramChannelImpl",
             named("send").and(takesArguments(ByteBuffer.class, SocketAddress.class)), UdpChannelSendAdvice.class),
 
-    /** {@code ProcessBuilder.start}, which {@code Runtime.exec} also reaches. */
-    PROCESS("java.lang.ProcessBuilder", named("start").and(takesArguments(0)), ProcessAdvice.class),
+    /**
+     * {@code ProcessBuilder.start}, which {@code Runtime.exec} also reaches. From JDK 9 the private
+     * {@code start(Redirect[])} is hooked, which {@code start()} and {@code startPipeline} both reach.
+     */
+    PROCESS("java.lang.ProcessBuilder", processStart(), ProcessAdvice.class),
 
     /** JNDI names written as strings: every lookup, bind and list on an {@code InitialContext} reaches this. */
     JNDI_NAME("javax.naming.InitialContext", named("getURLOrDefaultInitCtx").and(takesArguments(String.class)),
@@ -117,6 +136,15 @@ public enum Hook {
         this.typeName = typeName;
         this.methods = methods;
         this.advice = advice;
+    }
+
+    private static ElementMatcher<MethodDescription> processStart() {
+        try {
+            ProcessBuilder.class.getDeclaredMethod("start", ProcessBuilder.Redirect[].class);
+            return named("start").and(takesArguments(ProcessBuilder.Redirect[].class));
+        } catch (NoSuchMethodException jdk8) {
+            return named("start").and(takesArguments(0));
+        }
     }
 
     /** @return the hook's name in settings and messages, for example {@code tcp-socket} */

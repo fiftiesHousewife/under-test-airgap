@@ -25,7 +25,9 @@ allow: containers, operating-system sandboxes, firewall rules or packet capture.
 It refuses risky calls from inside the JVM, and reports each one. Added to the command line as
 `-javaagent:airgap-agent.jar`, it rewrites the JDK's own risky methods as their classes load (with
 [Byte Buddy](https://bytebuddy.net), the library Mockito is built on). From then on, every caller, whichever library
-it goes through, reaches the agent's check first:
+it goes through, reaches the agent's check first. The rewritten JDK methods call the agent's classes, so the jar must
+be on the bootstrap class path: the plugin names it there with `-Xbootclasspath/a:` as well, since a jar the agent adds
+there itself makes HotSpot 17 and later print a class-data sharing warning in every JVM.
 
 - **Allowed** (on the allowlist): the call goes ahead, and is recorded.
 - **Otherwise:** the call is refused with the exception an unplugged machine would give, and recorded with the test
@@ -166,13 +168,13 @@ range, each proved by tests on that range (see [Testing it](#testing-it)).
 
 | Kind | Caught at (JDK internals vary by version) | Refused with |
 |---|---|---|
-| Host lookup | `InetAddress`'s name lookups (JDK 8 to 17: its name service; 18 and later: its resolver) | `UnknownHostException` |
+| Host lookup | `InetAddress`'s name lookups (JDK 8 to 17: its name service; 18 and later: its resolver), and reverse lookups (`getHostName`, `getCanonicalHostName`). A name counts as written as an address only if it is a real one, and as the machine itself only if it is a real loopback address or `localhost` | `UnknownHostException`; a refused reverse lookup gives the address back as its name, as offline |
 | TCP connection | The socket implementation's connect (JDK 8 to 12: `PlainSocketImpl`; 13 and later: `NioSocketImpl`), and `SocketChannel` connects | `ConnectException` |
-| UDP | `DatagramSocket` and `DatagramChannel` send and connect (also covers DNS done by JNDI) | `PortUnreachableException` |
-| Asynchronous channels | `AsynchronousSocketChannel` connects | a failed result with `ConnectException` |
+| UDP | `DatagramSocket` and `DatagramChannel` send and connect, and `MulticastSocket`'s send with a time-to-live (also covers DNS done by JNDI) | `PortUnreachableException`; wrapped in `UncheckedIOException` by `DatagramSocket.connect(InetAddress, int)`, which declares no checked exception, as the JDK does from 14; `SocketException` for an address nobody looked up, as the JDK refuses one |
+| Asynchronous channels | `AsynchronousSocketChannel` connects | a failed future, or the handler's `failed` called, with `ConnectException` |
 | JNDI and LDAP | `InitialContext`'s names: URLs with the `ldap:`, `ldaps:`, `rmi:`, `dns:` and CORBA schemes, and the directory a context's settings name as its provider URL. Names inside the JVM (`java:comp/env`) are left alone; the connections JNDI providers make are caught by the network hooks too | `CommunicationException`, the `NamingException` an unreachable directory gives |
-| Starting a process | `ProcessBuilder.start` (which `Runtime.exec` uses) | `IOException` ("cannot run program") |
-| Loading native code | `System.loadLibrary`, `System.load` and their `Runtime` versions, except the JDK's own libraries and the build tool's own (see [Native libraries are refused unless allowed, except the JDK's and the build tool's own](decisions/0012-native-libraries-are-refused-unless-allowed-except-the-jdks-and-the-build-tools-own.md)) | `UnsatisfiedLinkError` |
+| Starting a process | `ProcessBuilder.start` (which `Runtime.exec` uses), and from JDK 9 `ProcessBuilder.startPipeline` | `IOException` ("cannot run program") |
+| Loading native code | `System.loadLibrary`, `System.load` and their `Runtime` versions, called directly or through reflection, except the JDK's own libraries and the build tool's own (see [Native libraries are refused unless allowed, except the JDK's and the build tool's own](decisions/0012-native-libraries-are-refused-unless-allowed-except-the-jdks-and-the-build-tools-own.md)). A library is the JDK's only when a JDK class loader can see the class asking for it, so a class path library in a JDK-like package, such as JNA's `com.sun.jna`, is not (proposed in [A native library is the JDK's own only when a JDK class loader can see the class asking for it](decisions/0013-a-native-library-is-the-jdks-own-only-when-a-jdk-class-loader-can-see-the-class-asking-for-it.md)) | `UnsatisfiedLinkError` |
 | Ending the JVM | `System.exit` (through `Runtime.exit`) and `Runtime.halt`, only while a test is running on the thread, so test runners end their JVMs as usual (see [An exit is refused only while a test is running](decisions/0011-an-exit-is-refused-only-while-a-test-is-running.md)) | `SecurityException` naming the airgap agent |
 | Writing files outside the project | `FileOutputStream`, `RandomAccessFile` and `Files` writes | Reported only, at first (see [Open questions](#open-questions)) |
 
@@ -222,6 +224,10 @@ An allowed call is still reported, so the report always shows everything the cod
 - **where the address came from,** for Spring applications: the setting's name and the file and line it was read from;
 - **which JVM:** the kind of run (test, application start, build) and its Java version.
 
+No report must mean no risky calls, so the agent won't start if it can't write the report's folder, and a call whose
+line can't be written is refused, whatever the mode or allowlist, with a message saying the report failed. A line is
+written even from a thread that has been interrupted.
+
 A summary at the end of the run lists each distinct target once, with how many calls and which tests made them: the
 list of everything the project depends on, for a person to confirm and give stand-ins. See
 [The report is one line of JSON per call, with a schema, and feeds the connection list](decisions/0006-the-report-is-one-line-of-json-per-call-with-a-schema-and-feeds-the-connection-list.md).
@@ -229,9 +235,10 @@ list of everything the project depends on, for a person to confirm and give stan
 ## Knowing which test made a call
 
 The JUnit Platform listener, registered automatically through Java's service loader, tells the agent when each test
-starts and ends. The agent keeps the current test per thread, passed on to threads the test starts. Work handed to a
-shared thread pool loses that link, so every line also names the first frame of the project's own code, which is
-enough to find the caller.
+starts and ends. The agent keeps the current test per thread, passed on to threads the test starts, which see it, and what it
+allows, only while the test runs: a pool that outlives its test is neither allowed what the test was nor blamed for
+its calls. Work handed to a shared thread pool loses that link, so every line also names the first frame of the
+project's own code, which is enough to find the caller.
 
 Projects on JUnit 4 move onto the JUnit Platform first: JUnit 4 tests keep running, unchanged, on its Vintage engine.
 JUnit 6 needs Java 17, so projects on JDK 8 to 16 use JUnit 5. The listener and extension are built against the JUnit 5

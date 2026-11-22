@@ -3,6 +3,7 @@ package io.github.fiftieshousewife.airgap.gradle;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import lombok.Builder;
@@ -17,7 +18,7 @@ import org.gradle.api.tasks.Internal;
 import org.gradle.process.CommandLineArgumentProvider;
 
 /**
- * The {@code -javaagent:} argument for one guarded task, worked out when the task runs, so settings made after the
+ * The {@code -javaagent:} arguments for one guarded task, worked out when the task runs, so settings made after the
  * plugin is applied still count. The report's path is left out of the task's inputs, so moving the project doesn't
  * make the task run again.
  */
@@ -56,10 +57,15 @@ public final class AgentArguments implements CommandLineArgumentProvider {
         return report;
     }
 
+    /**
+     * The jar goes on the bootstrap class path from the start as well as being named as the agent: added later, by the
+     * agent, it makes HotSpot 17 and later print a class-data sharing warning in every JVM.
+     */
     @Override
     public Iterable<String> asArguments() {
-        return Collections.singletonList("-javaagent:" + agent.getSingleFile().getAbsolutePath()
-                + "=report=" + reportFile().getAbsolutePath() + ";" + getSettings());
+        final String jar = agent.getSingleFile().getAbsolutePath();
+        return Arrays.asList("-Xbootclasspath/a:" + jar,
+                "-javaagent:" + jar + "=report=" + reportFile().getAbsolutePath() + ";" + getSettings());
     }
 
     private File reportFile() {

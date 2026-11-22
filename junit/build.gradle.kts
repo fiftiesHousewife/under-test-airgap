@@ -40,6 +40,7 @@ tasks.test {
     doFirst { report.get().asFile.delete() }
     jvmArgumentProviders.add(CommandLineArgumentProvider {
         listOf(
+            "-Xbootclasspath/a:${agentFiles.singleFile.absolutePath}",
             "-javaagent:${agentFiles.singleFile.absolutePath}=report=${report.get().asFile.absolutePath}" +
                 ";project=io.github.fiftieshousewife.airgap.junit",
             "-Dairgap.test.report=${report.get().asFile.absolutePath}",

@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -29,15 +30,20 @@ class SelfCheckTest {
     }
 
     /**
-     * JDK 24 and later warn when sun.misc.Unsafe is used, or a native library loaded without native access; the
-     * agent, and its self-check's probes, mustn't add either warning to anyone's output.
+     * JDK 24 and later warn when sun.misc.Unsafe is used, or a native library loaded without native access, and
+     * HotSpot 17 and later when the bootstrap class path grows after start; the agent, started as the Gradle plugin
+     * starts it, and its self-check's probes, mustn't add any warning to anyone's output.
      */
     @Test
     void startsWithoutAWarningFromTheJdk() throws IOException, InterruptedException {
-        final Result result = runJava("report=" + new File(System.getProperty("java.io.tmpdir"),
-                "airgap-self-warnings.jsonl"));
+        final String jar = System.getProperty("airgap.test.agent");
+        final Result result = run(Paths.java(), "-Xbootclasspath/a:" + jar, "-javaagent:" + jar + "=report="
+                + new File(System.getProperty("java.io.tmpdir"), "airgap-self-warnings.jsonl"), "-version");
 
-        assertThat(result.output).doesNotContain("sun.misc.Unsafe", "restricted method", "WARNING");
+        assertAll(
+                () -> assertThat(result.exitCode).as(result.output).isZero(),
+                () -> assertThat(result.output).doesNotContainIgnoringCase("warning")
+                        .doesNotContain("sun.misc.Unsafe", "restricted method"));
     }
 
     /** Test runners end their own JVM once the tests finish; with no test running, an exit goes ahead. */
@@ -70,6 +76,21 @@ class SelfCheckTest {
         assertAll(
                 () -> assertThat(result.exitCode).as(result.output).isNotZero(),
                 () -> assertThat(result.output).contains("couldn't put its hooks in place for [exit]"));
+    }
+
+    /** No report must mean no risky calls, so a report that can't be written stops the JVM before anything runs. */
+    @Test
+    void refusesToStartWhenItCantWriteItsReport() throws IOException, InterruptedException {
+        final File notAFolder = File.createTempFile("airgap-self-not-a-folder", ".txt");
+        try {
+            final Result result = runJava("report=" + new File(notAFolder, "calls.jsonl"));
+
+            assertAll(
+                    () -> assertThat(result.exitCode).as(result.output).isNotZero(),
+                    () -> assertThat(result.output).contains("can't write its report", notAFolder.getPath()));
+        } finally {
+            Files.delete(notAFolder.toPath());
+        }
     }
 
     private static Result runJava(final String agentSettings) throws IOException, InterruptedException {
