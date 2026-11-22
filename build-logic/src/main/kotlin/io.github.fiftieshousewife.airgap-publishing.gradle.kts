@@ -97,6 +97,8 @@ publishing.publications.withType<MavenPublication>().matching { !it.name.endsWit
 
 val signingKey = providers.gradleProperty("signingInMemoryKey")
 signing {
+    // The Gradle plugin-publish plugin adds signing tasks of its own (for the plugin marker); without a key they skip.
+    isRequired = signingKey.isPresent
     if (signingKey.isPresent) {
         useInMemoryPgpKeys(signingKey.get(), providers.gradleProperty("signingInMemoryKeyPassword").orNull)
         sign(publishing.publications)
