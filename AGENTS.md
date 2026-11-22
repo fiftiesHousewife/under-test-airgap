@@ -76,6 +76,8 @@ Enforced by `./gradlew check`:
 | Dependencies kept current | Ben Manes versions plugin |
 | **The agent and the JUnit parts compile to Java 8** (`--release 8`) and are tested on JDK 8, 11, 17, 21 and 25 | The build's toolchains |
 | **Every hook has a test on every supported JDK**, and the agent checks its hooks at start | [Every hook is proved on every supported JDK](docs/decisions/0008-every-hook-is-proved-on-every-supported-jdk-and-the-agent-checks-its-own-hooks-at-start.md) |
+| **Every public route in the JDK to a risky call passes a hook,** or is on the reviewed list with why it's safe | `jdkRoutesOnJdk<version>`, reading each JDK's own classes; `agent/src/jdkRoutes/resources/example/airgap/routes/reviewed-routes.txt` |
+| **The operating system sees nothing the agent didn't report** | `checkOsTrace`, run in CI on the agent's tests under strace |
 | Versions only in [`gradle/libs.versions.toml`](gradle/libs.versions.toml); ids under `io.github.fiftieshousewife` | Review |
 
 ## Safety

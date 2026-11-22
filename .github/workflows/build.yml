@@ -39,3 +39,14 @@ jobs:
           -Pairgap.jdk17="$JAVA_HOME_17_X64"
           -Pairgap.jdk21="$JAVA_HOME_21_X64"
           -Pairgap.jdk25="$JAVA_HOME_25_X64"
+      # The agent's own tests again, under strace: anything the operating system saw them do to another machine, a
+      # program or a library, that the agent didn't report as allowed, fails the build.
+      - name: Install strace
+        run: sudo apt-get install --yes --no-install-recommends strace
+      - name: Run the agent's tests under strace and check what the operating system saw
+        run: |
+          maintainer-tools/os-trace/wrap-jdks.sh "$RUNNER_TEMP/traced" "$PWD/build/os-trace"
+          ./gradlew :agent:checkOsTrace -Pairgap.osTrace=build/os-trace \
+            -Pairgap.jdk8="$RUNNER_TEMP/traced/jdk8" -Pairgap.jdk11="$RUNNER_TEMP/traced/jdk11" \
+            -Pairgap.jdk17="$RUNNER_TEMP/traced/jdk17" -Pairgap.jdk21="$RUNNER_TEMP/traced/jdk21" \
+            -Pairgap.jdk25="$RUNNER_TEMP/traced/jdk25"

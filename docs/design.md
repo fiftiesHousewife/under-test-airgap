@@ -295,6 +295,10 @@ that impossible to miss (see
   public JDK method it reaches without passing a hook must be on a reviewed list saying why it is safe. A new JDK that
   opens a new route fails the build instead of going unnoticed. It found the socket a `SocketChannel` hands out,
   `isReachable`, the JDK's own name checks and the foreign function API, all now hooked.
+- **What the operating system saw:** in CI, on Linux, the agent's own tests run again under strace, which records
+  every connection and packet, every program started and every library opened, by the test JVMs and every process
+  they start. Anything to another machine, a program or a library that the agent didn't report as allowed fails the
+  build: a way round the hooks shows up there, whatever route it took, even one nobody thought of.
 - **Every route to each kind of call:** plain sockets, NIO, the JDK's HTTP client, Apache HttpClient, OkHttp, Netty,
   JDBC drivers and JNDI, so no library finds a way round.
 - **That nothing leaves the machine:** each test aims at an address reserved for documentation (`192.0.2.1`) or a name

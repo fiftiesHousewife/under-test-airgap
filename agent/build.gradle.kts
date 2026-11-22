@@ -24,7 +24,10 @@ dependencies {
 val reportSchema = rootProject.layout.projectDirectory.file("schema/airgap-report.schema.json")
 tasks.test {
     systemProperty("airgap.schema", reportSchema.asFile.absolutePath)
-    filter { excludeTestsMatching("*AgentTestReportsMatchSchemaTest") }
+    filter {
+        excludeTestsMatching("*AgentTestReportsMatchSchemaTest")
+        excludeTestsMatching("*OsTraceMatchesReportsTest")
+    }
 }
 
 tasks.named<JavaCompile>("compileJava") {
@@ -169,6 +172,28 @@ tasks.check {
     dependsOn(checkAgentTestReports)
 }
 
+// What the operating system saw the agent's tests do must match what the agent reported: any connection or packet to
+// another machine, program started or library opened that the agent didn't report as allowed is a way round it. CI
+// runs the agent's tests under strace (maintainer-tools/os-trace/wrap-jdks.sh) and then this, with
+// -Pairgap.osTrace=<the folder of traces>.
+val osTrace = providers.gradleProperty("airgap.osTrace").map { rootProject.file(it) }
+tasks.register<Test>("checkOsTrace") {
+    group = "verification"
+    description = "Checks the strace records of the agent's own tests against the agent's reports (with airgap.osTrace)."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching("*OsTraceMatchesReportsTest") }
+    systemProperty("airgap.osTrace", osTrace.map { it.absolutePath }.getOrElse(""))
+    systemProperty("airgap.agentTestReports", layout.buildDirectory.dir("airgap-tests").get().asFile.absolutePath)
+    dependsOn(tasks.withType<Test>().matching { it.name.startsWith("agentTestOnJdk") })
+    enabled = osTrace.isPresent
+    if (osTrace.isPresent) {
+        inputs.dir(osTrace).withPropertyName("osTrace")
+    }
+    inputs.dir(layout.buildDirectory.dir("airgap-tests")).withPropertyName("agentTestReports").optional()
+}
+
 // Coverage is measured by the unit tests, which run the agent's logic directly. The classes that only make sense with
 // the agent attached (its entry point, its hooks and its self-check) are proved by the agent's own tests above, on
 // every JDK, instead.
@@ -195,7 +220,7 @@ pitest {
         "io.github.fiftieshousewife.airgap.agent.RunningTests*", "io.github.fiftieshousewife.airgap.agent.NativeGate*",
         "io.github.fiftieshousewife.airgap.agent.SctpGate*",
     )
-    excludedTestClasses = listOf("*AgentTestReportsMatchSchemaTest")
+    excludedTestClasses = listOf("*AgentTestReportsMatchSchemaTest", "*OsTraceMatchesReportsTest")
     jvmArgs = listOf("-Dairgap.schema=${reportSchema.asFile.absolutePath}")
     outputFormats = listOf("HTML", "XML")
     timestampedReports = false

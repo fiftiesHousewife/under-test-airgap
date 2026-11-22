@@ -689,6 +689,7 @@ items:
       - "The test fails on any such method that can reach one without passing a hook, unless a reviewed list says why it is safe"
       - "Runs on JDK 8, 11, 17, 21 and 25 in ./gradlew check"
   - key: "an-os-trace-finds-calls-the-agent-missed"
+    notes: "Built: CI runs the agent's tests a second time with each JDK's java started under strace (maintainer-tools/os-trace/wrap-jdks.sh), then :agent:checkOsTrace compares what strace recorded with the agent's reports. The checker's parsing is unit-tested on strace's own output lines, and it was checked on sample traces here; its first run on real traces is in CI on Linux."
     type: "deliverable"
     title: "In CI, the agent's tests run under an operating-system trace, and any call that left the machine without being reported fails the build"
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
