@@ -445,6 +445,7 @@ items:
       - "startPipeline is refused with the IOException a missing program gives, and reported, on JDK 11, 17, 21 and 25"
       - "The self-check proves the hook at start"
   - key: "decide-how-the-jdks-own-native-libraries-are-recognised"
+    status: "done"
     type: "decision"
     title: "A native library is the JDK's own only when a JDK class loader can see the class asking for it"
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
@@ -455,6 +456,7 @@ items:
     done_when:
       - "Chosen in discussion by the airgap maintainers"
     decision_record: "docs/decisions/0013-a-native-library-is-the-jdks-own-only-when-a-jdk-class-loader-can-see-the-class-asking-for-it.md"
+    notes: "Done: accepted by the airgap maintainers in discussion."
   - key: "native-libraries-judged-by-class-loader"
     status: "done"
     notes: "Done: a class is the JDK's when the class loader just above the class path can see it, and reflection and method-handle frames are skipped when finding the class asking. Proposed in A native library is the JDK's own only when a JDK class loader can see the class asking for it."
@@ -507,6 +509,7 @@ items:
       - "A name such as 127.example.invalid is a name to look up, and is refused"
       - "999.1.1.1 is a name to look up, and is refused"
   - key: "decide-what-is-seen-behind-an-http-proxy"
+    status: "done"
     type: "decision"
     title: "What the agent reports and refuses when calls go through an HTTP proxy"
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
@@ -516,6 +519,8 @@ items:
     done_by: "person"
     done_when:
       - "Chosen in discussion by the airgap maintainers"
+    decision_record: "docs/decisions/0014-behind-an-http-proxy-the-jdks-own-http-clients-are-judged-by-their-real-destination-as-well-as-the-proxy.md"
+    notes: "Done: judge both, for the JDK's own HTTP clients; built under the-jdks-http-clients-are-judged-behind-a-proxy."
   - key: "test-names-stay-with-their-test"
     status: "done"
     notes: "Done: threads a test starts share its name and allowances while it runs; when it ends, none of them see either. Proved on every supported JDK by ThreadsAndCallbacksTest."
@@ -605,6 +610,7 @@ items:
       - "@AllowCalls on a base class or an enclosing class applies to nested and subclass tests"
     notes: "Done: the listener gives each test class a scope of its own, named by the class and allowed what @AllowCalls on it, its base classes and its enclosing classes allow; each test runs inside it, and the class's scope comes back after. Allowances add up instead of replacing each other."
   - key: "decide-how-native-names-match-library-files"
+    status: "done"
     type: "decision"
     title: "How a native: allow entry matches library files whose names carry versions or random ids, as sqlite-jdbc's do"
     parent: "the-agent-is-ready-for-a-company-to-approve-and-use"
@@ -614,6 +620,8 @@ items:
     done_by: "person"
     done_when:
       - "Chosen in discussion by the airgap maintainers"
+    decision_record: "docs/decisions/0015-a-native-allow-entry-matches-a-librarys-name-exactly-or-by-wildcards.md"
+    notes: "Done: exact, or with * wildcards; built in LibraryNames, with the file names sqlite-jdbc, Netty and JNA use in its tests."
   - key: "init-script-applies-the-plugin"
     status: "done"
     notes: "Done without applying the plugin: the plugin's dependencies come from the build's own repositories, which a build being tried may not have, or may forbid adding to. The script writes build/airgap/<task name>/calls.jsonl, as the plugin does, and names a missing jar in its failure. Proved by the integration tests on every supported Gradle."
@@ -671,6 +679,7 @@ items:
     done_when:
       - "checkout, setup-java and setup-gradle are on their latest major versions"
   - key: "decide-whether-to-accept-setup-gradle-v6s-terms"
+    status: "done"
     type: "decision"
     title: "Whether CI moves to setup-gradle v6, whose caching comes under Gradle's proprietary terms of use"
     parent: "this-repo-keeps-itself-in-order"
@@ -680,6 +689,8 @@ items:
     done_by: "person"
     done_when:
       - "Chosen in discussion by the airgap maintainers: v6 with caching, v6 with caching off, or v5 for now"
+    decision_record: "docs/decisions/0016-ci-stays-on-setup-gradle-v5-for-now-rather-than-accept-v6s-terms-for-caching.md"
+    notes: "Done: v5 for now, looked at again when v5 stops working or a security fix comes only in v6."
   - key: "every-route-in-the-jdk-passes-a-hook"
     notes: "Built: jdkRoutesOnJdk<version> in the agent's build, part of check; it passes on JDK 11, 17, 21 and 25, and runs on JDK 8 and on Linux (with real SCTP) for the first time in CI. It found five routes round the hooks, now hooked and tested: the socket a SocketChannel hands out (JDK 13+), InetAddress.isReachable, the JDK's own name lookups in SocketPermission, security policies and RMI (the lookup hook moved down to the private getAllByName0), JDK 22's SymbolLookup.libraryLookup, and SCTP. The safe routes left are on agent/src/jdkRoutes/resources/example/airgap/routes/reviewed-routes.txt, each with why."
     type: "deliverable"
@@ -708,3 +719,18 @@ items:
       - "Any to an address other than loopback, or any program or library, that the agent's report doesn't name fails the build"
     blocked_by:
       - "every-route-in-the-jdk-passes-a-hook"
+  - key: "the-jdks-http-clients-are-judged-behind-a-proxy"
+    type: "deliverable"
+    title: "Behind a proxy, HttpURLConnection and the JDK's HTTP client are checked and reported by their real destination as well as the proxy"
+    parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
+    phase: "set-up"
+    horizon: "next"
+    owner_role: "Technical Architect"
+    done_by: "ai"
+    blocked_by:
+      - "decide-what-is-seen-behind-an-http-proxy"
+    done_when:
+      - "Through an allowed proxy on the machine itself, a request to a destination that isn't allowed is refused and reported with both the proxy and the destination, on every supported JDK"
+      - "A request to an allowed destination through an allowed proxy goes ahead"
+      - "The JDK route check and the self-check cover the new hooks"
+      - "The design's limits name the clients still seen only as the proxy"

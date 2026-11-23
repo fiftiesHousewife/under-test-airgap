@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: accepted
 decision-makers: Airgap maintainers
 group: How it works
 ---
 
 # A native library is the JDK's own only when a JDK class loader can see the class asking for it
 
-**Decided by:** Airgap maintainers · **Status:** proposed
+**Decided by:** Airgap maintainers · **Status:** accepted
 
 ## Context and Problem Statement
 
@@ -39,7 +39,7 @@ JDK 21:
 
 ## Decision Outcome
 
-Proposed: by class loader, skipping reflection. It is built and tested on JDK 11, 17, 21 and 25, with tests that load
+Chosen by the airgap maintainers in discussion: by class loader, skipping reflection. It is built and tested on JDK 11, 17, 21 and 25, with tests that load
 a library from a `com.sun.` class on the class path and through reflection, both refused.
 
 ### Consequences

@@ -121,6 +121,10 @@ Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), 
 native library (`native:sqlitejdbc`, which matches `libsqlitejdbc.so` and `sqlitejdbc.dll` too). Nothing allows a
 test to end the JVM.
 
+A `native:` entry may use `*` for any run of characters, for libraries that unpack themselves to files with versions
+or random ids in their names: `native:*sqlitejdbc` for sqlite-jdbc, `native:netty_transport_native_epoll*` for
+Netty's.
+
 ### Applications
 
 The plugin also starts every `JavaExec` task with the agent, including Spring Boot's `bootRun`; its report goes to

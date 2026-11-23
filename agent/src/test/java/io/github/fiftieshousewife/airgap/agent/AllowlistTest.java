@@ -68,4 +68,29 @@ class AllowlistTest {
                 () -> assertThat(new Allowlist(List.of("exit(1)", "exit")).allows(Kind.EXIT, Target.ofExit("exit", 1)))
                         .isFalse());
     }
+
+    /** The names sqlite-jdbc and Netty give the libraries they extract, with versions and random ids in them. */
+    @Test
+    void matchesNativeNamesExactlyOrByWildcards() {
+        final Allowlist wildcards = new Allowlist(List.of("native:*sqlitejdbc", "native:netty_transport_native_epoll*",
+                "native:jni*dispatch"));
+        assertAll(
+                () -> assertThat(wildcards.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary(
+                        "/tmp/sqlite-3.45.1.0-1f0c6d2e-8b1a-4c1e-9d55-2b7f6c3e9a10-libsqlitejdbc.so"))).isTrue(),
+                () -> assertThat(wildcards.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary(
+                        "C:\\Temp\\sqlite-3.45.1.0-1f0c6d2e-sqlitejdbc.dll"))).isTrue(),
+                () -> assertThat(wildcards.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary(
+                        "/tmp/libnetty_transport_native_epoll_x86_644839027761524470398.so"))).isTrue(),
+                () -> assertThat(wildcards.allows(Kind.NATIVE_LIBRARY,
+                        Target.ofLibrary("/tmp/jna1234/libjnidispatch.so.4"))).isTrue(),
+                () -> assertThat(wildcards.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary("/tmp/libsqlitejdbc-extra.so")))
+                        .as("a wildcard only where the entry has one").isFalse(),
+                () -> assertThat(wildcards.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary("/tmp/libnetty_tcnative.so")))
+                        .isFalse(),
+                () -> assertThat(allowlist.allows(Kind.NATIVE_LIBRARY,
+                        Target.ofLibrary("/tmp/sqlite-3.45.1.0-1f0c6d2e-libsqlitejdbc.so")))
+                        .as("no wildcard, no match").isFalse(),
+                () -> assertThat(allowlist.allows(Kind.NATIVE_LIBRARY, Target.ofLibrary("/usr/lib/libsqlitejdbc.so.1")))
+                        .as("a versioned .so keeps its name").isTrue());
+    }
 }

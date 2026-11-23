@@ -6,8 +6,9 @@ import java.util.List;
 
 /**
  * Stand-ins that may be reached: {@code host} (any port), {@code host:port}, {@code process:name} for a program, or
- * {@code native:name} for a native library. Names are compared without regard to case. The machine itself is always
- * allowed, and isn't listed here. Nothing allows a test to end the JVM.
+ * {@code native:name} for a native library (exactly, or with {@code *} wildcards; see {@link LibraryNames}). Names
+ * are compared without regard to case. The machine itself is always allowed, and isn't listed here. Nothing allows a
+ * test to end the JVM.
  */
 public final class Allowlist {
 
@@ -54,23 +55,9 @@ public final class Allowlist {
             return isProgram(entry, name);
         }
         if (kind == Kind.NATIVE_LIBRARY) {
-            return entry.startsWith(NATIVE) && entry.substring(NATIVE.length()).equals(libraryName(name));
+            return entry.startsWith(NATIVE) && LibraryNames.matches(entry.substring(NATIVE.length()), name);
         }
         return isHost(entry, name, target.getPort());
-    }
-
-    /**
-     * A library's name, as {@code loadLibrary} takes it: a path or file name loses its folder, its {@code lib} prefix
-     * and its extension, so {@code /tmp/libsqlitejdbc.so} and {@code sqlitejdbc.dll} are both {@code sqlitejdbc}.
-     */
-    private static String libraryName(final String library) {
-        final String file = fileName(library);
-        final int dot = file.indexOf('.');
-        if (dot < 0) {
-            return file;
-        }
-        final String base = file.substring(0, dot);
-        return base.startsWith("lib") && base.length() > 3 ? base.substring(3) : base;
     }
 
     private static String fileName(final String path) {
