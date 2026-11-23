@@ -33,6 +33,9 @@ public final class AgentArguments implements CommandLineArgumentProvider {
 
     private final FileCollection agent;
     private final Property<String> mode;
+    /** Lets a JVM attach an agent to itself, from inside, with no second program. */
+    public static final String ALLOW_ATTACH_SELF = "-Djdk.attach.allowAttachSelf=true";
+
     private final ListProperty<String> allow;
     private final ListProperty<String> packages;
     private final String run;
@@ -73,15 +76,21 @@ public final class AgentArguments implements CommandLineArgumentProvider {
 
     /**
      * The jar goes on the bootstrap class path from the start as well as being named as the agent: added later, by the
-     * agent, it makes HotSpot 17 and later print a class-data sharing warning in every JVM.
+     * agent, it makes HotSpot 17 and later print a class-data sharing warning in every JVM. Test JVMs may attach agents
+     * to themselves, as Mockito's inline mock maker does: otherwise, on JDK 9 and later, Byte Buddy starts a second
+     * {@code java} program to attach from outside, which the agent refuses.
      */
     @Override
     public Iterable<String> asArguments() {
         final String jar = agent.getSingleFile().getAbsolutePath();
         final File file = settingsFile.getSingleFile();
         final String named = file.isFile() ? "settings=" + file.getAbsolutePath() + ";" : "";
-        return Arrays.asList("-Xbootclasspath/a:" + jar,
-                "-javaagent:" + jar + "=report=" + reportFile().getAbsolutePath() + ";" + named + getSettings());
+        final List<String> arguments = new ArrayList<>(Arrays.asList("-Xbootclasspath/a:" + jar,
+                "-javaagent:" + jar + "=report=" + reportFile().getAbsolutePath() + ";" + named + getSettings()));
+        if ("test".equals(run)) {
+            arguments.add(ALLOW_ATTACH_SELF);
+        }
+        return arguments;
     }
 
     private File reportFile() {

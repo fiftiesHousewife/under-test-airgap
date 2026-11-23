@@ -124,6 +124,7 @@ testJdks.get().forEach { jdk ->
         testClassesDirs = agentTest.output.classesDirs
         classpath = agentTest.runtimeClasspath
         useJUnitPlatform()
+        filter { excludeTestsMatching("*OtherAgentsTest") }
         val jdkHome = providers.gradleProperty("airgap.jdk$jdk")
         if (jdkHome.isPresent) {
             executable = File(jdkHome.get(), "bin/java").absolutePath
@@ -140,8 +141,25 @@ testJdks.get().forEach { jdk ->
             outputs.doNotCacheIf("the tests must run under strace") { true }
         }
     }
+    // The other agents tests carry, in a JVM that allows nothing, as a project's does: a test JVM that allowed starting
+    // java hid that Mockito's inline mock maker starts java to attach itself, unless the JVM lets it attach from inside.
+    val otherAgents = tasks.register<Test>("otherAgentsOnJdk$jdk") {
+        group = "verification"
+        description = "Runs JaCoCo and Mockito's inline mock maker on JDK $jdk, with the agent allowing nothing."
+        testClassesDirs = agentTest.output.classesDirs
+        classpath = agentTest.runtimeClasspath
+        useJUnitPlatform()
+        filter { includeTestsMatching("*OtherAgentsTest") }
+        val jdkHome = providers.gradleProperty("airgap.jdk$jdk")
+        if (jdkHome.isPresent) {
+            executable = File(jdkHome.get(), "bin/java").absolutePath
+        } else {
+            javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk) }
+        }
+        runWithOwnAgent(files(agentJar), layout.buildDirectory.file("airgap-other-agents/jdk$jdk/calls.jsonl"), "")
+    }
     tasks.check {
-        dependsOn(task)
+        dependsOn(task, otherAgents)
     }
 }
 

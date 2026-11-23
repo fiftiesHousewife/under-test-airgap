@@ -156,7 +156,8 @@ run may reach, such as `allow.add("wiremock.test:8089")`.
 A Java agent can't be an ordinary dependency. On the class path it does nothing, because the JVM starts an agent only
 when the agent's jar is named on its command line with `-javaagent:`, before any other code runs. The plugin does that
 for every task, and names the jar with `-Xbootclasspath/a:` too: without it, HotSpot 17 and later print a warning about
-class-data sharing in every JVM. Doing the same by hand, for the `test` task:
+class-data sharing in every JVM. For tests it also lets the JVM attach agents to itself, so Mockito's inline mock maker
+doesn't start a second `java` program, which the agent would refuse. Doing the same by hand, for the `test` task:
 
 ```kotlin
 val airgapAgent = configurations.create("airgapAgent")
@@ -174,6 +175,7 @@ tasks.test {
         listOf(
             "-Xbootclasspath/a:${agent.singleFile}",
             "-javaagent:${agent.singleFile}=report=${report.get().asFile};project=com.example.",
+            "-Djdk.attach.allowAttachSelf=true", // so Mockito's inline mock maker attaches without starting java
         )
     })
 }

@@ -39,6 +39,8 @@ private class OwnAgentArguments(
         return listOf(
             "-Xbootclasspath/a:$jar",
             "-javaagent:$jar=report=$file;$settings",
+            // As the plugin does for test JVMs: Mockito's inline mock maker attaches from inside, starting no program.
+            "-Djdk.attach.allowAttachSelf=true",
             "-Dairgap.test.report=$file",
             "-Dairgap.test.agent=$jar",
         )

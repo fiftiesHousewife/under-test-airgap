@@ -318,10 +318,14 @@ The agent:
   it, and the hook is still there after;
 - **lets Mockito attach itself on JDK 8,** where the attach API's library is loaded by JDK code that no JDK class
   loader loads: a library whose file is in the JDK's own library folder is the JDK's own, whoever asks for it
-  ([decision](decisions/0017-a-native-library-whose-file-is-in-the-jdks-own-library-folder-is-the-jdks-own-whoever-asks-for-it.md)).
+  ([decision](decisions/0017-a-native-library-whose-file-is-in-the-jdks-own-library-folder-is-the-jdks-own-whoever-asks-for-it.md));
+- **lets test JVMs attach agents to themselves** (`-Djdk.attach.allowAttachSelf=true`, added by the plugin and the
+  try-it script), so on JDK 9 and later Mockito attaches from inside the JVM instead of starting a second `java`
+  program, which the agent would refuse
+  ([decision](decisions/0018-test-jvms-let-agents-attach-to-themselves-so-mockito-starts-no-java-program.md)).
 
-Each is proved in this repo's build, on every supported JDK: JaCoCo and Mockito's inline mock maker in the same JVM as
-the agent's own tests (`OtherAgentsTest`), and PIT, on JDK 11 and later as PIT needs, running a sample's tests in JVMs
+Each is proved in this repo's build, on every supported JDK: JaCoCo and Mockito's inline mock maker in a JVM whose
+agent allows nothing, as a project's does (`OtherAgentsTest`, run by `otherAgentsOnJdk<version>`), and PIT, on JDK 11 and later as PIT needs, running a sample's tests in JVMs
 it starts with its own agent and the airgap agent (`pitestUnderAgentOnJdk<version>`). Every bug PIT plants must be
 caught, and the sample's call must be refused and reported in PIT's JVMs.
 

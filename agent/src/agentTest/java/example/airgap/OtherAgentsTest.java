@@ -28,7 +28,8 @@ import org.mockito.Mockito;
 /**
  * The agent shares the JVM with the other agents tests carry: JaCoCo, which this build attaches to every test task,
  * and Mockito's inline mock maker, which attaches itself and rewrites the classes it mocks, the JDK's among them. Each
- * keeps working, and so do the hooks. PIT is proved in its own run, {@code pitestUnderAgentOnJdk<version>}.
+ * keeps working, and so do the hooks. Run in a JVM whose agent allows nothing, as a project's does
+ * ({@code otherAgentsOnJdk<version>}). PIT is proved in its own run, {@code pitestUnderAgentOnJdk<version>}.
  */
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
 @SuppressFBWarnings(value = "UNENCRYPTED_SOCKET",
@@ -85,6 +86,11 @@ class OtherAgentsTest {
                     }
                 }).as("Mockito rewrote Socket, and its hook is still there")
                         .isInstanceOf(ConnectException.class).hasMessageContaining(Refusals.REFUSED),
-                () -> assertThat(linesAbout("192.0.2.41:80")).hasSize(1));
+                () -> assertThat(linesAbout("192.0.2.41:80")).hasSize(1),
+                () -> assertThat(linesAbout(java())).as("Mockito attached itself without starting java").isEmpty());
+    }
+
+    private static String java() {
+        return Paths.get(System.getProperty("java.home"), "bin", "java").toString();
     }
 }

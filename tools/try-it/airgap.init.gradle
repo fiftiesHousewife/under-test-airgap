@@ -46,8 +46,11 @@ allprojects {
         test.doFirst {
             report.delete()
         }
+        // A test JVM may attach agents to itself, as Mockito's inline mock maker does; otherwise, on JDK 9 and later,
+        // Byte Buddy starts a second java program to attach from outside, which the agent refuses.
         test.jvmArgs("-Xbootclasspath/a:${agentJar.absolutePath}",
-                "-javaagent:${agentJar.absolutePath}=report=${report.absolutePath}")
+                "-javaagent:${agentJar.absolutePath}=report=${report.absolutePath}",
+                "-Djdk.attach.allowAttachSelf=true")
         test.outputs.upToDateWhen { false }
         test.doLast {
             if (report.isFile()) {

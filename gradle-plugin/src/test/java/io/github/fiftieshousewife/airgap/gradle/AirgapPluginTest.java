@@ -45,14 +45,16 @@ class AirgapPluginTest {
                 .getAbsolutePath();
         assertThat(arguments((Test) project.getTasks().getByName("test"))).containsExactly(
                 "-Xbootclasspath/a:" + agentJar.getAbsolutePath(),
-                "-javaagent:" + agentJar.getAbsolutePath() + "=report=" + report + ";run=test");
+                "-javaagent:" + agentJar.getAbsolutePath() + "=report=" + report + ";run=test",
+                AgentArguments.ALLOW_ATTACH_SELF);
     }
 
     @org.junit.jupiter.api.Test
     void aJavaExecTaskStartsWithTheAgentAsAnApplication() {
         final JavaExec run = project.getTasks().register("bootRun", JavaExec.class).get();
         assertThat(String.join(" ", arguments(run)))
-                .contains("build/airgap/bootRun/calls.jsonl;run=application");
+                .contains("build/airgap/bootRun/calls.jsonl;run=application")
+                .as("only test JVMs attach agents to themselves").doesNotContain(AgentArguments.ALLOW_ATTACH_SELF);
     }
 
     @org.junit.jupiter.api.Test
@@ -63,7 +65,7 @@ class AirgapPluginTest {
         settings.getAllow().add("process:git");
         settings.getPackages().add("com.example.");
         assertThat(String.join(" ", arguments((Test) project.getTasks().getByName("test"))))
-                .endsWith(";mode=report;run=test;allow=wiremock.test:8089,process:git;project=com.example.");
+                .contains(";mode=report;run=test;allow=wiremock.test:8089,process:git;project=com.example. ");
     }
 
     @org.junit.jupiter.api.Test
