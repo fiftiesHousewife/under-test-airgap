@@ -20,6 +20,8 @@ okhttp = "5.5.1"
 netty = "4.2.21.Final"
 postgresql = "42.7.15"
 mysql-connector = "26.10.0"
+# Mockito 4 is the last to run on JDK 8; its inline mock maker rewrites classes as the agent does.
+mockito4 = "4.11.0"
 # The Gradle wiring is compiled against the oldest Gradle it supports, and tested on the latest of each major version.
 gradle-oldest-supported = "5.6.4"
 gradle-tested = "5.6.4,6.9.4,7.6.6,8.14.8"
@@ -72,6 +74,9 @@ okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 netty-transport = { module = "io.netty:netty-transport", version.ref = "netty" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 mysql-connector = { module = "com.mysql:mysql-connector-j", version.ref = "mysql-connector" }
+mockito4-core = { module = "org.mockito:mockito-core", version.ref = "mockito4" }
+mockito4-inline = { module = "org.mockito:mockito-inline", version.ref = "mockito4" }
+byte-buddy-agent = { module = "net.bytebuddy:byte-buddy-agent", version.ref = "byte-buddy" }
 
 # Gradle plugins, as ordinary dependencies of build-logic
 gradle-pitest-plugin = { module = "info.solidsoft.gradle.pitest:gradle-pitest-plugin", version.ref = "gradle-pitest-plugin" }

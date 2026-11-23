@@ -314,9 +314,16 @@ The JVMs it joins often carry other agents: JaCoCo (coverage), PIT (mutation tes
 The agent:
 
 - **keeps its own copy of Byte Buddy** under its own package name, so it never clashes with the copy Mockito brings;
-- **is added first** on the command line by the plugin, so it sees classes before the others rewrite them;
-- runs with JaCoCo in this repo's own build today; **planned:** tests together with PIT and Mockito's inline mock
-  maker.
+- **keeps its hooks when another agent rewrites a JDK class:** Mockito's inline mock maker rewrites `Socket` to mock
+  it, and the hook is still there after;
+- **lets Mockito attach itself on JDK 8,** where the attach API's library is loaded by JDK code that no JDK class
+  loader loads: a library whose file is in the JDK's own library folder is the JDK's own, whoever asks for it
+  ([decision](decisions/0017-a-native-library-whose-file-is-in-the-jdks-own-library-folder-is-the-jdks-own-whoever-asks-for-it.md)).
+
+Each is proved in this repo's build, on every supported JDK: JaCoCo and Mockito's inline mock maker in the same JVM as
+the agent's own tests (`OtherAgentsTest`), and PIT, on JDK 11 and later as PIT needs, running a sample's tests in JVMs
+it starts with its own agent and the airgap agent (`pitestUnderAgentOnJdk<version>`). Every bug PIT plants must be
+caught, and the sample's call must be refused and reported in PIT's JVMs.
 
 ## Approval inside a company
 
@@ -355,7 +362,7 @@ that impossible to miss (see
   hook must stop, or, where no call is harmless (ending the JVM, SCTP, the foreign function API), checks the methods
   are there to rewrite. If any hook isn't in place it refuses to start, naming the gap: a JDK it can't fully guard
   stops the run rather than being guarded partly.
-- **With the other agents** (planned for PIT and Mockito) in the same JVM.
+- **With the other agents** in the same JVM: JaCoCo, Mockito's inline mock maker and PIT.
 - **On old code (planned):** example old services (Spring with Gradle, Spring with Maven, plain Java), run end to end, whose
   reports must match saved, approved reports.
 - **Mutation testing at a high bar:** PIT must kill at least 90% of the bugs it plants in the code that decides,

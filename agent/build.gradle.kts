@@ -100,6 +100,12 @@ dependencies {
     "agentTestImplementation"(libs.netty.transport)
     "agentTestRuntimeOnly"(libs.postgresql)
     "agentTestRuntimeOnly"(libs.mysql.connector)
+    // Mockito's inline mock maker, the other agent most tests carry, in the same JVM. Its Byte Buddy is the current
+    // one, as a project's own build would resolve it, so it reads every supported JDK's classes.
+    "agentTestImplementation"(libs.mockito4.core)
+    "agentTestImplementation"(libs.mockito4.inline)
+    "agentTestImplementation"(libs.byte.buddy)
+    "agentTestImplementation"(libs.byte.buddy.agent)
 }
 
 // Which JDKs the agent's tests run on: all supported by default; -Pairgap.testJdks=25 runs one. Each JDK comes from
@@ -171,6 +177,71 @@ testJdks.get().forEach { jdk ->
             javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk) }
         }
         systemProperty("airgap.routes.out", layout.buildDirectory.file("jdk-routes/jdk$jdk.tsv").get().asFile.absolutePath)
+    }
+    tasks.check {
+        dependsOn(task)
+    }
+}
+
+// PIT under the agent, on every JDK PIT runs on (11 and later): PIT runs a small sample's tests once for each bug it
+// plants, in JVMs it starts with its own agent and, here, the airgap agent too, as a project would set PIT's jvmArgs.
+// Every planted bug must be caught, and the sample's own refused call must be refused and reported in those JVMs.
+val pitUnderAgent: SourceSet = sourceSets.create("pitUnderAgent")
+tasks.named<JavaCompile>(pitUnderAgent.compileJavaTaskName) {
+    options.release = 8
+    options.compilerArgs.add("-Xlint:-options")
+}
+val pitestTool: Configuration = configurations.create("pitestTool")
+dependencies {
+    "pitUnderAgentCompileOnly"(libs.spotbugs.annotations)
+    "pitUnderAgentImplementation"(platform(libs.junit5.bom))
+    "pitUnderAgentImplementation"(libs.junit5.jupiter.api)
+    "pitUnderAgentRuntimeOnly"("org.junit.jupiter:junit-jupiter-engine")
+    "pitUnderAgentRuntimeOnly"(libs.junit5.platform.launcher)
+    pitestTool("org.pitest:pitest-command-line:${libs.versions.pitest.asProvider().get()}")
+    pitestTool("org.pitest:pitest-junit5-plugin:${libs.versions.pitest.junit5.get()}")
+}
+testJdks.get().filter { it.toInt() >= 11 }.forEach { jdk ->
+    val out = layout.buildDirectory.dir("pit-under-agent/jdk$jdk")
+    val minions = layout.buildDirectory.file("pit-under-agent/jdk$jdk/minions-calls.jsonl")
+    val task = tasks.register<JavaExec>("pitestUnderAgentOnJdk$jdk") {
+        group = "verification"
+        description = "Runs PIT on JDK $jdk with the airgap agent in every JVM it starts."
+        classpath = pitestTool + pitUnderAgent.runtimeClasspath
+        mainClass = "org.pitest.mutationtest.commandline.MutationCoverageReport"
+        val jdkHome = providers.gradleProperty("airgap.jdk$jdk")
+        if (jdkHome.isPresent) {
+            executable(File(jdkHome.get(), "bin/java").absolutePath)
+        } else {
+            javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk) }
+        }
+        // PIT's own JVM starts its test JVMs with java, so that one program is allowed.
+        runWithOwnAgent(files(agentJar), layout.buildDirectory.file("pit-under-agent/jdk$jdk/calls.jsonl"),
+            "allow=process:java")
+        val reportDir = out.get().asFile
+        val minionReport = minions.get().asFile
+        val sources = file("src/pitUnderAgent/java")
+        val jarFile = agentJar
+        argumentProviders.add(CommandLineArgumentProvider {
+            val jar = jarFile.get().asFile.absolutePath
+            listOf(
+                "--reportDir", reportDir.absolutePath, "--sourceDirs", sources.absolutePath,
+                "--targetClasses", "example.pitsample.Discount", "--targetTests", "example.pitsample.*",
+                "--outputFormats", "XML", "--timestampedReports=false", "--mutationThreshold", "100",
+                "--jvmArgs", "-Xbootclasspath/a:$jar,-javaagent:$jar=report=${minionReport.absolutePath}",
+            )
+        })
+        inputs.files(pitUnderAgent.output).withPropertyName("sample")
+        outputs.dir(out).withPropertyName("pitReports")
+        doFirst { minionReport.delete() }
+        doLast {
+            val mutations = File(reportDir, "mutations.xml").readText()
+            check(mutations.contains("status='KILLED'")) { "PIT under the agent killed no mutants" }
+            val lines = minionReport.readLines()
+            check(lines.any { it.contains("\"target\":\"192.0.2.51:80\"") && it.contains("\"outcome\":\"refused\"") }) {
+                "The agent didn't refuse and report the sample's call in PIT's test JVMs"
+            }
+        }
     }
     tasks.check {
         dependsOn(task)

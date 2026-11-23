@@ -1,5 +1,8 @@
 package io.github.fiftieshousewife.airgap.agent;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -66,6 +69,40 @@ final class LibraryLoads {
             Class.forName(className, false, jdksLoader());
             return true;
         } catch (ClassNotFoundException | LinkageError notTheJdks) {
+            return false;
+        }
+    }
+
+    /**
+     * Whether a library's file is one of the JDK's own: a name the JVM finds first in the JDK's own library folder
+     * ({@code sun.boot.library.path}), or a path to a file in that folder. The JDK's code can be loaded by other class
+     * loaders, as JDK 8's {@code tools.jar} is when Mockito attaches its agent, and its libraries are the JDK's own
+     * all the same. A project can't put files in that folder, so its own libraries are still judged as its own.
+     *
+     * @param library the library's name, or its path
+     * @param byName true for a name, which the JVM looks for in the JDK's folder first; false for a path
+     * @return true if the file is in the JDK's own library folder
+     */
+    static boolean isJdksFile(final String library, final boolean byName) {
+        final String folders = System.getProperty("sun.boot.library.path", "");
+        for (final String folder : folders.split(File.pathSeparator)) {
+            if (!folder.isEmpty() && isIn(new File(folder), library, byName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "Only looks to see whether a library the code asked for is in the JDK's own folder")
+    private static boolean isIn(final File folder, final String library, final boolean byName) {
+        if (byName) {
+            return new File(folder, System.mapLibraryName(library)).isFile();
+        }
+        try {
+            final File file = new File(library).getCanonicalFile();
+            return file.isFile() && folder.getCanonicalFile().equals(file.getParentFile());
+        } catch (IOException unreadable) {
             return false;
         }
     }

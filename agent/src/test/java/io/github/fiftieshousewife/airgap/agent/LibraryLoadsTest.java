@@ -3,6 +3,10 @@ package io.github.fiftieshousewife.airgap.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 class LibraryLoadsTest {
@@ -47,5 +51,24 @@ class LibraryLoadsTest {
                 () -> assertThat(LibraryLoads.isJdks("com.sun.jna.Native")).as("not the JDK's, whatever its package")
                         .isFalse(),
                 () -> assertThat(LibraryLoads.isJdks("")).isFalse());
+    }
+
+    @Test
+    void countsAFileInTheJdksOwnLibraryFolderAsTheJdks() throws IOException {
+        final Path jdkLibraries = Path.of(System.getProperty("sun.boot.library.path").split(File.pathSeparator)[0]);
+        final Path zip = jdkLibraries.resolve(System.mapLibraryName("zip"));
+        final Path elsewhere = Files.createTempFile("libairgap", ".so");
+
+        assertAll(
+                () -> assertThat(LibraryLoads.isJdksFile("zip", true)).as("a name the JDK's folder has").isTrue(),
+                () -> assertThat(LibraryLoads.isJdksFile("airgapexample", true)).isFalse(),
+                () -> assertThat(LibraryLoads.isJdksFile(zip.toString(), false)).as("a path into it").isTrue(),
+                () -> assertThat(LibraryLoads.isJdksFile(jdkLibraries.resolve("..").resolve(jdkLibraries.getFileName())
+                        .resolve(zip.getFileName()).toString(), false)).as("however it's written").isTrue(),
+                () -> assertThat(LibraryLoads.isJdksFile(elsewhere.toString(), false)).as("a path elsewhere").isFalse(),
+                () -> assertThat(LibraryLoads.isJdksFile("zip", false)).as("a name read as a path").isFalse(),
+                () -> assertThat(LibraryLoads.isJdksFile(jdkLibraries.resolve("libnothing.so").toString(), false))
+                        .as("no such file").isFalse());
+        Files.delete(elsewhere);
     }
 }

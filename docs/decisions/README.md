@@ -29,6 +29,7 @@ records by `./gradlew buildDecisionIndexes`.
 | [A native library is the JDK's own only when a JDK class loader can see the class asking for it](0013-a-native-library-is-the-jdks-own-only-when-a-jdk-class-loader-can-see-the-class-asking-for-it.md) | accepted | Airgap maintainers |
 | [Behind an HTTP proxy, the JDK's own HTTP clients are judged by their real destination as well as the proxy](0014-behind-an-http-proxy-the-jdks-own-http-clients-are-judged-by-their-real-destination-as-well-as-the-proxy.md) | accepted | Airgap maintainers |
 | [A native allow entry matches a library's name exactly, or by wildcards](0015-a-native-allow-entry-matches-a-librarys-name-exactly-or-by-wildcards.md) | accepted | Airgap maintainers |
+| [A native library whose file is in the JDK's own library folder is the JDK's own, whoever asks for it](0017-a-native-library-whose-file-is-in-the-jdks-own-library-folder-is-the-jdks-own-whoever-asks-for-it.md) | accepted | Airgap maintainers |
 
 ## How this repo works
 
