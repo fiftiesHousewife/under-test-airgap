@@ -22,6 +22,7 @@ final class OsTrace {
     private static final Pattern PROGRAM = Pattern.compile("^execve\\(\"([^\"]+)\".*\\) = 0$");
     private static final Pattern LIBRARY = Pattern.compile(
             "^openat\\([^,]+, \"([^\"]+)\".*\\) = \\d+$");
+    private static final Pattern LIBRARY_NAME = Pattern.compile("\\.so(\\.\\d+)*$");
     private static final List<String> LOCAL = Arrays.asList("::1", "0.0.0.0", "::");
     private static final List<String> SYSTEM_FOLDERS = Arrays.asList("/lib/", "/usr/lib/", "/lib64/", "/usr/lib64/");
 
@@ -66,8 +67,9 @@ final class OsTrace {
         return null;
     }
 
+    /** A file named as a library is: ending in .so, or .so and a version (libz.so.1.2), not just containing it. */
     private static boolean isLibrary(final String path) {
-        return path.endsWith(".so") || path.contains(".so.");
+        return LIBRARY_NAME.matcher(path).find();
     }
 
     private static boolean isLocal(final String address) {

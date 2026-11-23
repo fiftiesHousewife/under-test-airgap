@@ -55,6 +55,10 @@ class OsTraceTest {
                         + "O_RDONLY|O_CLOEXEC) = 3")).isNull(),
                 () -> assertThat(OsTrace.parse("openat(AT_FDCWD, \"/tmp/libmissing.so\", O_RDONLY|O_CLOEXEC) = -1 "
                         + "ENOENT (No such file or directory)")).as("not opened").isNull(),
+                () -> assertThat(OsTrace.parse("openat(AT_FDCWD, \"/tmp/libvendor.so.1.2\", O_RDONLY|O_CLOEXEC) = 3"))
+                        .as("a library with a version").hasToString("library /tmp/libvendor.so.1.2"),
+                () -> assertThat(OsTrace.parse("openat(AT_FDCWD, \"/etc/ld.so.cache\", O_RDONLY|O_CLOEXEC) = 3"))
+                        .as("the dynamic linker's index, not a library").isNull(),
                 () -> assertThat(OsTrace.parse("openat(AT_FDCWD, \"/tmp/notes.txt\", O_RDONLY) = 3")).isNull());
     }
 }
