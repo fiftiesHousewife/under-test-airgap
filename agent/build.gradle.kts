@@ -190,6 +190,11 @@ tasks.register<Test>("checkOsTrace") {
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
     filter { includeTestsMatching("*OsTraceMatchesReportsTest") }
+    // CI shows only the log: print what the operating system saw that the agent didn't report, in full.
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showCauses = true
+    }
     systemProperty("airgap.osTrace", osTrace.map { it.absolutePath }.getOrElse(""))
     systemProperty("airgap.agentTestReports", layout.buildDirectory.dir("airgap-tests").get().asFile.absolutePath)
     dependsOn(tasks.withType<Test>().matching { it.name.startsWith("agentTestOnJdk") })
