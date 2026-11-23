@@ -27,7 +27,7 @@ initscript {
     dependencies {
         if (!System.getProperty("airgap.agent")) {
             add(ownConfiguration ? "airgapAgent" : "classpath",
-                    "io.github.fiftieshousewife.airgap:airgap-agent:${System.getProperty("airgap.version", "0.1.0")}")
+                    "io.github.fiftieshousewife.airgap:airgap-agent:${System.getProperty("airgap.version", "0.2.0")}")
         }
     }
 }
