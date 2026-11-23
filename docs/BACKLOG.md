@@ -9,7 +9,6 @@ Ordered by horizon (now, next, later), then items that are ready before items wa
 | | Item | Type | Owner | Done by | Waiting on |
 |---|---|---|---|---|---|
 | #18 | [Every common route to the network is proved refused: the JDK's HTTP client, Apache HttpClient, OkHttp, Netty, JDBC drivers](https://github.com/fiftiesHousewife/under-test-airgap/issues/18) | deliverable | Technical Architect | ai | – |
-| #20 | [The allowlist from testing/airgap.yaml, checked against its schema](https://github.com/fiftiesHousewife/under-test-airgap/issues/20) | deliverable | Technical Architect | ai | – |
 | #22 | [Writes to files outside the project are reported, and refused when the settings say so](https://github.com/fiftiesHousewife/under-test-airgap/issues/22) | deliverable | Technical Architect | ai | – |
 | #31 | [Opening files on shared drives is refused and reported: \\server\share paths and mapped network drives](https://github.com/fiftiesHousewife/under-test-airgap/issues/31) | deliverable | Technical Architect | ai | – |
 | #23 | [For Spring applications: the setting behind each refused address, the active profiles, and a stop on production profiles](https://github.com/fiftiesHousewife/under-test-airgap/issues/23) | deliverable | Technical Architect | ai | – |
