@@ -82,4 +82,27 @@ class ThreadsAndCallbacksTest {
             pool.shutdownNow();
         }
     }
+
+    /** A test class's scope covers its set-up; each test inside it starts with what the class allows. */
+    @Test
+    void aTestRunsInsideItsClassAndTheClassComesBackAfter() {
+        try {
+            Gate.enterTest("example.NestedTest");
+            Gate.allowForThread("class.example.invalid:443");
+            Gate.enterTest("example.NestedTest.first");
+            Gate.allowForThread("method.example.invalid:443");
+            final boolean classAllowedInTest = Gate.isAllowed("class.example.invalid", 443);
+            final boolean methodAllowedInTest = Gate.isAllowed("method.example.invalid", 443);
+            Gate.leaveTest();
+
+            assertAll(
+                    () -> assertThat(classAllowedInTest).isTrue(),
+                    () -> assertThat(methodAllowedInTest).isTrue(),
+                    () -> assertThat(Gate.currentTest()).isEqualTo("example.NestedTest"),
+                    () -> assertThat(Gate.isAllowed("class.example.invalid", 443)).isTrue(),
+                    () -> assertThat(Gate.isAllowed("method.example.invalid", 443)).isFalse());
+        } finally {
+            Gate.leaveTest();
+        }
+    }
 }

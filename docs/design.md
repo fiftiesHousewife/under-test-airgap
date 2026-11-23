@@ -31,7 +31,10 @@ there itself makes HotSpot 17 and later print a class-data sharing warning in ev
 
 - **Allowed** (on the allowlist): the call goes ahead, and is recorded.
 - **Otherwise:** the call is refused with the exception an unplugged machine would give, and recorded with the test
-  that was running, the code that made the call and, for Spring applications, the setting that supplied the address.
+  that was running and the code that made the call. For Spring applications, the setting that supplied the address
+  is planned (see [Spring applications](#spring-applications)).
+
+This document marks what isn't built yet as **planned**; everything else is in the agent today.
 
 The report is the point as much as the refusal. A project's first run under the agent lists everything its code tries
 to reach: the start of a list of everything it depends on.
@@ -147,13 +150,13 @@ The same agent jar is added to every JVM that runs the project's code:
 
 | JVM | Why | How it's added |
 |---|---|---|
-| Test runs | Tests are where old code first runs | Gradle: every `Test` task. Maven: Surefire's and Failsafe's `argLine` |
-| Application starts | Starting the application on its own is the next thing anyone tries | Gradle: every `JavaExec` task, and Spring Boot's `bootRun`. Maven: the plugin's `jvmArguments` |
+| Test runs | Tests are where old code first runs | Gradle: every `Test` task. Maven (planned): Surefire's and Failsafe's `argLine` |
+| Application starts | Starting the application on its own is the next thing anyone tries | Gradle: every `JavaExec` task, and Spring Boot's `bootRun`. Maven (planned): the plugin's `jvmArguments` |
 | The build itself | An old project's build scripts are its code too, and run first | Gradle: `org.gradle.jvmargs` in the engineer's own `gradle.properties` (in the Gradle user home, which wins over the project's). Maven: `MAVEN_OPTS` |
-| Forked JVMs | PIT and some test set-ups start more JVMs | PIT's `jvmArgs`; the agent also adds itself to JVMs started with `java` from a guarded JVM, where it can |
+| Forked JVMs | PIT and some test set-ups start more JVMs | PIT's `jvmArgs`, set by hand. A JVM started with `java` from a guarded JVM is refused unless `process:java` is allowed, and then runs unguarded unless it is named the agent too; adding the agent to it automatically is planned |
 
-In the build JVM the allowlist also holds the company's package repository, so dependencies can download, and `java`,
-so Gradle can start its workers; nothing else.
+In the build JVM, the `allow` setting names the company's package repository, so dependencies can download, and
+`process:java`, so Gradle can start its workers; nothing else.
 
 For Gradle, the plugin `io.github.fiftieshousewife.airgap` does the first two rows in one line, on Gradle 5.6 and later
 (see [The Gradle wiring supports Gradle 5.6 and later, proved on each major version](decisions/0010-the-gradle-wiring-supports-gradle-5-6-and-later-proved-on-each-major-version.md)).
@@ -163,8 +166,11 @@ is set up by hand, as the README describes, because a plugin is applied too late
 ## What counts as a risky call, and where it's caught
 
 The agent catches each call at the lowest point in the JDK that every route goes through, not at the public APIs, so
-no library is missed. Those low points differ between JDK versions, so the agent carries one set of hooks per version
-range, each proved by tests on that range (see [Testing it](#testing-it)).
+no library is missed. Those low points differ between JDK versions: each hook names the methods it rewrites by what
+they are (the private `getAllByName0` with the most parameters, say) rather than by one JDK's exact signature, and a
+hook for a class only some JDKs have (`SocketChannel`'s handed-out socket from JDK 13, the foreign function API from
+JDK 22) applies only where that class is. Each is proved by tests on every supported JDK (see
+[Testing it](#testing-it)).
 
 | Kind | Caught at (JDK internals vary by version) | Refused with |
 |---|---|---|
@@ -175,14 +181,15 @@ range, each proved by tests on that range (see [Testing it](#testing-it)).
 | JNDI and LDAP | `InitialContext`'s names: URLs with the `ldap:`, `ldaps:`, `rmi:`, `dns:` and CORBA schemes, and the directory a context's settings name as its provider URL. Names inside the JVM (`java:comp/env`) are left alone; the connections JNDI providers make are caught by the network hooks too | `CommunicationException`, the `NamingException` an unreachable directory gives |
 | Starting a process | `ProcessBuilder.start` (which `Runtime.exec` uses), and from JDK 9 `ProcessBuilder.startPipeline` | `IOException` ("cannot run program") |
 | Loading native code | `System.loadLibrary`, `System.load` and their `Runtime` versions, called directly or through reflection, and JDK 22's `SymbolLookup.libraryLookup` (which fails with `IllegalArgumentException`), except the JDK's own libraries and the build tool's own (see [Native libraries are refused unless allowed, except the JDK's and the build tool's own](decisions/0012-native-libraries-are-refused-unless-allowed-except-the-jdks-and-the-build-tools-own.md)). A library is the JDK's only when a JDK class loader can see the class asking for it, so a class path library in a JDK-like package, such as JNA's `com.sun.jna`, is not (proposed in [A native library is the JDK's own only when a JDK class loader can see the class asking for it](decisions/0013-a-native-library-is-the-jdks-own-only-when-a-jdk-class-loader-can-see-the-class-asking-for-it.md)) | `UnsatisfiedLinkError` |
-| Ending the JVM | `System.exit` (through `Runtime.exit`) and `Runtime.halt`, only while a test is running on the thread, so test runners end their JVMs as usual (see [An exit is refused only while a test is running](decisions/0011-an-exit-is-refused-only-while-a-test-is-running.md)) | `SecurityException` naming the airgap agent |
-| Writing files outside the project | `FileOutputStream`, `RandomAccessFile` and `Files` writes | Reported only, at first (see [Open questions](#open-questions)) |
+| Ending the JVM | `System.exit` (through `Runtime.exit`) and `Runtime.halt`, only while a test or a test class's set-up is running on the thread, so test runners end their JVMs as usual (see [An exit is refused only while a test is running](decisions/0011-an-exit-is-refused-only-while-a-test-is-running.md)) | `SecurityException` naming the airgap agent |
+| Writing files outside the project (planned) | `FileOutputStream`, `RandomAccessFile` and `Files` writes | Reported only, at first (see [Open questions](#open-questions)) |
 
-Higher-level calls are recognised too, only to describe them better in the report: a JDBC connection says
-`kind: database` with its URL, an HTTP client call says `kind: http` with its address, a mail transport says
-`kind: mail`.
+**Planned:** higher-level calls recognised too, only to describe them better in the report: a JDBC connection saying
+`kind: database` with its URL, an HTTP client call `kind: http` with its address, a mail transport `kind: mail`.
 
-Local calls are always allowed: loopback addresses, and the machine's own name.
+Local calls are always allowed: loopback addresses and `localhost`, connections and packets to the machine's own
+network addresses (which RMI and JMX hand out for objects in the same JVM), and the machine looking up its own name.
+Looking up the name of one of its network addresses isn't local: that name comes from DNS.
 
 ## How a call is refused
 
@@ -204,10 +211,11 @@ Three modes, chosen per run:
 
 What may go ahead, from three places:
 
-1. **Always:** loopback, and in the build JVM the company's package repository.
-2. **The project's own settings,** `testing/airgap.yaml` ([schema](../schema/airgap-settings.schema.json)): the
-   stand-ins its tests use, for example a WireMock port or a local database.
-3. **A test's own allowance:** `@AllowCalls("localhost:8089")` on a test class or method.
+1. **Always:** loopback addresses and `localhost`.
+2. **The run's `allow` setting,** on the agent's command line, or the Gradle plugin's `allow` list: the stand-ins its
+   tests use, for example a WireMock server, and in the build JVM the company's package repository. A project
+   settings file, `testing/airgap.yaml` ([schema](../schema/airgap-settings.schema.json)), is planned.
+3. **A test's own allowance:** `@AllowCalls("wiremock.test:8089")` on a test class or method.
 
 An allowed call is still reported, so the report always shows everything the code touched.
 
@@ -217,26 +225,29 @@ An allowed call is still reported, so the report always shows everything the cod
 JSON object per line, per call, checked against
 [schema/airgap-report.schema.json](../schema/airgap-report.schema.json). Each line says:
 
-- **what:** its kind (`host-lookup`, `tcp`, `udp`, `database`, `http`, `jndi`, `mail`, `process`, `native-library`,
-  `exit`, `file-write`) and its target (host and port, URL, command, library or path);
+- **what:** its kind (`host-lookup`, `tcp`, `udp`, `jndi`, `process`, `native-library`, `exit`; `database`, `http`,
+  `mail` and `file-write` are planned) and its target (host and port, URL, command or library);
 - **what happened:** `refused`, `allowed` or `reported`;
 - **who:** the test that was running, and the first frame of the project's own code that made the call, with a
   trimmed stack;
-- **where the address came from,** for Spring applications: the setting's name and the file and line it was read from;
+- **where the address came from,** for Spring applications (planned): the setting's name and the file and line it
+  was read from;
 - **which JVM:** the kind of run (test, application start, build) and its Java version.
 
 No report must mean no risky calls, so the agent won't start if it can't write the report's folder, and a call whose
 line can't be written is refused, whatever the mode or allowlist, with a message saying the report failed. A line is
 written even from a thread that has been interrupted.
 
-A summary at the end of the run lists each distinct target once, with how many calls and which tests made them: the
+**Planned:** a summary at the end of the run listing each distinct target once, with how many calls and which tests made them: the
 list of everything the project depends on, for a person to confirm and give stand-ins. See
 [The report is one line of JSON per call, with a schema, and feeds the connection list](decisions/0006-the-report-is-one-line-of-json-per-call-with-a-schema-and-feeds-the-connection-list.md).
 
 ## Knowing which test made a call
 
 The JUnit Platform listener, registered automatically through Java's service loader, tells the agent when each test
-starts and ends. The agent keeps the current test per thread, passed on to threads the test starts, which see it, and what it
+class and each test starts and ends. A test class's set-up and tear-down (`@BeforeAll`, its constructor, Spring's
+start-up, `@AfterAll`) are named by the class, and each test runs inside its class: it starts with what the class's
+`@AllowCalls` allows, with those of its base classes and the classes it is nested in, and adds its own method's. The agent keeps the current test per thread, passed on to threads the test starts, which see it, and what it
 allows, only while the test runs: a pool that outlives its test is neither allowed what the test was nor blamed for
 its calls. Work handed to a shared thread pool loses that link, so every line also names the first frame of the
 project's own code, which is enough to find the caller.
@@ -247,18 +258,21 @@ API, which JUnit 6 also runs.
 
 ## Spring applications
 
-In old Spring applications, the dangerous addresses usually come from configuration, and the default profile is often
-production: real hosts and passwords in a plain `application.properties`, with no profile at all. So the agent:
+**Planned.** Today a Spring application gets what any Java code gets: the refusal, the report line and the caller.
 
-- **Names the setting behind each refused address.** Spring Boot keeps the file and line each property came from; at a
+In old Spring applications, the dangerous addresses usually come from configuration, and the default profile is often
+production: real hosts and passwords in a plain `application.properties`, with no profile at all. So the agent will:
+
+- **Name the setting behind each refused address.** Spring Boot keeps the file and line each property came from; at a
   refusal, the agent looks up which property holds the refused address and records its name and origin. The engineer
   then knows exactly what the test settings have to override.
-- **Records the profiles Spring activates,** however they were set, and stops the run if one matches the production
+- **Record the profiles Spring activates,** however they were set, and stop the run if one matches the production
   profile names it's given.
-- **Catches configuration fetched at start-up** (Spring Cloud Config, Vault, a JNDI data source): a refused call before
-  the application has even started, and a dependency the code itself never names.
+- **Point out configuration fetched at start-up** (Spring Cloud Config, Vault, a JNDI data source): a refused call
+  before the application has even started, and a dependency the code itself never names. The refusal itself already
+  happens today.
 
-Together these let an engineer write a test profile, one override per refused address with a stand-in or a dummy
+Together these will let an engineer write a test profile, one override per refused address with a stand-in or a dummy
 secret, until a run's report is clean.
 
 Spring applications without Spring Boot (and Spring before 3.1, which has no profiles) get the refusal and the caller;
@@ -270,8 +284,9 @@ The JVMs it joins often carry other agents: JaCoCo (coverage), PIT (mutation tes
 The agent:
 
 - **keeps its own copy of Byte Buddy** under its own package name, so it never clashes with the copy Mockito brings;
-- **is added first** on the command line, so it sees classes before the others rewrite them;
-- **is tested together with each of them** in this repo's build.
+- **is added first** on the command line by the plugin, so it sees classes before the others rewrite them;
+- runs with JaCoCo in this repo's own build today; **planned:** tests together with PIT and Mockito's inline mock
+  maker.
 
 ## Approval inside a company
 
@@ -299,18 +314,20 @@ that impossible to miss (see
   every connection and packet, every program started and every library opened, by the test JVMs and every process
   they start. Anything to another machine, a program or a library that the agent didn't report as allowed fails the
   build: a way round the hooks shows up there, whatever route it took, even one nobody thought of.
-- **Every route to each kind of call:** plain sockets, NIO, the JDK's HTTP client, Apache HttpClient, OkHttp, Netty,
-  JDBC drivers and JNDI, so no library finds a way round.
+- **Every route to each kind of call:** plain sockets, NIO channels, asynchronous channels, `HttpURLConnection` and
+  JNDI today. **Planned:** the JDK's HTTP client, Apache HttpClient, OkHttp, Netty and JDBC drivers.
 - **That nothing leaves the machine:** each test aims at an address reserved for documentation (`192.0.2.1`) or a name
-  that can't resolve, and checks the refusal came before any connection timeout could.
-- **The agent checks itself at start:** it lists the hooks it expects for the running JDK and the ones it installed,
-  and refuses to start, naming the gap, if they differ. A JDK it can't fully guard stops the run rather than being
-  guarded partly.
-- **With the other agents** (JaCoCo, PIT, Mockito) in the same JVM.
-- **On old code:** example old services (Spring with Gradle, Spring with Maven, plain Java), run end to end, whose
+  that can't resolve, and has a timeout well short of a network timeout, so a refusal that didn't happen shows as a
+  failure.
+- **The agent checks itself at start:** for every hook that applies to the running JDK, it makes a harmless call the
+  hook must stop, or, where no call is harmless (ending the JVM, SCTP, the foreign function API), checks the methods
+  are there to rewrite. If any hook isn't in place it refuses to start, naming the gap: a JDK it can't fully guard
+  stops the run rather than being guarded partly.
+- **With the other agents** (planned for PIT and Mockito) in the same JVM.
+- **On old code (planned):** example old services (Spring with Gradle, Spring with Maven, plain Java), run end to end, whose
   reports must match saved, approved reports.
-- **Mutation testing at a high bar:** PIT must kill nearly every planted bug in the refusal and reporting code, since a
-  bug there means a call gets through.
+- **Mutation testing at a high bar:** PIT must kill at least 90% of the bugs it plants in the code that decides,
+  refuses and reports calls, since a bug there means a call gets through.
 
 ## Its limits
 

@@ -2,6 +2,8 @@ package io.github.fiftieshousewife.airgap.agent;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.SocketAddress;
 import java.util.Arrays;
 import java.util.List;
@@ -63,7 +65,8 @@ public final class Target {
      * Where a connection or packet is going.
      *
      * @param address the address given to the connect or send
-     * @return the target; anything other than an internet address (a Unix domain socket, say) counts as local
+     * @return the target; the machine's own addresses count as local, and so does anything other than an internet
+     *     address (a Unix domain socket, say)
      */
     public static Target ofAddress(final SocketAddress address) {
         if (!(address instanceof InetSocketAddress)) {
@@ -74,7 +77,8 @@ public final class Target {
         if (internet.isUnresolved()) {
             return of(host, internet.getPort(), isLocalName(host) ? Reach.LOCAL : Reach.UNRESOLVED);
         }
-        return of(host, internet.getPort(), localOrRemote(isLocalAddress(internet.getAddress())));
+        final InetAddress resolved = internet.getAddress();
+        return of(host, internet.getPort(), localOrRemote(isLocalAddress(resolved) || isThisMachines(resolved)));
     }
 
     /**
@@ -244,6 +248,19 @@ public final class Target {
 
     private static boolean isLocalAddress(final InetAddress address) {
         return address.isLoopbackAddress() || address.isAnyLocalAddress();
+    }
+
+    /**
+     * Whether an address is one of the machine's own network interfaces' addresses, such as the one RMI and JMX hand
+     * out for objects in the same JVM. Asked of the operating system, which sends nothing on the network. Not used for
+     * reverse lookups: the name of a network address comes from DNS, off the machine.
+     */
+    static boolean isThisMachines(final InetAddress address) {
+        try {
+            return NetworkInterface.getByInetAddress(address) != null;
+        } catch (SocketException unknown) {
+            return false;
+        }
     }
 
     /** @return the host name or address, the program, the library or the exit */

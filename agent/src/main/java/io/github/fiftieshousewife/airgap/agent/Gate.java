@@ -220,9 +220,9 @@ public final class Gate {
     }
 
     /**
-     * A test is starting on this thread.
+     * A test, or a test class's set-up, is starting on this thread, inside any test class already running there.
      *
-     * @param test the test, as {@code class.method}
+     * @param test the test, as {@code class.method}, or the test class
      */
     public static void enterTest(final String test) {
         RunningTests.enter(test);
@@ -233,13 +233,13 @@ public final class Gate {
         return RunningTests.current();
     }
 
-    /** The test on this thread has finished, for this thread and every thread it started. */
+    /** The test or test class on this thread has finished, here and in every thread it started. */
     public static void leaveTest() {
         RunningTests.leave();
     }
 
     /**
-     * Allows stand-ins for the rest of the running test, on this thread and threads it starts.
+     * Adds stand-ins for the rest of the running test or test class, on this thread and threads it starts.
      *
      * @param targets entries as an allowlist takes them: {@code host}, {@code host:port} or {@code process:name}
      */

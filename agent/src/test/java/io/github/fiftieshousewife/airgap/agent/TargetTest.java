@@ -67,6 +67,22 @@ class TargetTest {
     }
 
     @Test
+    void treatsTheMachinesOwnAddressesAsLocalButNotTheirNames() throws java.net.SocketException {
+        final InetAddress own = java.util.Collections.list(java.net.NetworkInterface.getNetworkInterfaces()).stream()
+                .flatMap(network -> java.util.Collections.list(network.getInetAddresses()).stream())
+                .filter(address -> !address.isLoopbackAddress()).findFirst().orElse(null);
+        org.junit.jupiter.api.Assumptions.assumeTrue(own != null, "this machine has no network address but loopback");
+
+        assertAll(
+                () -> assertThat(Target.ofAddress(new InetSocketAddress(own, 1099)).isLocal()).isTrue(),
+                () -> assertThat(Target.ofAddress(own, 1099).isLocal()).isTrue(),
+                () -> assertThat(Target.isThisMachines(own)).isTrue(),
+                () -> assertThat(Target.ofReverseLookup(own).isLocal()).as("its name comes from DNS").isFalse(),
+                () -> assertThat(Target.isThisMachines(InetAddress.getByAddress(new byte[] {(byte) 192, 0, 2, 1})))
+                        .isFalse());
+    }
+
+    @Test
     void treatsOtherKindsOfAddressAsLocal() {
         final SocketAddress unixSocket = new OtherAddress();
 

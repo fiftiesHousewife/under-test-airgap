@@ -33,9 +33,9 @@ written to a report.
 | Host lookups, and reverse lookups of an address's name | Opening files on shared drives: `\\server\share` paths and mapped network drives |
 | TCP connections, through sockets, NIO channels and asynchronous channels | Writing files outside the project folder |
 | UDP traffic | For Spring applications, the setting, file and line that gave each address |
-| Starting other programs | |
-| JNDI lookups of LDAP, RMI, DNS and CORBA directories on other machines | |
-| Loading native libraries, other than the JDK's and the build tool's own | |
+| Starting other programs | Database, HTTP and mail calls named as such in the report |
+| JNDI lookups of LDAP, RMI, DNS and CORBA directories on other machines | A summary at the end of a run: each target once, and which tests reached it |
+| Loading native libraries, other than the JDK's and the build tool's own | Maven wiring |
 | `System.exit` and `Runtime.halt` while a test is running, so the test fails instead of the run ending | |
 
 [The design](docs/design.md) describes each of these.
@@ -110,6 +110,9 @@ program a test starts on purpose:
   @AllowCalls("wiremock.test:8089")
   class PaymentClientTest { ... }
   ```
+
+  On a class, it covers the class's set-up and tear-down too (`@BeforeAll`, the constructor, Spring's start-up), and
+  applies to subclasses and to `@Nested` classes inside it. On a method, it adds to what the class allows.
 
 - **for a whole run**, use the agent's `allow` setting (see [Settings](#settings)), for example
   `allow=wiremock.test:8089,process:git`.
@@ -198,7 +201,10 @@ This report comes from the first run of an old order service's tests. Each line 
 {"kind":"process","target":"sendmail","outcome":"refused","run":{"kind":"test","java_version":"17.0.12"},"test":"com.example.orders.NightlyReportJobTest.runsTheJob","caller":"com.example.orders.NightlyReportJob.mailReport(NightlyReportJob.java:77)","stack":["java.base/java.lang.ProcessBuilder.start(ProcessBuilder.java:1089)","com.example.orders.NightlyReportJob.mailReport(NightlyReportJob.java:77)"]}
 ```
 
-Each line names the test that was running and the line of the service's code that made the call. This report shows
+Each line names the test that was running and the line of the service's code that made the call. The test is named
+only when the tests run on the JUnit Platform (JUnit 5 and later, or JUnit 4 through its Vintage engine) with
+`airgap-junit` on their class path, as the plugin arranges; otherwise the line has no `test`, and the caller is what
+finds it. This report shows
 the service's tests depend on a database, a mail server, a payment service and the `sendmail` program.
 
 ## What it doesn't catch
@@ -236,9 +242,13 @@ Your tests don't need to do anything for the check.
 ## How it is tested
 
 - Each of the agent's changes to the JDK is tested on every supported JDK.
-- Each kind of call is tested through each common library, from plain sockets to Netty and JDBC drivers.
+- Each kind of call is tested through the JDK's own routes to it: sockets, NIO and asynchronous channels,
+  `HttpURLConnection`, JNDI. Tests through common libraries (Netty, OkHttp, Apache HttpClient, JDBC drivers) are still
+  to come.
+- A test reads every class in each supported JDK and fails if any public route to a risky call misses the hooks.
+- In CI, the tests run again under the operating system's own trace, which must show nothing the agent didn't report.
 - Each test checks the call was refused before a connection could start.
-- Each test also checks the check at start fails when one of the agent's changes is left out.
+- The check at start is tested to fail when one of the agent's changes is left out.
 
 ## For a security review
 

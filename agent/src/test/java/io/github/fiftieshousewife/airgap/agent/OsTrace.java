@@ -2,6 +2,8 @@ package io.github.fiftieshousewife.airgap.agent;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -69,7 +71,17 @@ final class OsTrace {
     }
 
     private static boolean isLocal(final String address) {
-        return address.startsWith("127.") || address.startsWith("::ffff:127.") || LOCAL.contains(address);
+        return address.startsWith("127.") || address.startsWith("::ffff:127.") || LOCAL.contains(address)
+                || isThisMachines(address);
+    }
+
+    /** The trace is read on the machine it was made on, whose own addresses the agent counts as local too. */
+    private static boolean isThisMachines(final String address) {
+        try {
+            return Target.isThisMachines(InetAddress.getByName(address));
+        } catch (UnknownHostException notAnAddress) {
+            return false;
+        }
     }
 
     /** A library in the system's own folders, a JDK's, or Gradle's. */

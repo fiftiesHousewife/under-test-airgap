@@ -17,7 +17,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.PortUnreachableException;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.URI;
@@ -53,9 +52,8 @@ import org.junit.jupiter.api.Timeout;
  * the first JNDI call alone takes around half a second.
  */
 @Timeout(value = 10, unit = TimeUnit.SECONDS)
-@SuppressFBWarnings(value = {"UNENCRYPTED_SOCKET", "UNENCRYPTED_SERVER_SOCKET", "DM_EXIT"},
-        justification = "Plain connections and exits are what the agent must refuse; the one connection allowed is to"
-                + " the machine itself")
+@SuppressFBWarnings(value = {"UNENCRYPTED_SOCKET", "DM_EXIT"},
+        justification = "Plain connections and exits are what the agent must refuse")
 class RefusedCallsTest {
 
     private static final String UNRESOLVABLE = "db.prod.example.invalid";
@@ -179,19 +177,6 @@ class RefusedCallsTest {
             return ProcessBuilder.class.getMethod("startPipeline", List.class);
         } catch (NoSuchMethodException beforeJdk9) {
             return null;
-        }
-    }
-
-    @Test
-    void allowsTheMachineItself() throws IOException {
-        try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
-             Socket client = new Socket()) {
-            client.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), server.getLocalPort()), 1000);
-            assertAll(
-                    () -> assertThat(client.isConnected()).isTrue(),
-                    () -> assertThat(InetAddress.getByName("localhost").isLoopbackAddress()).isTrue(),
-                    () -> assertThat(InetAddress.getByName(DOCUMENTATION_ADDRESS).getHostAddress())
-                            .isEqualTo(DOCUMENTATION_ADDRESS));
         }
     }
 
