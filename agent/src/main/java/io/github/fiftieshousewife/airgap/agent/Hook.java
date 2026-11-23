@@ -1,7 +1,7 @@
 package io.github.fiftieshousewife.airgap.agent;
 
+import static net.bytebuddy.matcher.ElementMatchers.isPrivate;
 import static net.bytebuddy.matcher.ElementMatchers.named;
-import static net.bytebuddy.matcher.ElementMatchers.none;
 import static net.bytebuddy.matcher.ElementMatchers.takesArgument;
 import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
 
@@ -9,6 +9,8 @@ import io.github.fiftieshousewife.airgap.agent.advice.AsyncConnectAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.AsyncConnectHandlerAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.ExitAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.ForeignLibraryAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.HandOverAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.HandOverExecutorAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.JndiCompositeNameAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.JndiNameAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.JndiProviderAdvice;
@@ -26,7 +28,6 @@ import io.github.fiftieshousewife.airgap.agent.advice.UdpChannelSendAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.UdpPacketAdvice;
 import java.net.DatagramPacket;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
@@ -50,7 +51,7 @@ public enum Hook {
      * name checks (in {@code SocketPermission}, security policies and RMI) all reach: on each JDK, its private
      * {@code getAllByName0} with the most parameters.
      */
-    HOST_LOOKUP_ALL("java.net.InetAddress", innermostLookup(), LookupAdvice.class),
+    HOST_LOOKUP_ALL("java.net.InetAddress", HookMethods.innermostLookup(), LookupAdvice.class),
 
     /** {@code InetAddress.getLocalHost}: the machine asking its own name, which is local, so lookups in it go ahead. */
     HOST_LOOKUP_OWN_NAME("java.net.InetAddress", named("getLocalHost").and(takesArguments(0)), OwnNameAdvice.class),
@@ -91,6 +92,21 @@ public enum Hook {
     TCP_ASYNC("sun.nio.ch.AsynchronousSocketChannelImpl",
             named("connect").and(takesArguments(SocketAddress.class)), AsyncConnectAdvice.class),
 
+    /**
+     * The JDK HTTP client's executor, from JDK 11: its tasks carry the test and caller of the thread that handed them
+     * over, so calls made on the client's own threads are allowed and named as the request's sender. Refuses nothing
+     * itself; the client's connects are refused by the channel hooks.
+     */
+    TCP_HTTP_CLIENT_TASKS("jdk.internal.net.http.HttpClientImpl$DelegatingExecutor",
+            named("execute").and(takesArguments(Runnable.class)), HandOverAdvice.class),
+
+    /**
+     * The JDK HTTP client's private {@code sendAsync}, which every request reaches, from JDK 11: the executor it is
+     * given runs the request's tasks with the sender's test and caller.
+     */
+    TCP_HTTP_CLIENT_SEND("jdk.internal.net.http.HttpClientImpl",
+            named("sendAsync").and(isPrivate()).and(takesArguments(4)), HandOverExecutorAdvice.class),
+
     /** Asynchronous socket channels' {@code connect} that calls a handler. */
     TCP_ASYNC_HANDLER("sun.nio.ch.AsynchronousSocketChannelImpl",
             named("connect").and(takesArguments(3)).and(takesArgument(0, SocketAddress.class)),
@@ -124,7 +140,7 @@ public enum Hook {
      * {@code ProcessBuilder.start}, which {@code Runtime.exec} also reaches. From JDK 9 the private
      * {@code start(Redirect[])} is hooked, which {@code start()} and {@code startPipeline} both reach.
      */
-    PROCESS("java.lang.ProcessBuilder", processStart(), ProcessAdvice.class),
+    PROCESS("java.lang.ProcessBuilder", HookMethods.processStart(), ProcessAdvice.class),
 
     /** JNDI names written as strings: every lookup, bind and list on an {@code InitialContext} reaches this. */
     JNDI_NAME("javax.naming.InitialContext", named("getURLOrDefaultInitCtx").and(takesArguments(String.class)),
@@ -180,19 +196,6 @@ public enum Hook {
         this.advice = advice;
     }
 
-    /** The private {@code getAllByName0} with the most parameters: the one the others reach, which reads the cache. */
-    private static ElementMatcher<MethodDescription> innermostLookup() {
-        Method innermost = null;
-        for (final Method method : InetAddress.class.getDeclaredMethods()) {
-            if ("getAllByName0".equals(method.getName()) && Modifier.isPrivate(method.getModifiers())
-                    && (innermost == null || method.getParameterCount() > innermost.getParameterCount())) {
-                innermost = method;
-            }
-        }
-        return innermost == null ? none()
-                : named("getAllByName0").and(takesArguments(innermost.getParameterTypes()));
-    }
-
     /**
      * Whether the hook has anything to rewrite on this JDK. The socket adaptor goes round the channel's connect only
      * from JDK 13, SCTP and the foreign function API are in some JDKs only, and every other hook is in every one.
@@ -207,6 +210,8 @@ public enum Hook {
             case TCP_SCTP_SEND:
             case NATIVE_LIBRARY_FOREIGN_BY_NAME:
             case NATIVE_LIBRARY_FOREIGN_BY_PATH:
+            case TCP_HTTP_CLIENT_TASKS:
+            case TCP_HTTP_CLIENT_SEND:
                 return declares(typeName, "");
             default:
                 return true;
@@ -241,13 +246,14 @@ public enum Hook {
         }
     }
 
-    private static ElementMatcher<MethodDescription> processStart() {
-        try {
-            ProcessBuilder.class.getDeclaredMethod("start", ProcessBuilder.Redirect[].class);
-            return named("start").and(takesArguments(ProcessBuilder.Redirect[].class));
-        } catch (NoSuchMethodException jdk8) {
-            return named("start").and(takesArguments(0));
-        }
+    /**
+     * Whether the hook refuses calls. The HTTP client's hooks only hand the sender's test and caller to the client's
+     * threads, so a route through them isn't guarded by them.
+     *
+     * @return false for the hooks that only hand over
+     */
+    public boolean refuses() {
+        return this != TCP_HTTP_CLIENT_TASKS && this != TCP_HTTP_CLIENT_SEND;
     }
 
     /** @return the hook's name in settings and messages, for example {@code tcp-socket} */

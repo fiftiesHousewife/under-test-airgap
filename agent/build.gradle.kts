@@ -199,7 +199,7 @@ tasks.register<Test>("checkOsTrace") {
 // every JDK, instead.
 val attachedOnly = listOf(
     "**/agent/AirgapAgent*", "**/agent/AgentStart*", "**/agent/Hooks*", "**/agent/SelfCheck*", "**/agent/advice/**",
-    "**/agent/Gate*", "**/agent/RunningTests*", "**/agent/NativeGate*", "**/agent/SctpGate*",
+    "**/agent/Gate*", "**/agent/RunningTests*", "**/agent/NativeGate*", "**/agent/SctpGate*", "**/agent/HandOver*",
 )
 listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { task ->
     task.configure {
@@ -218,7 +218,7 @@ pitest {
         "io.github.fiftieshousewife.airgap.agent.Hooks*", "io.github.fiftieshousewife.airgap.agent.SelfCheck*",
         "io.github.fiftieshousewife.airgap.agent.advice.*", "io.github.fiftieshousewife.airgap.agent.Gate*",
         "io.github.fiftieshousewife.airgap.agent.RunningTests*", "io.github.fiftieshousewife.airgap.agent.NativeGate*",
-        "io.github.fiftieshousewife.airgap.agent.SctpGate*",
+        "io.github.fiftieshousewife.airgap.agent.SctpGate*", "io.github.fiftieshousewife.airgap.agent.HandOver*",
     )
     excludedTestClasses = listOf("*AgentTestReportsMatchSchemaTest", "*OsTraceMatchesReportsTest")
     jvmArgs = listOf("-Dairgap.schema=${reportSchema.asFile.absolutePath}")

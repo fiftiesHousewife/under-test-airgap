@@ -747,6 +747,7 @@ items:
       - "If Gradle itself needs the plugin declared once at the root, the README says how, with the snippet"
     notes: "Found by the running-old-code-unplugged lesson: Gradle said the shared convention plugins were loaded twice and asked for a root build file declaring the airgap plugin apply false. The lesson uses the README's Without the plugin set-up instead."
   - key: "http-client-calls-name-their-test-and-caller"
+    status: "done"
     type: "deliverable"
     title: "Calls made through the JDK's java.net.http.HttpClient name the test that started them and the line of code that sent the request"
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
@@ -757,4 +758,4 @@ items:
     done_when:
       - "A refused send and sendAsync through HttpClient, from a client built before the test, report the running test and the project's calling line, on JDK 11, 17, 21 and 25"
       - "The context is carried from the send to the client's own threads, and ends with the test"
-    notes: "Found by the running-old-code-unplugged lesson: HttpClient's requests were refused, but the client connects on its own threads, so the report named no test and no caller. Related: the-jdks-http-clients-are-judged-behind-a-proxy, which hooks the same client."
+    notes: "Done: found by the running-old-code-unplugged lesson. Hooks on HttpClientImpl's private sendAsync and its executor hand each of a request's tasks the sender's test, allowances and calling line (HandOver); proved on JDK 11, 17, 21 and 25 with a client made before the test, and shown to fail without the hand-over. A test's @AllowCalls now reaches the client's threads too. JDK 17 and later retry a refused connect once, so a request gives two lines."

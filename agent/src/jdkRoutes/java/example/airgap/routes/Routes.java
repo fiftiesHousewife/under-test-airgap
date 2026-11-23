@@ -58,10 +58,16 @@ final class Routes {
         return Collections.unmodifiableMap(steps);
     }
 
-    /** The methods the agent's hooks rewrite, worked out from the hooks themselves, as the self-check does. */
+    /**
+     * The methods the agent's refusing hooks rewrite, worked out from the hooks themselves, as the self-check does.
+     * Hooks that only hand a test over to other threads guard nothing, so a route through them goes on.
+     */
     private static Set<String> findHookedMethods() {
         final Set<String> methods = new HashSet<>();
         for (final Hook hook : Hook.values()) {
+            if (!hook.refuses()) {
+                continue;
+            }
             final TypeDescription type;
             try {
                 type = TypeDescription.ForLoadedType.of(Class.forName(hook.getTypeName(), false, null));

@@ -16,7 +16,8 @@ class HookTest {
                                 "jndi-name", "jndi-provider", "native-library-by-name", "exit", "halt"),
                 () -> assertThat(Hook.values()).allSatisfy(hook -> assertAll(
                         () -> assertThat(hook.getTypeName()).as(hook.id())
-                                .matches("(java\\.(net|lang)|javax\\.naming|sun\\.nio\\.ch)\\..+"),
+                                .matches("(java\\.(net|lang)|javax\\.naming|sun\\.nio\\.ch"
+                                        + "|jdk\\.internal\\.net\\.http)\\..+"),
                         () -> assertThat(hook.getMethods()).isNotNull(),
                         () -> assertThat(hook.getAdvice().getPackageName()).endsWith(".advice"))));
     }
@@ -46,6 +47,11 @@ class HookTest {
                 () -> assertThat(Hook.HOST_LOOKUP_ALL.appliesHere()).isTrue(),
                 () -> assertThat(Hook.TCP_SOCKET_ADAPTOR.appliesHere()).as("from JDK 13").isTrue(),
                 () -> assertThat(Hook.NATIVE_LIBRARY_FOREIGN_BY_NAME.appliesHere()).as("from JDK 22").isTrue(),
+                () -> assertThat(Hook.TCP_HTTP_CLIENT_SEND.appliesHere()).as("from JDK 11").isTrue(),
+                () -> assertThat(Hook.TCP_HTTP_CLIENT_TASKS.appliesHere()).isTrue(),
+                () -> assertThat(Hook.TCP_HTTP_CLIENT_SEND.refuses()).isFalse(),
+                () -> assertThat(Hook.TCP_HTTP_CLIENT_TASKS.refuses()).isFalse(),
+                () -> assertThat(Hook.TCP_SOCKET.refuses()).isTrue(),
                 () -> assertThat(Hook.load("io.github.fiftieshousewife.airgap.agent.NoSuchClass")).isNull(),
                 () -> assertThat(Hook.load("java.net.InetAddress")).isEqualTo(java.net.InetAddress.class));
     }

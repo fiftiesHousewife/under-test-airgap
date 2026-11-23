@@ -76,6 +76,27 @@ final class RunningTests {
         scope.entries = entries;
     }
 
+    /** @return the scope running on this thread, to hand over to another, or {@code null} */
+    static Object toHandOver() {
+        return running();
+    }
+
+    /**
+     * Makes a handed-over scope this thread's, while a handed-over task runs.
+     *
+     * @param scope the scope from {@link #toHandOver()}, or {@code null} for none
+     * @return the scope this thread had, to put back afterwards
+     */
+    static Object adopt(final Object scope) {
+        final Scope outer = SCOPE.get();
+        if (scope == null) {
+            SCOPE.remove();
+        } else {
+            SCOPE.set((Scope) scope);
+        }
+        return outer;
+    }
+
     static CallContext context() {
         final Scope scope = running();
         return scope == null ? CallContext.NONE : new CallContext(scope.test, scope.allowances);

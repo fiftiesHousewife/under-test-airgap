@@ -11,6 +11,8 @@ import java.util.List;
  */
 public final class Callers {
 
+    /** What {@link #caller} gives when no frame is the project's. */
+    static final String UNKNOWN = "(unknown)";
     private static final int STACK_FRAMES = 12;
     private static final List<String> NOT_THE_PROJECT = Collections.unmodifiableList(Arrays.asList(
             "java.", "javax.", "jdk.", "sun.", "com.sun.", "io.github.fiftieshousewife.airgap.", "org.junit.",
@@ -40,7 +42,7 @@ public final class Callers {
                 return frame.toString();
             }
         }
-        return "(unknown)";
+        return UNKNOWN;
     }
 
     /**

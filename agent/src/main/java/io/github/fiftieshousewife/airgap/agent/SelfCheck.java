@@ -36,10 +36,10 @@ import net.bytebuddy.description.type.TypeDescription;
  * <p>Every probe is harmless even if its hook is missing: lookups and connects go to a name that can't resolve,
  * reverse lookups and packets to the machine itself, the program started and the libraries loaded don't exist, and
  * the JNDI contexts have no provider to connect with. A few hooks can't be probed that way: ending the JVM (a missing
- * hook would end it), the machine asking its own name (which doesn't refuse), SCTP (not every platform supports it)
- * and the foreign function API (probing it sets off the JDK's warning about native access). Those are proved by
- * their methods being there to rewrite, in classes the other probes prove rewritten, or, for SCTP and the foreign
- * function API, by the agent's own tests.</p>
+ * hook would end it), the machine asking its own name and the HTTP client's hand-overs (which don't refuse), SCTP
+ * (not every platform supports it) and the foreign function API (probing it sets off the JDK's warning about native
+ * access). Those are proved by their methods being there to rewrite, in classes the other probes prove rewritten,
+ * or, for SCTP, the foreign function API and the HTTP client, by the agent's own tests.</p>
  */
 @SuppressFBWarnings(value = "UNENCRYPTED_SOCKET",
         justification = "The probes never connect: the hook refuses them, and their target can't resolve")

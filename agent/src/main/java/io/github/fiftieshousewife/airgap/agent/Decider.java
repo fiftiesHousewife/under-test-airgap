@@ -88,6 +88,22 @@ public final class Decider {
         return allowedBy == null ? "reported" : "allowed";
     }
 
+    /**
+     * @param frames a stack, innermost first
+     * @return the project's frame in it, or {@code null} if it has none
+     */
+    String callerOf(final StackTraceElement... frames) {
+        final String caller = callers.caller(frames);
+        return Callers.UNKNOWN.equals(caller) ? null : caller;
+    }
+
+    /** The project's frame on this thread, or else the one a handed-over task carries. */
+    private String callerOrCarried(final StackTraceElement... frames) {
+        final String caller = callers.caller(frames);
+        final String carried = HandOver.carriedCaller();
+        return Callers.UNKNOWN.equals(caller) && carried != null ? carried : caller;
+    }
+
     private Call.CallBuilder call(final Kind kind, final Target target, final CallContext context) {
         final StackTraceElement[] frames = new Throwable().getStackTrace();
         return Call.builder()
@@ -96,7 +112,7 @@ public final class Decider {
                 .run(settings.getRun())
                 .javaVersion(System.getProperty("java.version", "unknown"))
                 .test(context.getTest())
-                .caller(callers.caller(frames))
+                .caller(callerOrCarried(frames))
                 .stack(callers.trimmed(frames));
     }
 }

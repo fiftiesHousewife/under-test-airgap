@@ -250,7 +250,10 @@ start-up, `@AfterAll`) are named by the class, and each test runs inside its cla
 `@AllowCalls` allows, with those of its base classes and the classes it is nested in, and adds its own method's. The agent keeps the current test per thread, passed on to threads the test starts, which see it, and what it
 allows, only while the test runs: a pool that outlives its test is neither allowed what the test was nor blamed for
 its calls. Work handed to a shared thread pool loses that link, so every line also names the first frame of the
-project's own code, which is enough to find the caller.
+project's own code, which is enough to find the caller. The JDK's HTTP client (JDK 11 and later) is the exception:
+it runs every request on its own threads, so the agent hooks where a request is handed to them (its private
+`sendAsync` and its executor) and hands each task the sender's test, allowances and calling line. These two hooks
+refuse nothing themselves, so the JDK route check doesn't count them as guarding a route.
 
 Projects on JUnit 4 move onto the JUnit Platform first: JUnit 4 tests keep running, unchanged, on its Vintage engine.
 JUnit 6 needs Java 17, so projects on JDK 8 to 16 use JUnit 5. The listener and extension are built against the JUnit 5
