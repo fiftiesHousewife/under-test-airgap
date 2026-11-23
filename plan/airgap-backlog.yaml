@@ -351,6 +351,7 @@ items:
       - "Reading or writing a file on a \\\\server\\share path is refused with the exception a missing share gives, and reported"
       - "Drive letters named in the settings as network drives are treated the same way"
       - "Tested on every supported JDK, on Windows paths"
+      - "Reported with kind file-share, the name UnderTest's discovery uses for the same kind of system"
     blocked_by:
       - "report-writer"
   - key: "spring-profiles-and-setting-origins"
