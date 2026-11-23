@@ -193,6 +193,7 @@ items:
     notes: "Done: the agent compiles to Java 8 with JDK 25; its tests run on JDK 8, 11, 17, 21 and 25, through toolchains or -Pairgap.jdk<version>=<home>; CI installs all five."
   - key: "forbidden-api-exceptions-for-hooks"
     type: "deliverable"
+    status: "done"
     title: "A reviewed list of the JDK internals the hooks name, as exceptions to the forbidden-API check"
     parent: "this-repo-keeps-itself-in-order"
     phase: "set-up"
@@ -204,6 +205,7 @@ items:
       - "Any other use of JDK internals still fails the build"
     blocked_by:
       - "build-and-ci-on-five-jdks"
+    notes: "Done, with no exceptions needed: the hooks name the JDK internals they rewrite only as text in Hook.java, which says for each the JDKs it applies to (appliesHere), and the advice uses none of them, so the forbidden-API check runs its bundled signatures, jdk-internal among them, on every source set with no exception list. Any use of a JDK internal in compiled code fails the build. AGENTS.md now says so."
   - key: "mutation-testing-bar-for-refusal-code"
     status: "done"
     notes: "Done: PIT runs in ./gradlew check on the agent's classes that decide, refuse and report calls (the ones that only run with the agent attached are proved by its own tests instead), and fails below min-mutation-score in the version catalog, set at 90. The score is 94.6%."

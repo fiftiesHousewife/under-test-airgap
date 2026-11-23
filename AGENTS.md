@@ -69,7 +69,7 @@ Enforced by `./gradlew check`:
 | A test with more than one assertion wraps them in `assertAll(...)` | PMD |
 | Logging through SLF4J; no `System.out`, no `java.util.logging`. **In the agent itself**, no logging library at all: it writes only its report, so it can't clash with the application's own logging | forbidden-APIs check; review |
 | Time from an injected `java.time.Clock` | forbidden-APIs check |
-| No unsafe, deprecated, internal or non-portable JDK APIs, **except** the JDK internals the agent's hooks name, each listed with the JDK range it applies to | forbidden-APIs bundled signatures, with a reviewed exception list |
+| No unsafe, deprecated, internal or non-portable JDK APIs, with no exceptions. The JDK internals the hooks rewrite are named only as text, in `Hook.java`, each with the JDKs it applies to, so no compiled code uses them | forbidden-APIs bundled signatures, on every source set; the self-check and `jdkRoutesOnJdk<version>` |
 | Methods short and simple: cyclomatic complexity 10 or less, cognitive complexity 15 or less, 50 lines or fewer | Checkstyle, PMD |
 | No copy-pasted code | PMD's copy-paste detector |
 | No bug patterns or security bugs | SpotBugs with FindSecBugs |
