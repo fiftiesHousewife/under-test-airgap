@@ -9,7 +9,6 @@ Ordered by horizon (now, next, later), then items that are ready before items wa
 | | Item | Type | Owner | Done by | Waiting on |
 |---|---|---|---|---|---|
 | #22 | [Writes to files outside the project are reported, and refused when the settings say so](https://github.com/fiftiesHousewife/under-test-airgap/issues/22) | deliverable | Technical Architect | ai | – |
-| #60 | [The summary lists a native library unpacked to a new, randomly named file each run once, not once per file](https://github.com/fiftiesHousewife/under-test-airgap/issues/60) | deliverable | Technical Architect | ai | – |
 | #61 | [Opening a browser, mail program or other application through java.awt.Desktop is refused and reported](https://github.com/fiftiesHousewife/under-test-airgap/issues/61) | deliverable | Technical Architect | ai | – |
 | #62 | [Printing through the JDK's print services is refused and reported, since a printer may be on another machine](https://github.com/fiftiesHousewife/under-test-airgap/issues/62) | deliverable | Technical Architect | ai | – |
 | #31 | [Opening files on shared drives is refused and reported: \\server\share paths and mapped network drives](https://github.com/fiftiesHousewife/under-test-airgap/issues/31) | deliverable | Technical Architect | ai | – |
