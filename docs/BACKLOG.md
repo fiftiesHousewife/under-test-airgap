@@ -15,12 +15,6 @@ Ordered by horizon (now, next, later), then items that are ready before items wa
 | #56 | [Behind a proxy, HttpURLConnection and the JDK's HTTP client are checked and reported by their real destination as well as the proxy](https://github.com/fiftiesHousewife/under-test-airgap/issues/56) | deliverable | Technical Architect | ai | – |
 | #25 | [Example old services (Spring with Gradle, Spring with Maven, plain Java) run end to end, with approved reports](https://github.com/fiftiesHousewife/under-test-airgap/issues/25) | deliverable | Test Quality Lead | ai | [Maven wiring: the agent on Surefire, Failsafe, application starts and Maven itself](https://github.com/fiftiesHousewife/under-test-airgap/issues/27), [For Spring applications: the setting behind each refused address, the active profiles, and a stop on production profiles](https://github.com/fiftiesHousewife/under-test-airgap/issues/23) |
 
-## [This repo keeps itself in order: its checks, CI, decisions and releases](https://github.com/fiftiesHousewife/under-test-airgap/issues/2)
-
-| | Item | Type | Owner | Done by | Waiting on |
-|---|---|---|---|---|---|
-| #13 | [A reviewed list of the JDK internals the hooks name, as exceptions to the forbidden-API check](https://github.com/fiftiesHousewife/under-test-airgap/issues/13) | deliverable | Toolkit Owner | ai | – |
-
 ## [The airgap agent is ready for a company to approve and use, with Gradle or Maven](https://github.com/fiftiesHousewife/under-test-airgap/issues/3)
 
 | | Item | Type | Owner | Done by | Waiting on |
