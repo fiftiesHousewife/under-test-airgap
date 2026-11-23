@@ -37,6 +37,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SEED = REPO_ROOT / "plan" / "airgap-backlog.yaml"
 KEY_MARKER = "<!-- backlog-key: {} -->"
+LINKS_MARKER = "<!-- backlog-links: parent={}; blocked-by={} -->"
 LABEL_COLOURS = {"type": "5319e7", "phase": "0e8a16", "owner": "1d76db", "done-by": "fbca04", "horizon": "d93f0b"}
 PAUSE_SECONDS = 1.5      # GitHub asks for at least a second between requests that create content
 RATE_LIMIT_WAIT = 90     # wait this long, then retry, if a rate limit is hit and GitHub gives no time
@@ -134,10 +135,19 @@ def body_for(item, web_base):
         lines += ["", f"**Decision record:** [{item['title']}]({web_base}/blob/main/{item['decision_record']})"]
     if "notes" in item:
         lines += ["", item["notes"]]
+    # Records the links, so a change to them changes the body and the issue is written again.
+    lines += ["", LINKS_MARKER.format(item.get("parent", ""), ",".join(item.get("blocked_by", [])))]
     return "\n".join(lines)
 
 
 HORIZON_ORDER = {"now": 0, "next": 1, "later": 2}
+
+
+def changed(issue, payload):
+    """Whether an issue's title, body or labels differ from what the seed says."""
+    body = (issue.get("body") or "").replace("\r\n", "\n")
+    labels = {label["name"] for label in issue.get("labels", [])}
+    return issue.get("title") != payload["title"] or body != payload["body"] or labels != set(payload["labels"])
 
 
 def write_page(items, by_key, path):
@@ -199,15 +209,20 @@ def main():
         if m:
             by_key[m.group(1)] = issue
 
+    written = set()
     for item in items:
         payload = {"title": item["title"], "body": body_for(item, web_base), "labels": labels_for(item)}
         if item["key"] in by_key:
-            number = by_key[item["key"]]["number"]
-            print(f"  update #{number}: {item['title']}")
-            by_key[item["key"]], _ = github.request("PATCH", f"issues/{number}", payload, writes=True)
+            issue = by_key[item["key"]]
+            if not changed(issue, payload):
+                continue
+            print(f"  update #{issue['number']}: {item['title']}")
+            by_key[item["key"]], _ = github.request("PATCH", f"issues/{issue['number']}", payload, writes=True)
         else:
             print(f"  create: {item['title']}")
             by_key[item["key"]], _ = github.request("POST", "issues", payload, writes=True)
+        written.add(item["key"])
+    print(f"  {len(items) - len(written)} issue(s) unchanged")
 
     for item in items:
         issue = by_key[item["key"]]
@@ -224,6 +239,8 @@ def main():
                            writes=True)
 
     for item in items:
+        if item["key"] not in written:
+            continue
         issue = by_key[item["key"]]
         if "parent" in item:
             parent = by_key[item["parent"]]
