@@ -356,6 +356,20 @@ items:
     blocked_by:
       - "report-writer"
     notes: "Done: found running the RealWorld example app's tests under the agent, where about 50 summary targets named one library. In the summary, a UUID or a run of eight or more digits in a native library's file name becomes *, so sqlite-jdbc shows once as sqlite-<version>-*-libsqlitejdbc.<ext>, the native: entry that allows it; the report keeps each path."
+  - key: "project-packages-in-settings"
+    type: "deliverable"
+    title: "The project's own packages can be named in testing/airgap.yaml, so the report names the project's line that made each call, however the agent is started"
+    parent: "the-agent-is-ready-for-a-company-to-approve-and-use"
+    phase: "set-up"
+    horizon: "next"
+    owner_role: "Technical Architect"
+    done_by: "ai"
+    done_when:
+      - "A project key in testing/airgap.yaml, in its schema, lists the project's package prefixes, as the agent's project setting does"
+      - "Started by the try-it script, which can't name them, the agent reports the project's own line as the caller, not a library's"
+    blocked_by:
+      - "allowlist-from-settings"
+    notes: "Found running a 2020 Spring guide under the try-it script: the refused call's caller was Spring's HTTP class, since nothing told the agent which packages were the guide's own."
   - key: "desktop-browse-and-open"
     type: "deliverable"
     title: "Opening a browser, mail program or other application through java.awt.Desktop is refused and reported"
