@@ -1,20 +1,29 @@
 package io.github.fiftieshousewife.airgap.agent;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
  * The agent's settings, from the text after {@code =} on its command line: {@code key=value} pairs separated by
- * {@code ;}. Unknown keys stop the JVM at start, so a mistyped setting is never silently ignored.
+ * {@code ;}, and from the project's settings file. Unknown keys stop the JVM at start, so a mistyped setting is never
+ * silently ignored.
  *
  * <ul>
+ *   <li>{@code settings}: the project's settings file ({@link SettingsFile}); {@code testing/airgap.yaml} by default,
+ *       read if it's there. Its {@code mode} counts unless the command line gives one, and the command line's
+ *       {@code allow} adds to its stand-ins. A file that's named but missing, or that's wrong, stops the JVM</li>
  *   <li>{@code mode}: {@code refuse} (the default), {@code report} or {@code off}</li>
  *   <li>{@code report}: where to write the report; {@code build/airgap/calls.jsonl} by default</li>
  *   <li>{@code allow}: comma-separated stand-ins to allow: {@code host}, {@code host:port}, {@code process:name} or
@@ -28,11 +37,14 @@ import java.util.Set;
  */
 public final class Settings {
 
-    private static final List<String> KEYS = Arrays.asList("mode", "report", "allow", "run", "project", "withoutHooks");
+    private static final List<String> KEYS = Arrays.asList("settings", "mode", "report", "allow", "run", "project",
+            "withoutHooks");
+    private static final Path DEFAULT_FILE = Paths.get("testing", "airgap.yaml");
 
     private Mode mode = Mode.REFUSE;
     private Path report = Paths.get("build", "airgap", "calls.jsonl");
-    private Allowlist allowlist = new Allowlist(Collections.<String>emptyList());
+    private List<String> fileAllow = Collections.emptyList();
+    private Allowlist allowlist = new Allowlist(fileAllow);
     private String run = "test";
     private List<String> project = Collections.emptyList();
     private Set<String> withoutHooks = Collections.emptySet();
@@ -45,41 +57,80 @@ public final class Settings {
      *
      * @param arguments the agent's arguments, or {@code null} for none
      * @return the settings
-     * @throws IllegalArgumentException for an unknown key, a pair without {@code =}, or an unknown mode
+     * @throws IllegalArgumentException for an unknown key, a pair without {@code =}, an unknown mode, or a
+     *     settings file that's named but can't be read, or that's wrong
      */
     public static Settings parse(final String arguments) {
+        final Map<String, String> given = pairs(arguments);
         final Settings settings = new Settings();
-        if (arguments == null || arguments.trim().isEmpty()) {
-            return settings;
-        }
-        for (final String pair : arguments.split(";")) {
-            if (!pair.trim().isEmpty()) {
-                settings.set(pair.trim());
-            }
+        settings.readFile(given.get("settings"));
+        for (final Map.Entry<String, String> pair : given.entrySet()) {
+            settings.apply(pair.getKey(), pair.getValue());
         }
         return settings;
     }
 
-    private void set(final String pair) {
+    private static Map<String, String> pairs(final String arguments) {
+        final Map<String, String> pairs = new LinkedHashMap<>();
+        if (arguments == null) {
+            return pairs;
+        }
+        for (final String pair : arguments.split(";")) {
+            if (!pair.trim().isEmpty()) {
+                add(pairs, pair.trim());
+            }
+        }
+        return pairs;
+    }
+
+    private static void add(final Map<String, String> pairs, final String pair) {
         final int equals = pair.indexOf('=');
         if (equals < 1) {
             throw new IllegalArgumentException("airgap agent: setting '" + pair + "' needs the form key=value");
         }
         final String key = pair.substring(0, equals).trim();
-        final String value = pair.substring(equals + 1).trim();
         if (!KEYS.contains(key)) {
             throw new IllegalArgumentException("airgap agent: unknown setting '" + key + "'; known settings: " + KEYS);
         }
-        apply(key, value);
+        pairs.put(key, pair.substring(equals + 1).trim());
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "The engineer running the build names the project's own settings file")
+    private void readFile(final String named) {
+        final Path file = named == null ? DEFAULT_FILE : Paths.get(named);
+        if (named == null && !Files.isRegularFile(file)) {
+            return;
+        }
+        final SettingsFile read;
+        try {
+            read = SettingsFile.read(new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
+        } catch (IOException unreadable) {
+            throw new IllegalArgumentException("airgap agent: can't read the settings file " + file + " ("
+                    + unreadable + ")", unreadable);
+        } catch (IllegalArgumentException wrong) {
+            throw new IllegalArgumentException("airgap agent: the settings file " + file + " is wrong: "
+                    + wrong.getMessage() + ". Its schema is schema/airgap-settings.schema.json", wrong);
+        }
+        if (read.getMode() != null) {
+            mode = read.getMode();
+        }
+        fileAllow = read.getAllow();
+        allowlist = new Allowlist(fileAllow);
     }
 
     private void apply(final String key, final String value) {
+        if ("settings".equals(key)) {
+            return;
+        }
         if ("mode".equals(key)) {
             mode = modeNamed(value);
         } else if ("report".equals(key)) {
             report = reportPath(value);
         } else if ("allow".equals(key)) {
-            allowlist = new Allowlist(list(value));
+            final List<String> entries = new ArrayList<>(fileAllow);
+            entries.addAll(list(value));
+            allowlist = new Allowlist(entries);
         } else if ("run".equals(key)) {
             run = value;
         } else if ("project".equals(key)) {

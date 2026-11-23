@@ -23,9 +23,11 @@ dependencies {
 
 val reportSchema = rootProject.layout.projectDirectory.file("schema/airgap-report.schema.json")
 val summarySchema = rootProject.layout.projectDirectory.file("schema/airgap-summary.schema.json")
+val settingsSchema = rootProject.layout.projectDirectory.file("schema/airgap-settings.schema.json")
 tasks.test {
     systemProperty("airgap.schema", reportSchema.asFile.absolutePath)
     systemProperty("airgap.summarySchema", summarySchema.asFile.absolutePath)
+    systemProperty("airgap.settingsSchema", settingsSchema.asFile.absolutePath)
     filter {
         excludeTestsMatching("*AgentTestReportsMatchSchemaTest")
         excludeTestsMatching("*OsTraceMatchesReportsTest")
@@ -98,6 +100,8 @@ dependencies {
 val testJdks = providers.gradleProperty("airgap.testJdks").orElse("8,11,17,21,25")
     .map { list -> list.split(",").map { it.trim() }.filter { it.isNotEmpty() } }
 val agentJar = tasks.shadowJar.flatMap { it.archiveFile }
+// A settings file, as a project would have in testing/airgap.yaml, so the tests prove the agent reads one.
+val agentTestSettings = layout.projectDirectory.file("src/agentTest/airgap.yaml")
 
 testJdks.get().forEach { jdk ->
     val reportFile = layout.buildDirectory.file("airgap-tests/jdk$jdk/calls.jsonl")
@@ -113,7 +117,9 @@ testJdks.get().forEach { jdk ->
         } else {
             javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk) }
         }
-        runWithOwnAgent(files(agentJar), reportFile, "allow=allowed.example.invalid:8443,lookup-once.example.invalid,process:java,native:airgapallowed")
+        inputs.file(agentTestSettings).withPropertyName("airgapSettings").withPathSensitivity(PathSensitivity.NONE)
+        runWithOwnAgent(files(agentJar), reportFile, "settings=${agentTestSettings.asFile.absolutePath};"
+            + "allow=allowed.example.invalid:8443,lookup-once.example.invalid,process:java,native:airgapallowed")
         // Under strace the JDK is a wrapper Gradle can't tell from the real one, so the tests would be skipped as up to
         // date, or taken from the build cache, and leave nothing traced: with airgap.osTrace they always run.
         if (providers.gradleProperty("airgap.osTrace").isPresent) {
@@ -238,6 +244,7 @@ pitest {
     jvmArgs = listOf(
         "-Dairgap.schema=${reportSchema.asFile.absolutePath}",
         "-Dairgap.summarySchema=${summarySchema.asFile.absolutePath}",
+        "-Dairgap.settingsSchema=${settingsSchema.asFile.absolutePath}",
     )
     outputFormats = listOf("HTML", "XML")
     timestampedReports = false

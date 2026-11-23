@@ -26,17 +26,22 @@ public class AirgapExtension {
     @Inject
     public AirgapExtension(final ObjectFactory objects) {
         mode = objects.property(String.class);
-        mode.convention("refuse");
         allow = objects.listProperty(String.class);
         packages = objects.listProperty(String.class);
     }
 
-    /** @return {@code refuse} (the default), {@code report} or {@code off} */
+    /**
+     * @return {@code refuse}, {@code report} or {@code off}; if it isn't set, the {@code mode} in
+     *     {@code testing/airgap.yaml}, or else {@code refuse}
+     */
     public Property<String> getMode() {
         return mode;
     }
 
-    /** @return the stand-ins to allow: {@code host}, {@code host:port}, {@code process:name} or {@code native:name} */
+    /**
+     * @return the stand-ins to allow, besides those in {@code testing/airgap.yaml}: {@code host}, {@code host:port},
+     *     {@code process:name} or {@code native:name}
+     */
     public ListProperty<String> getAllow() {
         return allow;
     }

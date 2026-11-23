@@ -212,12 +212,28 @@ Three modes, chosen per run:
 What may go ahead, from three places:
 
 1. **Always:** loopback addresses and `localhost`.
-2. **The run's `allow` setting,** on the agent's command line, or the Gradle plugin's `allow` list: the stand-ins its
-   tests use, for example a WireMock server, and in the build JVM the company's package repository. A project
-   settings file, `testing/airgap.yaml` ([schema](../schema/airgap-settings.schema.json)), is planned.
+2. **The project's settings,** in `testing/airgap.yaml` ([schema](../schema/airgap-settings.schema.json)): the
+   stand-ins its tests use, for example a WireMock server, each with the reason it's allowed. The run's `allow`
+   setting, on the agent's command line or in the Gradle plugin's `allow` list, adds to them: in the build JVM, for
+   example, the company's package repository.
 3. **A test's own allowance:** `@AllowCalls("wiremock.test:8089")` on a test class or method.
 
 An allowed call is still reported, so the report always shows everything the code touched.
+
+### The settings file
+
+The Gradle plugin names the project's `testing/airgap.yaml` to the agent, and makes it an input of each task it
+guards, so changing it runs the tests again. Started any other way, the agent reads `testing/airgap.yaml` in the
+folder the JVM starts in, if it's there, or the file its `settings` setting names. Its `mode` counts unless the run
+gives one; its `allow` entries and the run's are all allowed.
+
+The agent can't depend on a YAML library, so it reads the small part of YAML a settings file needs: keys with text,
+lists in square brackets, and lists of `- ` items, each text or keys with text. Anything else, such as anchors, tags
+or text over several lines, stops the run with the line it's on, rather than being read as something it isn't. It
+checks the file by the schema's rules itself, and its tests hold those checks to agree with the schema, file by file.
+A file that's named but missing, isn't YAML it can read, or breaks the schema's rules stops the JVM at start, saying
+what's wrong. `production_profiles` and `file_writes` are checked, but nothing uses them until the hooks that need
+them are built.
 
 ## The report
 

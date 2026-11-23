@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../../../schema/airgap-settings.schema.json
+# The agent's own tests run with this settings file, to prove the agent reads one on every supported JDK.
+allow:
+  - target: settings-file.example.invalid:8443
+    reason: "Nothing: a name that can't resolve, allowed only to prove the file is read"

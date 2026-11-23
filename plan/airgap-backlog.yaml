@@ -297,6 +297,7 @@ items:
     notes: "Done in 0.1.0: airgap-junit, registered through the service loader; @AllowCalls on classes and methods."
   - key: "allowlist-from-settings"
     type: "deliverable"
+    status: "done"
     title: "The allowlist from testing/airgap.yaml, checked against its schema"
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
     phase: "set-up"
@@ -308,6 +309,7 @@ items:
       - "An invalid settings file stops the run with a clear message"
     blocked_by:
       - "network-hooks"
+    notes: "Done: the agent reads testing/airgap.yaml, or the file its settings setting names, with a reader for the small part of YAML the file needs, and checks it by the schema's rules; its tests hold those checks to agree with the schema, file by file. Its mode counts unless the run gives one, and its allow entries add to the run's. A file that's missing, wrong or not YAML it can read stops the JVM at start, saying what and on which line. The Gradle plugin names the project's file to the agent, as an input of each task. The agent's own tests run with a settings file on every JDK."
   - key: "jndi-process-native-and-exit-hooks"
     type: "deliverable"
     title: "Hooks for JNDI and LDAP lookups, starting processes, loading native code and ending the JVM"

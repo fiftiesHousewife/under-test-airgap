@@ -181,10 +181,12 @@ class RefusedCallsTest {
     }
 
     @Test
-    void allowsWhatTheSettingsAllowWithoutMakingTheCall() {
+    void allowsWhatTheSettingsAndTheSettingsFileAllowWithoutMakingTheCall() {
         assertAll(
                 () -> assertThat(Gate.isAllowed("allowed.example.invalid", 8443)).isTrue(),
                 () -> assertThat(Gate.isAllowed("allowed.example.invalid", 9999)).isFalse(),
+                () -> assertThat(Gate.isAllowed("settings-file.example.invalid", 8443)).as("from the settings file")
+                        .isTrue(),
                 () -> assertThat(Gate.isAllowed(UNRESOLVABLE, 5432)).isFalse(),
                 () -> assertThat(Gate.isAllowed("localhost", 5432)).isTrue());
     }

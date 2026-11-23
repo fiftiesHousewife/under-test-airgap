@@ -120,8 +120,22 @@ program a test starts on purpose:
   On a class, it covers the class's set-up and tear-down too (`@BeforeAll`, the constructor, Spring's start-up), and
   applies to subclasses and to `@Nested` classes inside it. On a method, it adds to what the class allows.
 
-- **for a whole run**, use the agent's `allow` setting (see [Settings](#settings)), for example
-  `allow=wiremock.test:8089,process:git`.
+- **for the whole project**, list it in `testing/airgap.yaml`, with what it is, so whoever reviews the file knows why
+  it's allowed ([the file's schema](schema/airgap-settings.schema.json)):
+
+  ```yaml
+  allow:
+    - target: wiremock.test:8089
+      reason: WireMock standing in for the payment service
+    - target: process:git
+      reason: The release notes test reads the project's history
+  ```
+
+  The plugin hands the file to the agent, and the agent also finds it on its own in the folder a JVM starts in. A
+  file that's wrong stops the run at start, saying what's wrong and on which line.
+
+- **for one run**, use the agent's `allow` setting (see [Settings](#settings)), for example
+  `allow=wiremock.test:8089,process:git`. It adds to the file's entries.
 
 Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), a program (`process:git`), or a
 native library (`native:sqlitejdbc`, which matches `libsqlitejdbc.so` and `sqlitejdbc.dll` too). Nothing allows a
@@ -191,6 +205,7 @@ Settings follow `=` after the agent's jar on the command line, separated by `;`:
 
 | Setting | What it does |
 |---|---|
+| `settings=testing/airgap.yaml` | The project's settings file (the default shown, read if it's there): its `mode` and `allow` list. Settings on the command line win over the file's, and `allow` adds to it |
 | `mode=refuse` | Refuse and report every risky call that isn't allowed (the default). `report` lets calls go ahead and reports them. `off` does nothing |
 | `report=build/airgap/calls.jsonl` | Where the report is written (the default shown) |
 | `allow=wiremock.test:8089,process:git` | What to allow for the whole run: `host`, `host:port`, `process:name` or `native:name`. `localhost` is always allowed |

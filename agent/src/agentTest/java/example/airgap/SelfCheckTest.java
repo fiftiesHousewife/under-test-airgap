@@ -93,6 +93,25 @@ class SelfCheckTest {
         }
     }
 
+    /** A settings file that's wrong stops the JVM before anything runs, saying what's wrong and where. */
+    @Test
+    void refusesToStartWhenItsSettingsFileIsWrong() throws IOException, InterruptedException {
+        final File settings = File.createTempFile("airgap-self-settings", ".yaml");
+        try {
+            Files.write(settings.toPath(),
+                    "allow:\n  - target: db.example.invalid:5432\n".getBytes(StandardCharsets.UTF_8));
+            final Result result = runJava("settings=" + settings + ";report=" + new File(
+                    System.getProperty("java.io.tmpdir"), "airgap-self-settings.jsonl"));
+
+            assertAll(
+                    () -> assertThat(result.exitCode).as(result.output).isNotZero(),
+                    () -> assertThat(result.output).contains("the settings file " + settings + " is wrong",
+                            "allow entry 1 (db.example.invalid:5432) needs a reason"));
+        } finally {
+            Files.delete(settings.toPath());
+        }
+    }
+
     private static Result runJava(final String agentSettings) throws IOException, InterruptedException {
         final String agent = "-javaagent:" + System.getProperty("airgap.test.agent") + "=" + agentSettings;
         return run(Paths.java(), agent, "-version");

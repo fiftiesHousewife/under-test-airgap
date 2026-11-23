@@ -14,13 +14,17 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.process.CommandLineArgumentProvider;
 
 /**
  * The {@code -javaagent:} arguments for one guarded task, worked out when the task runs, so settings made after the
- * plugin is applied still count. The report's path is left out of the task's inputs, so moving the project doesn't
- * make the task run again.
+ * plugin is applied still count. The project's settings file, {@code testing/airgap.yaml}, is named to the agent when
+ * it's there, and its content is one of the task's inputs. The report's and the settings file's paths are left out of
+ * the task's inputs, so moving the project doesn't make the task run again.
  */
 @SuppressFBWarnings(value = "EI_EXPOSE_REP",
         justification = "Gradle reads and sets these properties through the getters, so they return the live objects")
@@ -33,6 +37,7 @@ public final class AgentArguments implements CommandLineArgumentProvider {
     private final ListProperty<String> packages;
     private final String run;
     private final Provider<RegularFile> report;
+    private final FileCollection settingsFile;
 
     /** @return the agent's jar */
     @Classpath
@@ -44,11 +49,20 @@ public final class AgentArguments implements CommandLineArgumentProvider {
     @Input
     public String getSettings() {
         final List<String> settings = new ArrayList<>();
-        settings.add("mode=" + mode.get());
+        if (mode.isPresent()) {
+            settings.add("mode=" + mode.get());
+        }
         settings.add("run=" + run);
         add(settings, "allow", allow);
         add(settings, "project", packages);
         return String.join(";", settings);
+    }
+
+    /** @return the project's settings file, which may not be there */
+    @InputFiles
+    @PathSensitive(PathSensitivity.NONE)
+    public FileCollection getSettingsFile() {
+        return settingsFile;
     }
 
     /** @return where the report is written */
@@ -64,8 +78,10 @@ public final class AgentArguments implements CommandLineArgumentProvider {
     @Override
     public Iterable<String> asArguments() {
         final String jar = agent.getSingleFile().getAbsolutePath();
+        final File file = settingsFile.getSingleFile();
+        final String named = file.isFile() ? "settings=" + file.getAbsolutePath() + ";" : "";
         return Arrays.asList("-Xbootclasspath/a:" + jar,
-                "-javaagent:" + jar + "=report=" + reportFile().getAbsolutePath() + ";" + getSettings());
+                "-javaagent:" + jar + "=report=" + reportFile().getAbsolutePath() + ";" + named + getSettings());
     }
 
     private File reportFile() {

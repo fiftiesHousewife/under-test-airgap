@@ -34,7 +34,7 @@
     },
     "production_profiles": {
       "type": "array",
-      "items": {"type": "string"},
+      "items": {"type": "string", "minLength": 1},
       "description": "Spring profile names that mean production. A run with any of them active stops at once."
     },
     "file_writes": {

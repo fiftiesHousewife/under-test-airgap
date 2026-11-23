@@ -1,6 +1,5 @@
 package io.github.fiftieshousewife.airgap.agent;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 
 /**
@@ -20,8 +19,6 @@ public final class Decider {
      * @param settings the agent's settings
      * @param report where each call is recorded
      */
-    @SuppressFBWarnings(value = "EI_EXPOSE_REP2",
-            justification = "The report is shared on purpose: the gate writes to it")
     public Decider(final Settings settings, final Report report) {
         this.settings = settings;
         this.report = report;

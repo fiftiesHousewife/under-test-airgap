@@ -45,14 +45,14 @@ class AirgapPluginTest {
                 .getAbsolutePath();
         assertThat(arguments((Test) project.getTasks().getByName("test"))).containsExactly(
                 "-Xbootclasspath/a:" + agentJar.getAbsolutePath(),
-                "-javaagent:" + agentJar.getAbsolutePath() + "=report=" + report + ";mode=refuse;run=test");
+                "-javaagent:" + agentJar.getAbsolutePath() + "=report=" + report + ";run=test");
     }
 
     @org.junit.jupiter.api.Test
     void aJavaExecTaskStartsWithTheAgentAsAnApplication() {
         final JavaExec run = project.getTasks().register("bootRun", JavaExec.class).get();
         assertThat(String.join(" ", arguments(run)))
-                .contains("build/airgap/bootRun/calls.jsonl;mode=refuse;run=application");
+                .contains("build/airgap/bootRun/calls.jsonl;run=application");
     }
 
     @org.junit.jupiter.api.Test
@@ -64,6 +64,22 @@ class AirgapPluginTest {
         settings.getPackages().add("com.example.");
         assertThat(String.join(" ", arguments((Test) project.getTasks().getByName("test"))))
                 .endsWith(";mode=report;run=test;allow=wiremock.test:8089,process:git;project=com.example.");
+    }
+
+    @org.junit.jupiter.api.Test
+    void theProjectsSettingsFileReachesTheAgentAndIsAnInput() throws IOException {
+        final Path file = Files.createDirectories(folder.resolve("testing")).resolve("airgap.yaml");
+        Files.write(file, "mode: report\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        final Test test = (Test) project.getTasks().getByName("test");
+        final File named = project.file("testing/airgap.yaml");
+
+        assertAll(
+                () -> assertThat(String.join(" ", arguments(test)))
+                        .contains("calls.jsonl;settings=" + named.getAbsolutePath() + ";run=test"),
+                () -> assertThat(test.getJvmArgumentProviders()).filteredOn(AgentArguments.class::isInstance)
+                        .singleElement()
+                        .extracting(provider -> ((AgentArguments) provider).getSettingsFile().getFiles())
+                        .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.ITERABLE).containsExactly(named));
     }
 
     @org.junit.jupiter.api.Test
