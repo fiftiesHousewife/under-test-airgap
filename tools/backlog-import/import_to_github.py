@@ -5,6 +5,7 @@ Needs only Python 3 (standard library) and a token. No GitHub CLI or other tools
 
     python3 tools/backlog-import/import_to_github.py OWNER/REPO                 # dry run of plan/airgap-backlog.yaml
     python3 tools/backlog-import/import_to_github.py OWNER/REPO --apply         # creates and updates issues
+    python3 tools/backlog-import/import_to_github.py OWNER/REPO --apply --relink # and posts every link again
     python3 tools/backlog-import/import_to_github.py OWNER/REPO --apply --file templates/programme-backlog.yaml
                                                     # an organisation's starting backlog, from the template
 
@@ -238,17 +239,27 @@ def main():
             github.request("PATCH", f"issues/{issue['number']}", {"state": "closed", "state_reason": "not_planned"},
                            writes=True)
 
+    # Links are posted for issues written in this run, or for every issue with --relink. A link already there fails
+    # harmlessly; any other failure is named, since an unchanged issue's links aren't tried again without --relink.
+    failed = []
     for item in items:
-        if item["key"] not in written:
+        if item["key"] not in written and "--relink" not in sys.argv:
             continue
         issue = by_key[item["key"]]
         if "parent" in item:
             parent = by_key[item["parent"]]
-            github.request("POST", f"issues/{parent['number']}/sub_issues", {"sub_issue_id": issue["id"]},
-                           writes=True, allow_fail=True)
+            _, headers = github.request("POST", f"issues/{parent['number']}/sub_issues", {"sub_issue_id": issue["id"]},
+                                        writes=True, allow_fail=True)
+            if headers is None:
+                failed.append(f"#{issue['number']} as a sub-issue of #{parent['number']}")
         for blocker in item.get("blocked_by", []):
-            github.request("POST", f"issues/{issue['number']}/dependencies/blocked_by",
-                           {"issue_id": by_key[blocker]["id"]}, writes=True, allow_fail=True)
+            _, headers = github.request("POST", f"issues/{issue['number']}/dependencies/blocked_by",
+                                        {"issue_id": by_key[blocker]["id"]}, writes=True, allow_fail=True)
+            if headers is None:
+                failed.append(f"#{issue['number']} blocked by #{by_key[blocker]['number']}")
+    if failed:
+        print(f"  {len(failed)} link(s) not made (some may already exist): {', '.join(failed)}")
+        print("  run again with --relink to try every link")
     if "--page" in sys.argv:
         write_page(items, by_key, REPO_ROOT / sys.argv[sys.argv.index("--page") + 1])
     print("done")
