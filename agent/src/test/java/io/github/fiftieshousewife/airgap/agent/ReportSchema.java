@@ -10,19 +10,28 @@ import java.nio.file.Path;
 import java.util.List;
 import tools.jackson.databind.json.JsonMapper;
 
-/** The report's schema, {@code schema/airgap-report.schema.json}, for checking lines the agent writes. */
+/**
+ * One of the agent's schemas, for checking what it writes: the report's, {@code schema/airgap-report.schema.json}, or
+ * the summary's, {@code schema/airgap-summary.schema.json}, each named by a system property the build sets.
+ */
 final class ReportSchema {
 
     private static final JsonMapper JSON = new JsonMapper();
 
     private final Schema schema;
 
+    /** The report's schema, from the {@code airgap.schema} property. */
     ReportSchema() throws IOException {
-        final String text = Files.readString(Path.of(System.getProperty("airgap.schema")));
+        this("airgap.schema");
+    }
+
+    /** @param property the system property that names the schema's file */
+    ReportSchema(final String property) throws IOException {
+        final String text = Files.readString(Path.of(System.getProperty(property)));
         this.schema = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12).getSchema(text);
     }
 
-    /** @return what's wrong with one line of the report; empty if it matches the schema */
+    /** @return what's wrong with one line of the report, or with a summary; empty if it matches the schema */
     List<Error> problems(final String line) {
         return schema.validate(JSON.readTree(line));
     }

@@ -9,8 +9,9 @@ import org.gradle.process.JavaForkOptions
 
 /**
  * Starts a task's JVM with the airgap agent this build makes, as the Gradle plugin would: the jar on the bootstrap
- * class path and named as the agent, its report cleared when the task starts and kept as one of the task's outputs. The tests also get the report's path
- * and the jar's, as the system properties `airgap.test.report` and `airgap.test.agent`.
+ * class path and named as the agent, its report cleared when the task starts, and the report and its summary kept as
+ * the task's outputs. The tests also get the report's path and the jar's, as the system properties
+ * `airgap.test.report` and `airgap.test.agent`.
  *
  * @param agent the agent's jar
  * @param report where the agent writes its report
@@ -19,8 +20,10 @@ import org.gradle.process.JavaForkOptions
 fun <T> T.runWithOwnAgent(agent: FileCollection, report: Provider<RegularFile>, settings: String)
         where T : Task, T : JavaForkOptions {
     inputs.files(agent).withPropertyName("airgapAgent")
-    // An output, so a task taken from the build cache brings its report back with it for the checks that read it.
+    // Outputs, so a task taken from the build cache brings its report and summary back for the checks that read them.
     outputs.file(report).withPropertyName("airgapReport")
+    outputs.file(report.map { it.asFile.resolveSibling(it.asFile.name.removeSuffix(".jsonl") + "-summary.json") })
+        .withPropertyName("airgapSummary")
     doFirst { report.get().asFile.delete() }
     jvmArgumentProviders.add(OwnAgentArguments(agent, report, settings))
 }

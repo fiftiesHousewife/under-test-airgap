@@ -26,6 +26,18 @@ public final class Json {
     }
 
     /**
+     * Adds a whole-number field.
+     *
+     * @param name the field's name
+     * @param value its value
+     * @return this object
+     */
+    public Json number(final String name, final long value) {
+        name(name).append(value);
+        return this;
+    }
+
+    /**
      * Adds an object field.
      *
      * @param name the field's name

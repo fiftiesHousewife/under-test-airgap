@@ -4,8 +4,9 @@ import java.io.UnsupportedEncodingException;
 import java.lang.instrument.Instrumentation;
 
 /**
- * Starts the agent, once {@link AirgapAgent} has put the jar on the bootstrap class path: reads the settings, opens
- * the gate, installs the hooks, and checks every hook is in place. Loaded by the bootstrap class loader.
+ * Starts the agent, once {@link AirgapAgent} has put the jar on the bootstrap class path: reads the settings, has the
+ * report summarised when the JVM ends, opens the gate, installs the hooks, and checks every hook is in place. Loaded
+ * by the bootstrap class loader.
  */
 public final class AgentStart {
 
@@ -27,6 +28,7 @@ public final class AgentStart {
         }
         final JsonLinesReport report = new JsonLinesReport(settings.getReport());
         report.checkWritable();
+        Runtime.getRuntime().addShutdownHook(new Thread(report::summarise, "airgap-summary"));
         Gate.open(new Decider(settings, report));
         SelfCheck.run(Hooks.install(instrumentation, settings.getWithoutHooks()), settings.getWithoutHooks());
     }

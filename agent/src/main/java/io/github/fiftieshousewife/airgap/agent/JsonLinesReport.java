@@ -7,6 +7,7 @@ import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
 /**
@@ -14,6 +15,9 @@ import java.nio.file.StandardOpenOption;
  * once, so each line is written whole under a file lock. No report must mean no risky calls, so the agent won't start
  * if it can't write the report's folder ({@link #checkWritable()}), and a line that can't be written is an error the
  * caller hears of.
+ *
+ * <p>Each JVM also rebuilds the report's {@link Summary} from the whole report as it ends ({@link #summarise()}):
+ * none knows which will end last, and the last to end leaves the summary of all of them.
  */
 public final class JsonLinesReport implements Report {
 
@@ -79,5 +83,47 @@ public final class JsonLinesReport implements Report {
                 channel.write(buffer);
             }
         }
+    }
+
+    /**
+     * Rebuilds the summary beside the report from every line in it, under the report's lock. With no report there
+     * were no calls, and an old summary is removed. If the summary can't be written it is removed too: a wrong
+     * summary is worse than none, and the report itself is still whole. Called as the JVM ends.
+     */
+    public void summarise() {
+        final Path summary = Summary.fileFor(file);
+        try {
+            writeSummary(summary);
+        } catch (IOException cantWrite) {
+            try {
+                Files.deleteIfExists(summary);
+            } catch (IOException cantRemove) {
+                // The JVM is ending and the agent writes nothing but its report: there is nowhere left to say so.
+                return;
+            }
+        }
+    }
+
+    private synchronized void writeSummary(final Path summary) throws IOException {
+        if (!Files.exists(file)) {
+            Files.deleteIfExists(summary);
+            return;
+        }
+        try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ, StandardOpenOption.WRITE);
+                FileLock lock = channel.lock()) {
+            final Path temporary = summary.resolveSibling(summary.getFileName() + ".tmp");
+            Files.write(temporary, Summary.of(String.valueOf(file.getFileName()), read(channel, lock))
+                    .getBytes(StandardCharsets.UTF_8));
+            Files.move(temporary, summary, StandardCopyOption.ATOMIC_MOVE);
+        }
+    }
+
+    private static String read(final FileChannel channel, final FileLock lock) throws IOException {
+        final ByteBuffer buffer = ByteBuffer.allocate((int) channel.size());
+        int read = 0;
+        while (buffer.hasRemaining() && read >= 0 && lock.isValid()) {
+            read = channel.read(buffer);
+        }
+        return new String(buffer.array(), 0, buffer.position(), StandardCharsets.UTF_8);
     }
 }

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/fiftieshousewife/under-test-airgap/schema/airgap-summary.schema.json",
+  "title": "The airgap agent's summary of a report (build/airgap/calls-summary.json)",
+  "description": "Beside each report, rebuilt from the whole report as each JVM writing it ends: each distinct kind and target once, with how many calls there were, how they ended, and the tests and lines of code that made them. Removed when there is no report, since that means no calls. Words follow GLOSSARY.md.",
+  "type": "object",
+  "required": ["report", "targets"],
+  "additionalProperties": false,
+  "properties": {
+    "report": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The file name of the report this summarises, in the same folder."
+    },
+    "targets": {
+      "type": "array",
+      "description": "Each distinct kind and target once, in order of kind and then target.",
+      "items": {
+        "type": "object",
+        "required": ["kind", "target", "calls", "outcomes"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": ["host-lookup", "tcp", "udp", "database", "http", "jndi", "mail", "process", "native-library", "exit", "file-write"],
+            "description": "What kind of risky call it was, as in the report."
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the calls tried to reach, as in the report."
+          },
+          "calls": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "How many lines of the report name this kind and target."
+          },
+          "outcomes": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "refused": {"type": "integer", "minimum": 1},
+              "allowed": {"type": "integer", "minimum": 1},
+              "reported": {"type": "integer", "minimum": 1}
+            },
+            "description": "How many of the calls ended each way; an outcome with no calls is left out."
+          },
+          "tests": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true,
+            "description": "Each test that made one of the calls, as class.method, in order. Absent when none was made by a test."
+          },
+          "callers": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true,
+            "description": "Each first stack frame in the project's own code that made one of the calls, in order."
+          }
+        }
+      }
+    }
+  }
+}

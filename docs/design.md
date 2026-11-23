@@ -238,9 +238,20 @@ No report must mean no risky calls, so the agent won't start if it can't write t
 line can't be written is refused, whatever the mode or allowlist, with a message saying the report failed. A line is
 written even from a thread that has been interrupted.
 
-**Planned:** a summary at the end of the run listing each distinct target once, with how many calls and which tests made them: the
-list of everything the project depends on, for a person to confirm and give stand-ins. See
+### The summary
+
+Beside each report, `calls-summary.json` (`<name>-summary.json` for a report named otherwise,
+[schema](../schema/airgap-summary.schema.json)) lists each distinct kind and target once, in order, with how many
+calls there were, how many ended each way, and the tests and lines of the project's code that made them: the list of
+everything the project depends on, for a person to confirm and give stand-ins. See
 [The report is one line of JSON per call, with a schema, and feeds the connection list](decisions/0006-the-report-is-one-line-of-json-per-call-with-a-schema-and-feeds-the-connection-list.md).
+
+Several JVMs may write one report, and none knows which will end last, so each rebuilds the summary from the whole
+report as it ends, from a shutdown hook, under the report's lock: the last to end leaves the summary of all of them.
+A JVM that is killed writes no summary, but loses nothing, since the next to end rebuilds it from the report. The
+agent reads its own lines with a small reader of its own, as it can't depend on a JSON library, and skips a line cut
+short. A summary never disagrees with its report: with no report there were no calls, and an old summary is removed;
+a summary that can't be written is removed too, since a wrong summary is worse than none.
 
 ## Knowing which test made a call
 

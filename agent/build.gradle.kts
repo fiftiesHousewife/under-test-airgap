@@ -22,8 +22,10 @@ dependencies {
 }
 
 val reportSchema = rootProject.layout.projectDirectory.file("schema/airgap-report.schema.json")
+val summarySchema = rootProject.layout.projectDirectory.file("schema/airgap-summary.schema.json")
 tasks.test {
     systemProperty("airgap.schema", reportSchema.asFile.absolutePath)
+    systemProperty("airgap.summarySchema", summarySchema.asFile.absolutePath)
     filter {
         excludeTestsMatching("*AgentTestReportsMatchSchemaTest")
         excludeTestsMatching("*OsTraceMatchesReportsTest")
@@ -171,6 +173,7 @@ val checkAgentTestReports = tasks.register<Test>("checkAgentTestReports") {
     useJUnitPlatform()
     filter { includeTestsMatching("*AgentTestReportsMatchSchemaTest") }
     systemProperty("airgap.schema", reportSchema.asFile.absolutePath)
+    systemProperty("airgap.summarySchema", summarySchema.asFile.absolutePath)
     systemProperty("airgap.agentTestReports", layout.buildDirectory.dir("airgap-tests").get().asFile.absolutePath)
     dependsOn(tasks.withType<Test>().matching { it.name.startsWith("agentTestOnJdk") })
 }
@@ -232,7 +235,10 @@ pitest {
         "io.github.fiftieshousewife.airgap.agent.SctpGate*", "io.github.fiftieshousewife.airgap.agent.HandOver*",
     )
     excludedTestClasses = listOf("*AgentTestReportsMatchSchemaTest", "*OsTraceMatchesReportsTest")
-    jvmArgs = listOf("-Dairgap.schema=${reportSchema.asFile.absolutePath}")
+    jvmArgs = listOf(
+        "-Dairgap.schema=${reportSchema.asFile.absolutePath}",
+        "-Dairgap.summarySchema=${summarySchema.asFile.absolutePath}",
+    )
     outputFormats = listOf("HTML", "XML")
     timestampedReports = false
     mutationThreshold = libs.versions.min.mutation.score.map { it.toInt() }

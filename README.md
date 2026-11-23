@@ -34,8 +34,8 @@ written to a report.
 | TCP connections, through sockets, NIO channels and asynchronous channels | Writing files outside the project folder |
 | UDP traffic | For Spring applications, the setting, file and line that gave each address |
 | Starting other programs | Database, HTTP and mail calls named as such in the report |
-| JNDI lookups of LDAP, RMI, DNS and CORBA directories on other machines | A summary at the end of a run: each target once, and which tests reached it |
-| Loading native libraries, other than the JDK's and the build tool's own | Maven wiring |
+| JNDI lookups of LDAP, RMI, DNS and CORBA directories on other machines | Maven wiring |
+| Loading native libraries, other than the JDK's and the build tool's own | |
 | `System.exit` and `Runtime.halt` while a test is running, so the test fails instead of the run ending | |
 
 [The design](docs/design.md) describes each of these.
@@ -84,8 +84,14 @@ script fetches the agent from Maven Central. To fetch it from your company's rep
 
 Each test task's report is written to `build/airgap/<task name>/calls.jsonl`, for example
 `build/airgap/test/calls.jsonl`, and is cleared when the task starts, with the plugin or the init script. If there is
-no report, the tests made no risky calls. A test that made a refused call
-fails with an ordinary exception:
+no report, the tests made no risky calls.
+
+Beside it, `calls-summary.json` lists each system the code tried to reach once, with how many calls there were, how
+they ended, and which tests and lines of your code made them
+([the summary's schema](schema/airgap-summary.schema.json)). Start from it: it is the list of everything your code
+depends on. It is rebuilt as each test JVM ends, so it covers every JVM that wrote the report.
+
+A test that made a refused call fails with an ordinary exception:
 
 ```text
 OrderServiceTest > placesAnOrder() FAILED
