@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 /**
  * The report's summary ({@code schema/airgap-summary.schema.json}), beside it as {@code <name>-summary.json}: each
@@ -14,6 +15,10 @@ import java.util.TreeSet;
  * stand-ins.
  */
 final class Summary {
+
+    /** A UUID, or a run of eight or more digits: the random part of an unpacked library's file name. */
+    private static final Pattern RANDOM_ID = Pattern.compile(
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9]{8,}");
 
     private Summary() {
     }
@@ -42,7 +47,7 @@ final class Summary {
         for (final String line : report.split("\n")) {
             final Map<String, String> fields = JsonFields.of(line);
             final String kind = fields.get("kind");
-            final String target = fields.get("target");
+            final String target = grouped(kind, fields.get("target"));
             if (kind != null && target != null && fields.containsKey("outcome")) {
                 targets.computeIfAbsent(kind + '\u0000' + target, key -> new Target(kind, target)).add(fields);
             }
@@ -54,6 +59,24 @@ final class Summary {
             separator = ",\n";
         }
         return out.append("\n]}\n").toString();
+    }
+
+    /**
+     * The target a call is summarised under. Libraries such as sqlite-jdbc and Netty unpack their native code to a new
+     * file each run, named with a random id; in the summary each such id in a native library's file name becomes
+     * {@code *}, so one library is one target, and the name is the {@code native:} entry that would allow it. The
+     * report itself keeps each file's full path.
+     *
+     * @param kind the call's kind
+     * @param target the call's target, as the report gives it
+     * @return the target, with a native library's random ids as {@code *}
+     */
+    static String grouped(final String kind, final String target) {
+        if (target == null || !Kind.NATIVE_LIBRARY.getReportName().equals(kind)) {
+            return target;
+        }
+        final int name = Math.max(target.lastIndexOf('/'), target.lastIndexOf('\\')) + 1;
+        return target.substring(0, name) + RANDOM_ID.matcher(target.substring(name)).replaceAll("*");
     }
 
     /** One distinct target, and what reached it. */

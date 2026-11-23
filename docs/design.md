@@ -269,6 +269,10 @@ agent reads its own lines with a small reader of its own, as it can't depend on 
 short. A summary never disagrees with its report: with no report there were no calls, and an old summary is removed;
 a summary that can't be written is removed too, since a wrong summary is worse than none.
 
+Some libraries, sqlite-jdbc and Netty among them, unpack their native code to a new file each run, named with a random
+id. In the summary, each such id in a native library's file name (a UUID, or eight or more digits) becomes `*`, so one
+library is one target, and its name is the `native:` entry that would allow it. The report keeps each file's path.
+
 ## Knowing which test made a call
 
 The JUnit Platform listener, registered automatically through Java's service loader, tells the agent when each test

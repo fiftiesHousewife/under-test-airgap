@@ -343,6 +343,7 @@ items:
       - "report-writer"
   - key: "summary-groups-unpacked-libraries"
     type: "deliverable"
+    status: "done"
     title: "The summary lists a native library unpacked to a new, randomly named file each run once, not once per file"
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
     phase: "set-up"
@@ -354,7 +355,7 @@ items:
       - "The report itself keeps each file's full path"
     blocked_by:
       - "report-writer"
-    notes: "Found running the RealWorld example app's tests under the agent: about 50 summary targets for one library."
+    notes: "Done: found running the RealWorld example app's tests under the agent, where about 50 summary targets named one library. In the summary, a UUID or a run of eight or more digits in a native library's file name becomes *, so sqlite-jdbc shows once as sqlite-<version>-*-libsqlitejdbc.<ext>, the native: entry that allows it; the report keeps each path."
   - key: "desktop-browse-and-open"
     type: "deliverable"
     title: "Opening a browser, mail program or other application through java.awt.Desktop is refused and reported"

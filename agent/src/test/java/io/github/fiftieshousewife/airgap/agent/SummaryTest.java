@@ -86,4 +86,31 @@ class SummaryTest {
                         .isEqualTo(Path.of("build/airgap/test/calls-summary.json")),
                 () -> assertThat(Summary.fileFor(Path.of("calls.log"))).isEqualTo(Path.of("calls.log-summary.json")));
     }
+
+    @Test
+    void listsALibraryUnpackedToRandomlyNamedFilesOnce() throws IOException {
+        final String report = line(call(Kind.NATIVE_LIBRARY,
+                "/tmp/sqlite-3.36.0.3-0253970c-ad25-4e40-9935-d2f7ae654918-libsqlitejdbc.jnilib"))
+                + line(call(Kind.NATIVE_LIBRARY,
+                        "/tmp/sqlite-3.36.0.3-03CF53BA-8140-4805-a449-12ef8fea0e2b-libsqlitejdbc.jnilib"))
+                + line(call(Kind.NATIVE_LIBRARY, "C:\\Temp\\netty_transport_native_epoll_x86_641234567890123.dll"))
+                + line(call(Kind.NATIVE_LIBRARY, "/opt/lib/libfoo.so.1.2"));
+
+        final JsonNode targets = JSON.readTree(Summary.of("calls.jsonl", report)).get("targets");
+
+        assertAll(
+                () -> assertThat(targets.size()).isEqualTo(3),
+                () -> assertThat(targets.get(0).get("target").asString())
+                        .isEqualTo("/opt/lib/libfoo.so.1.2"),
+                () -> assertThat(targets.get(1).get("target").asString())
+                        .isEqualTo("/tmp/sqlite-3.36.0.3-*-libsqlitejdbc.jnilib"),
+                () -> assertThat(targets.get(1).get("calls").asInt()).isEqualTo(2),
+                () -> assertThat(targets.get(2).get("target").asString())
+                        .isEqualTo("C:\\Temp\\netty_transport_native_epoll_x86_*.dll"),
+                () -> assertThat(Summary.grouped("tcp", "12345678.example.invalid:80")).as("only libraries")
+                        .isEqualTo("12345678.example.invalid:80"),
+                () -> assertThat(Summary.grouped("native-library", "/tmp/12345678/libfoo.so"))
+                        .as("only the file name, not its folder").isEqualTo("/tmp/12345678/libfoo.so"),
+                () -> assertThat(Summary.grouped("native-library", null)).isNull());
+    }
 }

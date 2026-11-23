@@ -95,7 +95,8 @@ materials, and PGP signatures. The shared settings are in
 [`build-logic/src/main/kotlin/io.github.fiftieshousewife.airgap-publishing.gradle.kts`](build-logic/src/main/kotlin/io.github.fiftieshousewife.airgap-publishing.gradle.kts).
 
 1. Set `version=` in [`gradle.properties`](gradle.properties) and the default in
-   [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle), and push with `sync.sh`.
+   [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle), write what's new for users in
+   `docs/releases/<version>.md` (see [the release notes](docs/releases/)), and push with `sync.sh`.
 2. Run `maintainer-tools/release/release.sh <version>`. It tags `main` and pushes the tag.
 3. [The release workflow](.github/workflows/release.yml) runs the whole build first (every JDK, every Gradle), and
    publishes only if it passes.

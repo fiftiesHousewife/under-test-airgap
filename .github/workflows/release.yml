@@ -60,6 +60,8 @@ jobs:
         run: |
           v="${VERSION#v}"
           {
+            # What's new for users, written for this release in the repo; then what every release says.
+            if [ -f "docs/releases/$v.md" ]; then cat "docs/releases/$v.md"; echo; echo "## Published"; echo; fi
             echo "Published to Maven Central as io.github.fiftieshousewife.airgap:airgap-agent, airgap-junit and"
             echo "airgap-gradle-plugin, and to the Gradle Plugin Portal as the plugin io.github.fiftieshousewife.airgap."
             echo

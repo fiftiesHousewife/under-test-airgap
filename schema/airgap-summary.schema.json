@@ -27,7 +27,7 @@
           "target": {
             "type": "string",
             "minLength": 1,
-            "description": "What the calls tried to reach, as in the report."
+            "description": "What the calls tried to reach, as in the report; for a native library, each random id in its file name (a UUID, or eight or more digits) is *, so one library unpacked to new files each run is one target."
           },
           "calls": {
             "type": "integer",
