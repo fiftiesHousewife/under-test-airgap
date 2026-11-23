@@ -112,6 +112,12 @@ testJdks.get().forEach { jdk ->
             javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk) }
         }
         runWithOwnAgent(files(agentJar), reportFile, "allow=allowed.example.invalid:8443,lookup-once.example.invalid,process:java,native:airgapallowed")
+        // Under strace the JDK is a wrapper Gradle can't tell from the real one, so the tests would be skipped as up to
+        // date, or taken from the build cache, and leave nothing traced: with airgap.osTrace they always run.
+        if (providers.gradleProperty("airgap.osTrace").isPresent) {
+            outputs.upToDateWhen { false }
+            outputs.doNotCacheIf("the tests must run under strace") { true }
+        }
     }
     tasks.check {
         dependsOn(task)
