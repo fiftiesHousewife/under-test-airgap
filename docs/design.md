@@ -344,8 +344,10 @@ that impossible to miss (see
   every connection and packet, every program started and every library opened, by the test JVMs and every process
   they start. Anything to another machine, a program or a library that the agent didn't report as allowed fails the
   build: a way round the hooks shows up there, whatever route it took, even one nobody thought of.
-- **Every route to each kind of call:** plain sockets, NIO channels, asynchronous channels, `HttpURLConnection` and
-  JNDI today. **Planned:** the JDK's HTTP client, Apache HttpClient, OkHttp, Netty and JDBC drivers.
+- **Every route to each kind of call:** plain sockets, NIO channels, asynchronous channels, `HttpURLConnection`, the
+  JDK's HTTP client and JNDI; and the libraries old code most often uses, Apache HttpClient 4 and 5, OkHttp, Netty,
+  and the PostgreSQL and MySQL JDBC drivers. Each library's call must be refused by the agent, fail as it would
+  offline, and be reported with the right kind, on every supported JDK.
 - **That nothing leaves the machine:** each test aims at an address reserved for documentation (`192.0.2.1`) or a name
   that can't resolve, and has a timeout well short of a network timeout, so a refusal that didn't happen shows as a
   failure.

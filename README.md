@@ -268,8 +268,8 @@ Your tests don't need to do anything for the check.
 
 - Each of the agent's changes to the JDK is tested on every supported JDK.
 - Each kind of call is tested through the JDK's own routes to it: sockets, NIO and asynchronous channels,
-  `HttpURLConnection`, JNDI. Tests through common libraries (Netty, OkHttp, Apache HttpClient, JDBC drivers) are still
-  to come.
+  `HttpURLConnection`, the JDK's HTTP client, JNDI. And through the libraries old code most often uses: Apache
+  HttpClient 4 and 5, OkHttp, Netty, and the PostgreSQL and MySQL JDBC drivers.
 - A test reads every class in each supported JDK and fails if any public route to a risky call misses the hooks.
 - In CI, the tests run again under the operating system's own trace, which must show nothing the agent didn't report.
 - Each test checks the call was refused before a connection could start.

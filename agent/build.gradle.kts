@@ -93,6 +93,13 @@ dependencies {
     "agentTestImplementation"(libs.assertj.core)
     "agentTestRuntimeOnly"("org.junit.jupiter:junit-jupiter-engine")
     "agentTestRuntimeOnly"(libs.junit5.platform.launcher)
+    // The common clients old code reaches the network with, each proved refused and reported on every JDK.
+    "agentTestImplementation"(libs.apache.httpclient4)
+    "agentTestImplementation"(libs.apache.httpclient5)
+    "agentTestImplementation"(libs.okhttp)
+    "agentTestImplementation"(libs.netty.transport)
+    "agentTestRuntimeOnly"(libs.postgresql)
+    "agentTestRuntimeOnly"(libs.mysql.connector)
 }
 
 // Which JDKs the agent's tests run on: all supported by default; -Pairgap.testJdks=25 runs one. Each JDK comes from

@@ -269,6 +269,7 @@ items:
     notes: "Done in 0.1.0: host lookups, TCP (sockets, NIO and asynchronous channels) and UDP (sockets and channels), proved on all five JDKs. An address nobody looked up fails with UnknownHostException, as offline."
   - key: "route-tests-for-common-clients"
     type: "deliverable"
+    status: "done"
     title: "Every common route to the network is proved refused: the JDK's HTTP client, Apache HttpClient, OkHttp, Netty, JDBC drivers"
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
     phase: "set-up"
@@ -279,6 +280,7 @@ items:
       - "A test per client on each JDK it supports, each refused and reported with the right kind"
     blocked_by:
       - "network-hooks"
+    notes: "Done: CommonClientsTest, in the agent's own tests, makes a call through Apache HttpClient 4 and 5, OkHttp, Netty and the PostgreSQL and MySQL JDBC drivers on JDK 8, 11, 17, 21 and 25. Each must be refused by the agent, fail as offline (ConnectException, or UnknownHostException for a name), and be reported as tcp or host-lookup. HttpClientTest checks the kind for the JDK's own HTTP client, on JDK 11 and later."
   - key: "junit-platform-listener-and-extension"
     status: "done"
     type: "deliverable"

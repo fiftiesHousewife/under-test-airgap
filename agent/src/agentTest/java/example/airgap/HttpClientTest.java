@@ -76,9 +76,11 @@ class HttpClientTest {
                 () -> assertThat(sent).isInstanceOf(ConnectException.class).hasMessageContaining(Refusals.REFUSED),
                 () -> assertThat(sentAsync).isInstanceOf(ConnectException.class),
                 () -> assertThat(linesAbout("192.0.2.21:80")).isNotEmpty().allSatisfy(line -> assertThat(line)
-                        .contains("\"test\":\"" + TEST + "\"", "\"caller\":\"" + HttpClientTest.class.getName())),
+                        .contains("\"kind\":\"tcp\"", "\"test\":\"" + TEST + "\"",
+                                "\"caller\":\"" + HttpClientTest.class.getName())),
                 () -> assertThat(linesAbout("192.0.2.22:80")).isNotEmpty().allSatisfy(line -> assertThat(line)
-                        .contains("\"test\":\"" + TEST + "\"", "\"caller\":\"" + HttpClientTest.class.getName())));
+                        .contains("\"kind\":\"tcp\"", "\"test\":\"" + TEST + "\"",
+                                "\"caller\":\"" + HttpClientTest.class.getName())));
     }
 
     @Test
