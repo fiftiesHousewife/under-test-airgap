@@ -8,7 +8,6 @@ Ordered by horizon (now, next, later), then items that are ready before items wa
 
 | | Item | Type | Owner | Done by | Waiting on |
 |---|---|---|---|---|---|
-| #22 | [Writes to files outside the project are reported, and refused when the settings say so](https://github.com/fiftiesHousewife/under-test-airgap/issues/22) | deliverable | Technical Architect | ai | – |
 | #61 | [Opening a browser, mail program or other application through java.awt.Desktop is refused and reported](https://github.com/fiftiesHousewife/under-test-airgap/issues/61) | deliverable | Technical Architect | ai | – |
 | #62 | [Printing through the JDK's print services is refused and reported, since a printer may be on another machine](https://github.com/fiftiesHousewife/under-test-airgap/issues/62) | deliverable | Technical Architect | ai | – |
 | #31 | [Opening files on shared drives is refused and reported: \\server\share paths and mapped network drives](https://github.com/fiftiesHousewife/under-test-airgap/issues/31) | deliverable | Technical Architect | ai | – |
@@ -20,7 +19,5 @@ Ordered by horizon (now, next, later), then items that are ready before items wa
 
 | | Item | Type | Owner | Done by | Waiting on |
 |---|---|---|---|---|---|
-| #64 | [The project's own packages can be named in testing/airgap.yaml, so the report names the project's line that made each call, however the agent is started](https://github.com/fiftiesHousewife/under-test-airgap/issues/64) | deliverable | Technical Architect | ai | – |
-| #65 | [Programs can be allowed with * patterns, and a program unpacked to randomly named folders is listed once in the summary](https://github.com/fiftiesHousewife/under-test-airgap/issues/65) | deliverable | Technical Architect | ai | – |
 | #27 | [Maven wiring: the agent on Surefire, Failsafe, application starts and Maven itself](https://github.com/fiftiesHousewife/under-test-airgap/issues/27) | deliverable | Technical Architect | ai | – |
 | #57 | [The Gradle plugin works when applied only in a subproject of a multi-project build with shared convention plugins and no root build file](https://github.com/fiftiesHousewife/under-test-airgap/issues/57) | deliverable | Technical Architect | ai | – |
