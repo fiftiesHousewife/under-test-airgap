@@ -31,12 +31,13 @@ written to a report.
 | Refused and reported now | Coming |
 |---|---|
 | Host lookups, and reverse lookups of an address's name | Opening files on shared drives: `\\server\share` paths and mapped network drives |
-| TCP connections, through sockets, NIO channels and asynchronous channels | Writing files outside the project folder |
+| TCP connections, through sockets, NIO channels and asynchronous channels | Opening a browser or mail program, and printing |
 | UDP traffic | For Spring applications, the setting, file and line that gave each address |
 | Starting other programs | Database, HTTP and mail calls named as such in the report |
 | JNDI lookups of LDAP, RMI, DNS and CORBA directories on other machines | Maven wiring |
 | Loading native libraries, other than the JDK's and the build tool's own | |
 | `System.exit` and `Runtime.halt` while a test is running, so the test fails instead of the run ending | |
+| Writing, deleting, renaming or moving files, and making folders, outside the project: reported, and refused if the settings say so | |
 
 [The design](docs/design.md) describes each of these.
 
@@ -78,7 +79,9 @@ The plugin fetches the agent and the JUnit listener through the project's own `r
 To try the agent without editing the build, use [`airgap.init.gradle`](tools/try-it/airgap.init.gradle) instead.
 It adds the agent to the build's tests for one run: `./gradlew test --init-script /path/to/airgap.init.gradle`. The
 script fetches the agent from Maven Central. To fetch it from your company's repository instead, add
-`-Dairgap.repository=<repository URL>`. To use a jar you already have, add `-Dairgap.agent=<path to the jar>`.
+`-Dairgap.repository=<repository URL>`. To use a jar you already have, add `-Dairgap.agent=<path to the jar>`. The
+script can't name your code's packages, so list them in `testing/airgap.yaml` (`packages: [com.example.]`), or the
+report may name a library's line instead of yours.
 
 ### 2. Read the report
 
@@ -137,18 +140,28 @@ program a test starts on purpose:
 - **for one run**, use the agent's `allow` setting (see [Settings](#settings)), for example
   `allow=wiremock.test:8089,process:git`. It adds to the file's entries.
 
-Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), a program by its file name
+Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), a program by its file name or path
 (`process:git`), or a native library (`native:sqlitejdbc`, which matches `libsqlitejdbc.so` and `sqlitejdbc.dll`
-too). Nothing allows a test to end the JVM.
+too). Programs and libraries may use `*` for any run of characters: `process:redis-server-*` allows the Redis server
+embedded-redis unpacks. Nothing allows a test to end the JVM.
 
-Some libraries unpack native code of their own to a temporary file. A `native:` entry may use `*` for the version or
-random id in its name:
+Some libraries unpack native code of their own to a temporary file, with a version or random id in its name:
 
 | Library | Refused, the tests show | Entry |
 |---|---|---|
 | SQLite's JDBC driver | tests that use the database fail | `native:*sqlitejdbc` |
 | Conscrypt, used by WireMock's web server for TLS | `No Server ALPNProcessors` | `native:*conscrypt*` |
 | Netty's native transports and DNS resolver | nothing: Netty carries on without them | `native:netty_*` if you want them |
+
+Writes outside the project are reported but go ahead, unless the file says `file_writes: refuse`. Inside the project
+means the build's root folder, the temporary folder and any folders the file lists:
+
+```yaml
+file_writes: refuse
+write_folders:
+  - folder: ~/.m2/repository
+    reason: The tests install the library they build
+```
 
 ### Applications
 
@@ -218,6 +231,7 @@ Settings follow `=` after the agent's jar on the command line, separated by `;`:
 | `allow=wiremock.test:8089,process:git` | What to allow for the whole run: `host`, `host:port`, `process:name` or `native:name`. `localhost` is always allowed |
 | `run=test` | The kind of JVM, for the report: `test`, `application` or `build` |
 | `project=com.example.` | Package prefixes of your own code, so the report names the line of your code that made each call |
+| `root=/path/to/build` | The build's root folder, where writes go ahead unreported (the folder the JVM starts in, by default; the plugin sets it) |
 
 A mistyped setting stops the JVM at start.
 
@@ -243,8 +257,8 @@ can do so. For code you can't trust that far, use real network separation, such 
 production. See
 [The airgap agent guards against accidental calls from old code, not against hostile code](docs/decisions/0002-the-airgap-agent-guards-against-accidental-calls-from-old-code-not-against-hostile-code.md).
 
-Until shared drives are covered, files on `\\server\share` paths and mapped network drives can be read and written:
-Windows opens them itself, outside the JVM's network code.
+Until shared drives are covered, files on `\\server\share` paths and mapped network drives can be read, and writing
+to them is only reported: Windows opens them itself, outside the JVM's network code.
 
 ## The check at start
 

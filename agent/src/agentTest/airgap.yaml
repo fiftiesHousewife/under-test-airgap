@@ -1,5 +1,12 @@
 # yaml-language-server: $schema=../../../schema/airgap-settings.schema.json
 # The agent's own tests run with this settings file, to prove the agent reads one on every supported JDK.
+# The project's own packages, so each call made through a library names the test's line, not the library's.
+packages: [example.airgap.]
 allow:
   - target: settings-file.example.invalid:8443
     reason: "Nothing: a name that can't resolve, allowed only to prove the file is read"
+# Writes outside the project are refused, so a hook that stops matching shows as a test that wrote where it shouldn't.
+file_writes: refuse
+write_folders:
+  - folder: ../build/airgap-agent-test-writes
+    reason: "FileWritesTest writes here, outside the agent's folder, to prove a listed folder is the project's"

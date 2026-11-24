@@ -3,17 +3,22 @@ package io.github.fiftieshousewife.airgap.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.PortUnreachableException;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import javax.naming.CommunicationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class DeciderTest {
 
@@ -35,6 +40,48 @@ class DeciderTest {
 
     private static Target documentationAddress(final int port) throws UnknownHostException {
         return Target.ofAddress(InetAddress.getByAddress(new byte[] {(byte) 192, 0, 2, 1}), port);
+    }
+
+    @Test
+    void reportsAFileWriteOutsideTheProjectAndRefusesItOnlyWhenTheSettingsSay(@TempDir final Path folder)
+            throws IOException {
+        final Target outside = Target.ofFile("/data/out/orders.csv");
+        final Path refusing = Files.write(folder.resolve("airgap.yaml"),
+                "file_writes: refuse\n".getBytes(StandardCharsets.UTF_8));
+
+        final Throwable reported = decider(null).decide(Kind.FILE_WRITE, outside, CallContext.NONE);
+        final Throwable refused = decider("settings=" + refusing).decide(Kind.FILE_WRITE, outside, CallContext.NONE);
+        final Throwable inReportMode = decider("settings=" + refusing + ";mode=report")
+                .decide(Kind.FILE_WRITE, outside, CallContext.NONE);
+
+        assertAll(
+                () -> assertThat(reported).as("reported by default, even in refuse mode").isNull(),
+                () -> assertThat(refused).isExactlyInstanceOf(FileNotFoundException.class)
+                        .hasMessage("/data/out/orders.csv (" + Refusals.REFUSED + ")"),
+                () -> assertThat(inReportMode).as("the mode report lets everything go ahead").isNull(),
+                () -> assertThat(recorded).extracting(Call::getOutcome)
+                        .containsExactly("reported", "refused", "reported"),
+                () -> assertThat(recorded).extracting(Call::getKind).containsOnly(Kind.FILE_WRITE),
+                () -> assertThat(recorded).extracting(call -> schema.problems(call.toJson())).allSatisfy(
+                        problems -> assertThat(problems).isEmpty()));
+    }
+
+    @Test
+    void knowsTheProjectsFolders(@TempDir final Path folder) {
+        final Decider decider = decider("root=" + folder + ";report=" + folder.resolve("elsewhere/calls.jsonl"));
+
+        assertAll(
+                () -> assertThat(decider.isProjects(folder.resolve("build/out.txt").toString())).isTrue(),
+                () -> assertThat(decider.isProjects(System.getProperty("java.io.tmpdir") + "/x")).isTrue(),
+                () -> assertThat(decider.isProjects("/data/out/orders.csv")).isFalse());
+    }
+
+    @Test
+    void neverAllowsAFileWriteByAnAllowEntry() {
+        final Decider decider = decider("allow=/data/out/orders.csv");
+
+        assertThat(decider.allows(Kind.FILE_WRITE, Target.ofFile("/data/out/orders.csv"), CallContext.NONE))
+                .as("folders are allowed in write_folders").isFalse();
     }
 
     @Test

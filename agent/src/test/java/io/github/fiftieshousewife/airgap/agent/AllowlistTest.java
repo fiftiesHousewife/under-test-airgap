@@ -40,6 +40,25 @@ class AllowlistTest {
                 () -> assertThat(allowlist.allows(Kind.TCP, remote("git", 22))).isFalse());
     }
 
+    /** As embedded-redis runs its program, unpacked to a new, randomly named temporary folder each time. */
+    @Test
+    void allowsProgramsByWildcardsInTheirNameOrPath() {
+        final Allowlist wildcards = new Allowlist(List.of("process:redis-server-*", "process:/opt/tools/*/convert"));
+        final Target redis = Target.ofCommand(List.of("/var/folders/l6/T/1795504392943-0/redis-server-2.8.19.app"));
+
+        assertAll(
+                () -> assertThat(wildcards.allows(Kind.PROCESS, redis)).isTrue(),
+                () -> assertThat(wildcards.allows(Kind.PROCESS, Target.ofCommand(List.of("C:\\T\\redis-server-6.exe"))))
+                        .isTrue(),
+                () -> assertThat(wildcards.allows(Kind.PROCESS, Target.ofCommand(List.of("/opt/tools/7.1/convert"))))
+                        .as("by its path").isTrue(),
+                () -> assertThat(wildcards.allows(Kind.PROCESS, Target.ofCommand(List.of("/opt/other/7.1/convert"))))
+                        .isFalse(),
+                () -> assertThat(wildcards.allows(Kind.PROCESS, Target.ofCommand(List.of("redis-cli")))).isFalse(),
+                () -> assertThat(wildcards.allows(Kind.PROCESS, Target.ofCommand(List.of("/usr/bin/git"))))
+                        .as("a file name alone matches only the name").isFalse());
+    }
+
     @Test
     void allowsNativeLibrariesOnlyByNativeEntries() {
         assertAll(

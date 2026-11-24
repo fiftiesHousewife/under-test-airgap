@@ -20,3 +20,38 @@ java/net/spi/InetAddressResolver.lookupByAddress([B)Ljava/lang/String; # a resol
 # A signal handler that passes a signal on to the JVM's own handler, which ends the JVM as the signal would: it runs on
 # the signal's own thread, outside any test, where an exit isn't refused anyway.
 sun/misc/SignalHandler.handle(Lsun/misc/Signal;)V # the JVM ending on a signal from outside
+
+# File writes. These open a file only to read it, or to read or change its times, owner, permissions or extended
+# attributes, which don't count as writes (see the decision "Writes outside the project are reported, and refused only
+# when the settings say so"). Their writes of a file's contents go through hooked methods.
+java/nio/file/FileStore.supportsFileAttributeView(Ljava/lang/Class;)Z # reads the file system's details
+java/nio/file/FileStore.supportsFileAttributeView(Ljava/lang/String;)Z # reads the file system's details
+java/nio/file/Files.newDirectoryStream(Ljava/nio/file/Path;)Ljava/nio/file/DirectoryStream; # opens a folder to read it
+java/nio/file/Files.newDirectoryStream(Ljava/nio/file/Path;Ljava/lang/String;)Ljava/nio/file/DirectoryStream; # opens a folder to read it
+java/nio/file/Files.newDirectoryStream(Ljava/nio/file/Path;Ljava/nio/file/DirectoryStream$Filter;)Ljava/nio/file/DirectoryStream; # opens a folder to read it
+java/nio/file/spi/FileSystemProvider.newDirectoryStream(Ljava/nio/file/Path;Ljava/nio/file/DirectoryStream$Filter;)Ljava/nio/file/DirectoryStream; # opens a folder to read it
+java/nio/file/SecureDirectoryStream.newDirectoryStream(Ljava/lang/Object;[Ljava/nio/file/LinkOption;)Ljava/nio/file/SecureDirectoryStream; # opens a folder to read it
+java/nio/file/Files.readAttributes(Ljava/nio/file/Path;Ljava/lang/String;[Ljava/nio/file/LinkOption;)Ljava/util/Map; # reads a file's attributes
+java/nio/file/spi/FileSystemProvider.readAttributes(Ljava/nio/file/Path;Ljava/lang/String;[Ljava/nio/file/LinkOption;)Ljava/util/Map; # reads a file's attributes
+java/nio/file/attribute/UserDefinedFileAttributeView.list()Ljava/util/List; # reads a file's extended attributes
+java/nio/file/attribute/UserDefinedFileAttributeView.read(Ljava/lang/String;Ljava/nio/ByteBuffer;)I # reads a file's extended attributes
+java/nio/file/attribute/UserDefinedFileAttributeView.size(Ljava/lang/String;)I # reads a file's extended attributes
+java/nio/file/attribute/UserDefinedFileAttributeView.write(Ljava/lang/String;Ljava/nio/ByteBuffer;)I # changes an extended attribute, not the file
+java/nio/file/attribute/UserDefinedFileAttributeView.delete(Ljava/lang/String;)V # changes an extended attribute, not the file
+java/nio/file/Files.setAttribute(Ljava/nio/file/Path;Ljava/lang/String;Ljava/lang/Object;[Ljava/nio/file/LinkOption;)Ljava/nio/file/Path; # changes a file's attributes
+java/nio/file/spi/FileSystemProvider.setAttribute(Ljava/nio/file/Path;Ljava/lang/String;Ljava/lang/Object;[Ljava/nio/file/LinkOption;)V # changes a file's attributes
+java/nio/file/Files.setLastModifiedTime(Ljava/nio/file/Path;Ljava/nio/file/attribute/FileTime;)Ljava/nio/file/Path; # changes a file's time
+java/nio/file/attribute/BasicFileAttributeView.setTimes(Ljava/nio/file/attribute/FileTime;Ljava/nio/file/attribute/FileTime;Ljava/nio/file/attribute/FileTime;)V # changes a file's times
+java/nio/file/Files.setOwner(Ljava/nio/file/Path;Ljava/nio/file/attribute/UserPrincipal;)Ljava/nio/file/Path; # changes a file's owner
+java/nio/file/attribute/FileOwnerAttributeView.setOwner(Ljava/nio/file/attribute/UserPrincipal;)V # changes a file's owner
+java/nio/file/Files.setPosixFilePermissions(Ljava/nio/file/Path;Ljava/util/Set;)Ljava/nio/file/Path; # changes a file's permissions
+java/nio/file/attribute/PosixFileAttributeView.setPermissions(Ljava/util/Set;)V # changes a file's permissions
+java/nio/file/attribute/PosixFileAttributeView.setGroup(Ljava/nio/file/attribute/GroupPrincipal;)V # changes a file's group
+
+# Copying or moving to another file system (a zip file's, say) writes through Files.newOutputStream, which is hooked;
+# the unhooked route found only sets the copy's times afterwards. A copy or move within the default file system goes
+# through its own copy and move, which are hooked. The JDK's own module image (jrt:) copies out the same way.
+java/nio/file/Files.copy(Ljava/nio/file/Path;Ljava/nio/file/Path;[Ljava/nio/file/CopyOption;)Ljava/nio/file/Path; # writes through hooked methods, then sets times
+java/nio/file/Files.move(Ljava/nio/file/Path;Ljava/nio/file/Path;[Ljava/nio/file/CopyOption;)Ljava/nio/file/Path; # writes through hooked methods, then sets times
+java/nio/file/spi/FileSystemProvider.copy(Ljava/nio/file/Path;Ljava/nio/file/Path;[Ljava/nio/file/CopyOption;)V # the module image's copy: writes through hooked methods, then sets times
+java/nio/file/spi/FileSystemProvider.move(Ljava/nio/file/Path;Ljava/nio/file/Path;[Ljava/nio/file/CopyOption;)V # the module image's move: writes through hooked methods, then sets times

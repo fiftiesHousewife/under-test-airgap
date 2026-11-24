@@ -21,6 +21,9 @@ public enum Kind {
     /** Loading a native library, whose code the agent can't see into. */
     NATIVE_LIBRARY("native-library"),
 
+    /** Writing, creating, deleting, renaming or moving a file, or making a folder, outside the project. */
+    FILE_WRITE("file-write"),
+
     /** Ending the JVM, with {@code System.exit} or {@code Runtime.halt}, while a test is running. */
     EXIT("exit");
 
@@ -28,6 +31,11 @@ public enum Kind {
 
     Kind(final String reportName) {
         this.reportName = reportName;
+    }
+
+    /** @return true for the kinds the JDK makes for itself while it does another kind, so a probe lets them be */
+    boolean isTheJdksOwnWork() {
+        return this == NATIVE_LIBRARY || this == EXIT || this == FILE_WRITE;
     }
 
     /**

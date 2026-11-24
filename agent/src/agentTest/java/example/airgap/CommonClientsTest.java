@@ -62,6 +62,15 @@ class CommonClientsTest {
                 .contains("\"kind\":\"" + kind + "\"", "\"outcome\":\"refused\""));
     }
 
+    /**
+     * The report names this test's line, not the client library's: the tests' settings file lists the project's own
+     * packages, as a project run by the try-it script, which can't name them, would.
+     */
+    private static void assertCallerIsTheTest(final String target) throws IOException {
+        assertThat(linesAbout(target)).as(target).isNotEmpty().allSatisfy(line -> assertThat(line)
+                .contains("\"caller\":\"" + CommonClientsTest.class.getName()));
+    }
+
     private static Throwable failureOf(final Call call) {
         try {
             call.make();
@@ -82,7 +91,8 @@ class CommonClientsTest {
 
         assertAll(
                 () -> assertRefused(failure, java.net.ConnectException.class),
-                () -> assertReported("192.0.2.31:80", "tcp"));
+                () -> assertReported("192.0.2.31:80", "tcp"),
+                () -> assertCallerIsTheTest("192.0.2.31:80"));
     }
 
     @Test
@@ -151,7 +161,8 @@ class CommonClientsTest {
         assertAll(
                 () -> assertThat(failure).isInstanceOf(SQLException.class),
                 () -> assertRefused(failure, java.net.ConnectException.class),
-                () -> assertReported("192.0.2.36:3306", "tcp"));
+                () -> assertReported("192.0.2.36:3306", "tcp"),
+                () -> assertCallerIsTheTest("192.0.2.36:3306"));
     }
 
     /** A call that must fail. */

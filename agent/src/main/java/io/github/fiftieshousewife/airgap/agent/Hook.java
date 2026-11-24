@@ -27,7 +27,6 @@ import io.github.fiftieshousewife.airgap.agent.advice.UdpAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.UdpChannelSendAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.UdpPacketAdvice;
 import java.net.DatagramPacket;
-import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
@@ -180,6 +179,22 @@ public enum Hook {
             named("libraryLookup").and(takesArguments(2)).and(takesArgument(0, Path.class)),
             ForeignLibraryAdvice.class),
 
+    /** File writes: see {@link FileHooks} for each. */
+    FILE_WRITE_STREAM(FileHooks.STREAM),
+    FILE_WRITE_RANDOM_ACCESS(FileHooks.RANDOM_ACCESS),
+    FILE_WRITE_CHANGE(FileHooks.CHANGE),
+    FILE_WRITE_RENAME(FileHooks.RENAME),
+    FILE_WRITE_CREATE(FileHooks.CREATE),
+    FILE_WRITE_TEMP_FILE(FileHooks.TEMP_FILE),
+    FILE_WRITE_CHANNEL(FileHooks.CHANNEL),
+    FILE_WRITE_PATH(FileHooks.PATH),
+    FILE_WRITE_COPY(FileHooks.COPY),
+    FILE_WRITE_MOVE(FileHooks.MOVE),
+    FILE_WRITE_SECURE_FOLDER(FileHooks.SECURE_FOLDER),
+    FILE_WRITE_SECURE_DELETE(FileHooks.SECURE_DELETE),
+    FILE_WRITE_SECURE_MOVE(FileHooks.SECURE_MOVE),
+    FILE_WRITE_SECURE_CHANNEL(FileHooks.SECURE_CHANNEL),
+
     /** {@code System.exit} and {@code Runtime.exit}. */
     EXIT("java.lang.Runtime", named("exit").and(takesArguments(int.class)), ExitAdvice.class),
 
@@ -196,64 +211,33 @@ public enum Hook {
         this.advice = advice;
     }
 
+    Hook(final FileHooks.Spec spec) {
+        this(spec.getTypeName(), spec.getMethods(), spec.getAdvice());
+    }
+
     /**
      * Whether the hook has anything to rewrite on this JDK. The socket adaptor goes round the channel's connect only
-     * from JDK 13, SCTP and the foreign function API are in some JDKs only, and every other hook is in every one.
+     * from JDK 13; SCTP, the foreign function API, the HTTP client and the secure directory stream are in some JDKs
+     * only; every other hook is in every one.
      *
      * @return true if the hook applies to the running JDK
      */
     public boolean appliesHere() {
-        switch (this) {
-            case TCP_SOCKET_ADAPTOR:
-                return declares("sun.nio.ch.SocketChannelImpl", "blockingConnect");
-            case TCP_SCTP_CONNECT:
-            case TCP_SCTP_SEND:
-            case NATIVE_LIBRARY_FOREIGN_BY_NAME:
-            case NATIVE_LIBRARY_FOREIGN_BY_PATH:
-            case TCP_HTTP_CLIENT_TASKS:
-            case TCP_HTTP_CLIENT_SEND:
-                return declares(typeName, "");
-            default:
-                return true;
+        if (this == TCP_SOCKET_ADAPTOR) {
+            return HookMethods.declares("sun.nio.ch.SocketChannelImpl", "blockingConnect");
         }
-    }
-
-    private static boolean declares(final String type, final String method) {
-        final Class<?> loaded = load(type);
-        if (loaded == null) {
-            return false;
-        }
-        for (final Method declared : loaded.getDeclaredMethods()) {
-            if (declared.getName().startsWith(method)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Loads a hooked class without initialising it, through the system class loader, which sees the JDK's classes
-     * from every module.
-     *
-     * @param type the class
-     * @return the class, or {@code null} if this JDK has none
-     */
-    static Class<?> load(final String type) {
-        try {
-            return Class.forName(type, false, ClassLoader.getSystemClassLoader());
-        } catch (ClassNotFoundException | LinkageError notOnThisJdk) {
-            return null;
-        }
+        return !HookMethods.SOMETIMES_THERE.contains(name()) || HookMethods.declares(typeName, "");
     }
 
     /**
      * Whether the hook refuses calls. The HTTP client's hooks only hand the sender's test and caller to the client's
-     * threads, so a route through them isn't guarded by them.
+     * threads, and the secure directory stream's constructor only notes its folder, so a route through them isn't
+     * guarded by them.
      *
      * @return false for the hooks that only hand over
      */
     public boolean refuses() {
-        return this != TCP_HTTP_CLIENT_TASKS && this != TCP_HTTP_CLIENT_SEND;
+        return this != TCP_HTTP_CLIENT_TASKS && this != TCP_HTTP_CLIENT_SEND && this != FILE_WRITE_SECURE_FOLDER;
     }
 
     /** @return the hook's name in settings and messages, for example {@code tcp-socket} */

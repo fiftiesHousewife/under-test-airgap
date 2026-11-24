@@ -22,7 +22,10 @@ class SettingsFileTest {
     private static final String EXAMPLE = "# yaml-language-server: $schema=../schema/airgap-settings.schema.json\n"
             + "mode: report\nallow:\n  - target: localhost:8089\n    reason: WireMock standing in for the postcode"
             + " service\n  - target: process:git\n    reason: \"The release notes read the history\"\n"
-            + "production_profiles: [prod]\nfile_writes: refuse\n";
+            + "packages: [com.example.orders., com.example.billing.]\n"
+            + "production_profiles: [prod]\nfile_writes: refuse\nwrite_folders:\n  - folder: ~/.m2/repository\n"
+            + "    reason: The tests install the library they build\n  - folder: /srv/exports\n    reason: \"The"
+            + " export job's own folder\"\n";
 
     @Test
     void readsTheModeAndTheTargetsItAllows() {
@@ -34,6 +37,26 @@ class SettingsFileTest {
                 () -> assertThat(SettingsFile.read("mode: off\n").getMode()).isEqualTo(Mode.OFF),
                 () -> assertThat(SettingsFile.read("allow: []\n").getMode()).as("not set").isNull(),
                 () -> assertThat(SettingsFile.read("").getAllow()).isEmpty());
+    }
+
+    @Test
+    void readsTheProjectsOwnPackages() {
+        assertAll(
+                () -> assertThat(SettingsFile.read(EXAMPLE).getPackages())
+                        .containsExactly("com.example.orders.", "com.example.billing."),
+                () -> assertThat(SettingsFile.read("").getPackages()).isEmpty());
+    }
+
+    @Test
+    void readsTheFoldersTestsMayWriteInAndWhetherWritesElsewhereAreRefused() {
+        final SettingsFile file = SettingsFile.read(EXAMPLE);
+
+        assertAll(
+                () -> assertThat(file.getWriteFolders()).containsExactly("~/.m2/repository", "/srv/exports"),
+                () -> assertThat(file.refusesFileWrites()).isTrue(),
+                () -> assertThat(SettingsFile.read("file_writes: report\n").refusesFileWrites()).isFalse(),
+                () -> assertThat(SettingsFile.read("").refusesFileWrites()).as("reported by default").isFalse(),
+                () -> assertThat(SettingsFile.read("").getWriteFolders()).isEmpty());
     }
 
     static Stream<Arguments> files() {
@@ -63,7 +86,23 @@ class SettingsFileTest {
                 Arguments.of("production_profiles: prod\n", "production_profiles must be a list of Spring profile"),
                 Arguments.of("production_profiles:\n  - name: prod\n", "production_profiles entry must be text"),
                 Arguments.of("production_profiles: [\"\"]\n", "production_profiles entry must be text, not ''"),
-                Arguments.of("file_writes: never\n", "file_writes is 'never'; it must be one of [report, refuse]"));
+                Arguments.of("file_writes: never\n", "file_writes is 'never'; it must be one of [report, refuse]"),
+                Arguments.of("write_folders: []\n", null),
+                Arguments.of("packages:\n  - com.example.\n", null),
+                Arguments.of("packages: com.example.\n", "packages must be a list of package prefixes"),
+                Arguments.of("packages: [\"com.example. orders\"]\n",
+                        "packages entry 'com.example. orders' has a space in it"),
+                Arguments.of("packages: [\"\"]\n", "packages entry must be text, not ''"),
+                Arguments.of("write_folders:\n  - folder: \"C:\\\\data\\\\out\"\n    reason: \"The job's\"\n", null),
+                Arguments.of("write_folders:\n  - folder: My Documents/out\n    reason: a\n", null),
+                Arguments.of("write_folders: /tmp\n", "write_folders must be a list of folders, each with a folder"),
+                Arguments.of("write_folders:\n  - /srv/exports\n", "write_folders entry 1 ('/srv/exports') needs a"
+                        + " folder and a reason, for example '- folder: ~/.m2/repository'"),
+                Arguments.of("write_folders:\n  - folder: /srv/exports\n",
+                        "write_folders entry 1 (/srv/exports) needs a reason: why the tests write there"),
+                Arguments.of("write_folders:\n  - reason: a\n", "write_folders entry 1's folder must be text"),
+                Arguments.of("write_folders:\n  - folder: a\n    reason: b\n    path: c\n",
+                        "write_folders entry 1 has 'path'; an entry has only [folder, reason]"));
     }
 
     /** The agent can't read the schema itself, so its checks are held to agree with it, file by file. */

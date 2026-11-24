@@ -111,6 +111,10 @@ class SummaryTest {
                         .isEqualTo("12345678.example.invalid:80"),
                 () -> assertThat(Summary.grouped("native-library", "/tmp/12345678/libfoo.so"))
                         .as("only the file name, not its folder").isEqualTo("/tmp/12345678/libfoo.so"),
-                () -> assertThat(Summary.grouped("native-library", null)).isNull());
+                () -> assertThat(Summary.grouped("native-library", null)).isNull(),
+                () -> assertThat(Summary.grouped("process", "/var/folders/T/1795504392943-0/redis-server-2.8.19.app"))
+                        .as("a program's random folder").isEqualTo("/var/folders/T/*-0/redis-server-2.8.19.app"),
+                () -> assertThat(Summary.grouped("process", "git")).isEqualTo("git"),
+                () -> assertThat(Summary.grouped("process", null)).isNull());
     }
 }

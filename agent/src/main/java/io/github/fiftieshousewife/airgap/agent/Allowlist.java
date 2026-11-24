@@ -5,10 +5,11 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Stand-ins that may be reached: {@code host} (any port), {@code host:port}, {@code process:name} for a program, or
- * {@code native:name} for a native library (exactly, or with {@code *} wildcards; see {@link LibraryNames}). Names
- * are compared without regard to case. The machine itself is always allowed, and isn't listed here. Nothing allows a
- * test to end the JVM.
+ * Stand-ins that may be reached: {@code host} (any port), {@code host:port}, {@code process:name} for a program (its
+ * file name or full path), or {@code native:name} for a native library (see {@link LibraryNames}); programs and
+ * libraries exactly, or with {@code *} wildcards. Names are compared without regard to case. The machine itself is
+ * always allowed, and isn't listed here. Nothing allows a test to end the JVM. File writes are allowed by folder, in
+ * the settings file's {@code write_folders}, not here.
  */
 public final class Allowlist {
 
@@ -38,7 +39,7 @@ public final class Allowlist {
      * @return true if an entry allows it
      */
     public boolean allows(final Kind kind, final Target target) {
-        if (kind == Kind.EXIT) {
+        if (kind == Kind.EXIT || kind == Kind.FILE_WRITE) {
             return false;
         }
         for (final String entry : entries) {
@@ -70,7 +71,8 @@ public final class Allowlist {
         }
         final String allowed = entry.substring(PROCESS.length());
         final String file = fileName(program);
-        return allowed.equals(file) || (allowed + ".exe").equals(file);
+        return LibraryNames.wildcardMatch(allowed, file) || LibraryNames.wildcardMatch(allowed + ".exe", file)
+                || LibraryNames.wildcardMatch(allowed, program);
     }
 
     private static boolean isHost(final String entry, final String host, final int port) {

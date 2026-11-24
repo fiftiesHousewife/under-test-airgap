@@ -61,7 +61,7 @@ final class LibraryNames {
      * Matching with {@code *} for any run of characters: on a mismatch, the last {@code *} seen takes one more
      * character and the match goes on from there.
      */
-    private static boolean wildcardMatch(final String pattern, final String name) {
+    static boolean wildcardMatch(final String pattern, final String name) {
         int p = 0;
         int n = 0;
         int star = -1;

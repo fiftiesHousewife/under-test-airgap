@@ -90,6 +90,7 @@ dependencies {
     "agentTestCompileOnly"(libs.spotbugs.annotations)
     "agentTestImplementation"(platform(libs.junit5.bom))
     "agentTestImplementation"(libs.junit5.jupiter.api)
+    "agentTestImplementation"(libs.junit5.jupiter.params)
     "agentTestImplementation"(libs.assertj.core)
     "agentTestRuntimeOnly"("org.junit.jupiter:junit-jupiter-engine")
     "agentTestRuntimeOnly"(libs.junit5.platform.launcher)
@@ -316,6 +317,7 @@ tasks.register<Test>("checkOsTrace") {
 val attachedOnly = listOf(
     "**/agent/AirgapAgent*", "**/agent/AgentStart*", "**/agent/Hooks*", "**/agent/SelfCheck*", "**/agent/advice/**",
     "**/agent/Gate*", "**/agent/RunningTests*", "**/agent/NativeGate*", "**/agent/SctpGate*", "**/agent/HandOver*",
+    "**/agent/FileGate*",
 )
 listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { task ->
     task.configure {
@@ -335,6 +337,7 @@ pitest {
         "io.github.fiftieshousewife.airgap.agent.advice.*", "io.github.fiftieshousewife.airgap.agent.Gate*",
         "io.github.fiftieshousewife.airgap.agent.RunningTests*", "io.github.fiftieshousewife.airgap.agent.NativeGate*",
         "io.github.fiftieshousewife.airgap.agent.SctpGate*", "io.github.fiftieshousewife.airgap.agent.HandOver*",
+        "io.github.fiftieshousewife.airgap.agent.FileGate*",
     )
     excludedTestClasses = listOf("*AgentTestReportsMatchSchemaTest", "*OsTraceMatchesReportsTest")
     jvmArgs = listOf(

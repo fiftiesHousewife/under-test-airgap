@@ -32,6 +32,7 @@ records by `./gradlew buildDecisionIndexes`.
 | [A native library whose file is in the JDK's own library folder is the JDK's own, whoever asks for it](0017-a-native-library-whose-file-is-in-the-jdks-own-library-folder-is-the-jdks-own-whoever-asks-for-it.md) | accepted | Airgap maintainers |
 | [Test JVMs let agents attach to themselves, so Mockito starts no java program](0018-test-jvms-let-agents-attach-to-themselves-so-mockito-starts-no-java-program.md) | accepted | Airgap maintainers |
 | [Writes outside the project are reported, and refused only when the settings say so](0019-writes-outside-the-project-are-reported-and-refused-only-when-the-settings-say-so.md) | accepted | Airgap maintainers |
+| [Maven builds get the agent through a Maven core extension, without editing the pom](0020-maven-builds-get-the-agent-through-a-maven-core-extension-without-editing-the-pom.md) | accepted | Airgap maintainers |
 
 ## How this repo works
 

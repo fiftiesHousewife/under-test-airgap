@@ -45,7 +45,8 @@ class AirgapPluginTest {
                 .getAbsolutePath();
         assertThat(arguments((Test) project.getTasks().getByName("test"))).containsExactly(
                 "-Xbootclasspath/a:" + agentJar.getAbsolutePath(),
-                "-javaagent:" + agentJar.getAbsolutePath() + "=report=" + report + ";run=test",
+                "-javaagent:" + agentJar.getAbsolutePath() + "=report=" + report + ";root="
+                        + project.getRootDir().getAbsolutePath() + ";run=test",
                 AgentArguments.ALLOW_ATTACH_SELF);
     }
 
@@ -53,7 +54,7 @@ class AirgapPluginTest {
     void aJavaExecTaskStartsWithTheAgentAsAnApplication() {
         final JavaExec run = project.getTasks().register("bootRun", JavaExec.class).get();
         assertThat(String.join(" ", arguments(run)))
-                .contains("build/airgap/bootRun/calls.jsonl;run=application")
+                .contains("build/airgap/bootRun/calls.jsonl;root=", ";run=application")
                 .as("only test JVMs attach agents to themselves").doesNotContain(AgentArguments.ALLOW_ATTACH_SELF);
     }
 
@@ -77,7 +78,7 @@ class AirgapPluginTest {
 
         assertAll(
                 () -> assertThat(String.join(" ", arguments(test)))
-                        .contains("calls.jsonl;settings=" + named.getAbsolutePath() + ";run=test"),
+                        .contains(";settings=" + named.getAbsolutePath() + ";run=test"),
                 () -> assertThat(test.getJvmArgumentProviders()).filteredOn(AgentArguments.class::isInstance)
                         .singleElement()
                         .extracting(provider -> ((AgentArguments) provider).getSettingsFile().getFiles())

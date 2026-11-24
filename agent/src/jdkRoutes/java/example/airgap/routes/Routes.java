@@ -16,7 +16,8 @@ import net.bytebuddy.description.type.TypeDescription;
 
 /**
  * The JDK's public methods that can reach one of its last steps before a risky call (a native connect, send, lookup,
- * process start, library load or exit) without passing one of the agent's hooks.
+ * process start, library load, exit, or file open, delete, rename, link or new folder) without passing one of the
+ * agent's hooks.
  */
 final class Routes {
 
@@ -55,6 +56,25 @@ final class Routes {
                 "java/lang/ClassLoader$NativeLibrary.load", "jdk/internal/loader/NativeLibraries.load",
                 "jdk/internal/loader/RawNativeLibraries.load0"));
         steps.put("exit", Arrays.asList("java/lang/Shutdown.halt0"));
+        steps.put("file-write", Arrays.asList("java/io/FileOutputStream.open0", "java/io/RandomAccessFile.open0",
+                "java/io/UnixFileSystem.delete0", "java/io/UnixFileSystem.rename0",
+                "java/io/UnixFileSystem.createDirectory", "java/io/UnixFileSystem.createDirectory0",
+                "java/io/UnixFileSystem.createFileExclusively", "java/io/UnixFileSystem.createFileExclusively0",
+                "java/io/WinNTFileSystem.delete0", "java/io/WinNTFileSystem.rename0",
+                "java/io/WinNTFileSystem.createDirectory", "java/io/WinNTFileSystem.createDirectory0",
+                "java/io/WinNTFileSystem.createFileExclusively", "java/io/WinNTFileSystem.createFileExclusively0",
+                "sun/nio/fs/UnixNativeDispatcher.open0", "sun/nio/fs/UnixNativeDispatcher.openat0",
+                "sun/nio/fs/UnixNativeDispatcher.mkdir0", "sun/nio/fs/UnixNativeDispatcher.unlink0",
+                "sun/nio/fs/UnixNativeDispatcher.unlinkat0", "sun/nio/fs/UnixNativeDispatcher.rmdir0",
+                "sun/nio/fs/UnixNativeDispatcher.rename0", "sun/nio/fs/UnixNativeDispatcher.renameat0",
+                "sun/nio/fs/UnixNativeDispatcher.link0", "sun/nio/fs/UnixNativeDispatcher.symlink0",
+                "sun/nio/fs/UnixNativeDispatcher.mknod0", "sun/nio/fs/WindowsNativeDispatcher.CreateFile0",
+                "sun/nio/fs/WindowsNativeDispatcher.DeleteFile0", "sun/nio/fs/WindowsNativeDispatcher.MoveFileEx0",
+                "sun/nio/fs/WindowsNativeDispatcher.CreateDirectory0",
+                "sun/nio/fs/WindowsNativeDispatcher.RemoveDirectory0",
+                "sun/nio/fs/WindowsNativeDispatcher.CopyFileEx0",
+                "sun/nio/fs/WindowsNativeDispatcher.CreateSymbolicLink0",
+                "sun/nio/fs/WindowsNativeDispatcher.CreateHardLink0"));
         return Collections.unmodifiableMap(steps);
     }
 

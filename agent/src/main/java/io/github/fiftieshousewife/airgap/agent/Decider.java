@@ -5,13 +5,15 @@ import java.io.IOException;
 /**
  * Decides each risky call: allowed, refused, or (in {@link Mode#REPORT}) let through and reported; and records it.
  * Calls to the machine itself are always allowed, and not recorded, since test runners and build tools make
- * thousands of them.
+ * thousands of them. A file write outside the project is refused only when the settings say
+ * {@code file_writes: refuse}; otherwise it's reported.
  */
 public final class Decider {
 
     private final Settings settings;
     private final Report report;
     private final Callers callers;
+    private final ProjectFolders folders;
 
     /**
      * A decider.
@@ -23,6 +25,7 @@ public final class Decider {
         this.settings = settings;
         this.report = report;
         this.callers = new Callers(settings.getProject());
+        this.folders = ProjectFolders.of(settings.getProjectFolders());
     }
 
     /**
@@ -38,7 +41,8 @@ public final class Decider {
             return null;
         }
         final String allowedBy = allowedBy(kind, target, context);
-        final boolean refused = allowedBy == null && settings.getMode() == Mode.REFUSE;
+        final boolean refused = allowedBy == null && settings.getMode() == Mode.REFUSE
+                && (kind != Kind.FILE_WRITE || settings.refusesFileWrites());
         try {
             report.record(call(kind, target, context).outcome(outcome(refused, allowedBy)).allowedBy(allowedBy)
                     .build());
@@ -69,6 +73,16 @@ public final class Decider {
      */
     public boolean isBuildToolsOwn(final String className) {
         return BuildTools.own(className, settings.getRun());
+    }
+
+    /**
+     * Whether a write goes inside the project's folders, so it goes ahead unreported.
+     *
+     * @param path the path written, absolute
+     * @return true inside the build's root, the temporary folder, the report's folder or a listed folder
+     */
+    public boolean isProjects(final String path) {
+        return folders.contains(path);
     }
 
     private String allowedBy(final Kind kind, final Target target, final CallContext context) {

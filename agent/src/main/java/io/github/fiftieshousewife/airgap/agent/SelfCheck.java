@@ -3,7 +3,9 @@ package io.github.fiftieshousewife.airgap.agent;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.lang.reflect.InvocationTargetException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -12,10 +14,15 @@ import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.channels.DatagramChannel;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.Hashtable;
@@ -34,12 +41,14 @@ import net.bytebuddy.description.type.TypeDescription;
  * has changed under it, and the agent refuses to start rather than guard partly.
  *
  * <p>Every probe is harmless even if its hook is missing: lookups and connects go to a name that can't resolve,
- * reverse lookups and packets to the machine itself, the program started and the libraries loaded don't exist, and
- * the JNDI contexts have no provider to connect with. A few hooks can't be probed that way: ending the JVM (a missing
- * hook would end it), the machine asking its own name and the HTTP client's hand-overs (which don't refuse), SCTP
- * (not every platform supports it) and the foreign function API (probing it sets off the JDK's warning about native
- * access). Those are proved by their methods being there to rewrite, in classes the other probes prove rewritten,
- * or, for SCTP, the foreign function API and the HTTP client, by the agent's own tests.</p>
+ * reverse lookups and packets to the machine itself, the program started and the libraries loaded don't exist, the
+ * JNDI contexts have no provider to connect with, and the files written are in a folder that doesn't exist. A few
+ * hooks can't be probed that way: ending the JVM (a missing hook would end it), the machine asking its own name and
+ * the HTTP client's hand-overs (which don't refuse), SCTP (not every platform supports it), the foreign function API
+ * (probing it sets off the JDK's warning about native access) and the secure directory stream (not every system's
+ * JDK hands one out). Those are proved by their methods being there to rewrite, in classes the other probes prove
+ * rewritten, or, for SCTP, the foreign function API, the HTTP client and the secure directory stream, by the agent's
+ * own tests.</p>
  */
 @SuppressFBWarnings(value = "UNENCRYPTED_SOCKET",
         justification = "The probes never connect: the hook refuses them, and their target can't resolve")
@@ -47,6 +56,7 @@ final class SelfCheck {
 
     static final String PROBE_HOST = "airgap-self-check.invalid";
     private static final String NO_SUCH_LIBRARY = "airgap-self-check-no-such-library";
+    private static final String NO_SUCH_FOLDER = "airgap-self-check-no-such-folder";
     /** A handler for the asynchronous connect's probe, which the hook stops before it could be called. */
     private static final CompletionHandler<Void, Object> IGNORED = new CompletionHandler<Void, Object>() {
         @Override
@@ -115,7 +125,7 @@ final class SelfCheck {
 
     /** For a hook with no harmless probe: whether its class has the methods it rewrites. */
     private static boolean isThereToRewrite(final Hook hook) {
-        final Class<?> type = Hook.load(hook.getTypeName());
+        final Class<?> type = HookMethods.load(hook.getTypeName());
         return type != null && !TypeDescription.ForLoadedType.of(type).getDeclaredMethods()
                 .filter(hook.getMethods()).isEmpty();
     }
@@ -160,7 +170,65 @@ final class SelfCheck {
         probes.put(Hook.NATIVE_LIBRARY_BY_PATH, () -> System.load(noSuchLibraryFile()));
         probes.put(Hook.NATIVE_LIBRARY_RUNTIME_BY_NAME, () -> Runtime.getRuntime().loadLibrary(NO_SUCH_LIBRARY));
         probes.put(Hook.NATIVE_LIBRARY_RUNTIME_BY_PATH, () -> Runtime.getRuntime().load(noSuchLibraryFile()));
+        addFileProbes(probes);
         return probes;
+    }
+
+    /**
+     * Each file probe writes in a folder that doesn't exist, so even with its hook missing it fails without changing
+     * anything.
+     */
+    @SuppressFBWarnings(value = {"RV_RETURN_VALUE_IGNORED_BAD_PRACTICE", "PATH_TRAVERSAL_IN"},
+            justification = "The probes need only the calls made, which fail before opening anything, in a folder"
+                    + " of the agent's own naming")
+    private static void addFileProbes(final Map<Hook, Probe> probes) {
+        probes.put(Hook.FILE_WRITE_STREAM, () -> new FileOutputStream(noSuchFolder("stream")).close());
+        probes.put(Hook.FILE_WRITE_RANDOM_ACCESS, () -> new RandomAccessFile(noSuchFolder("random"), "rw").close());
+        probes.put(Hook.FILE_WRITE_CHANGE, each(() -> noSuchFolder("delete").delete(),
+                () -> noSuchFolder("mkdir").mkdir()));
+        probes.put(Hook.FILE_WRITE_RENAME, () -> noSuchFolder("from").renameTo(noSuchFolder("to")));
+        probes.put(Hook.FILE_WRITE_CREATE, () -> noSuchFolder("create").createNewFile());
+        probes.put(Hook.FILE_WRITE_TEMP_FILE, () -> File.createTempFile("probe", null, noSuchFolder("temp")));
+        probes.put(Hook.FILE_WRITE_CHANNEL, each(
+                () -> Files.newByteChannel(noSuchPath("channel"), StandardOpenOption.WRITE).close(),
+                () -> FileChannel.open(noSuchPath("file-channel"), StandardOpenOption.WRITE).close(),
+                () -> AsynchronousFileChannel.open(noSuchPath("async"), StandardOpenOption.WRITE).close()));
+        probes.put(Hook.FILE_WRITE_PATH, each(() -> Files.createDirectory(noSuchPath("directory")),
+                () -> Files.deleteIfExists(noSuchPath("delete")),
+                () -> Files.createSymbolicLink(noSuchPath("link"), noSuchPath("link-to")),
+                () -> Files.createLink(noSuchPath("hard-link"), noSuchPath("hard-link-to"))));
+        probes.put(Hook.FILE_WRITE_COPY, () -> Files.copy(noSuchPath("copy-from"), noSuchPath("copy-to")));
+        probes.put(Hook.FILE_WRITE_MOVE, () -> Files.move(noSuchPath("move-from"), noSuchPath("move-to")));
+    }
+
+    /**
+     * A probe for a hook on several methods: each call must be stopped by a file-write hook, or the hook counts as
+     * missing.
+     */
+    private static Probe each(final Probe... calls) {
+        return () -> {
+            for (final Probe call : calls) {
+                try {
+                    call.call();
+                    return;
+                } catch (Gate.Reached reached) {
+                    if (reached.getKind() != Kind.FILE_WRITE) {
+                        return;
+                    }
+                }
+            }
+            throw new Gate.Reached(Kind.FILE_WRITE);
+        };
+    }
+
+    /** A file in a folder that doesn't exist, in the temporary folder. */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "The agent's own names, in the temporary folder")
+    private static File noSuchFolder(final String name) {
+        return new File(new File(System.getProperty("java.io.tmpdir"), NO_SUCH_FOLDER), name);
+    }
+
+    private static Path noSuchPath(final String name) {
+        return noSuchFolder(name).toPath();
     }
 
     @SuppressFBWarnings(value = "RV_RETURN_VALUE_IGNORED", justification = "The probe needs only the call made")

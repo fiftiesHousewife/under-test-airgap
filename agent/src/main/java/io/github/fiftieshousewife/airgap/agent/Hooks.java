@@ -72,7 +72,7 @@ final class Hooks {
     private static void loadHookedClasses() {
         for (final Hook hook : Hook.values()) {
             // A class this JDK lacks is reported by the self-check, as a hook missing.
-            Hook.load(hook.getTypeName());
+            HookMethods.load(hook.getTypeName());
         }
     }
 }

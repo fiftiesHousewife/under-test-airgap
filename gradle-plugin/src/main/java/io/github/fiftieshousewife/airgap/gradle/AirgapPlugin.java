@@ -86,6 +86,7 @@ public final class AirgapPlugin implements Plugin<Project> {
                     .run(run)
                     .report(report)
                     .settingsFile(project.files("testing/airgap.yaml"))
+                    .rootDir(project.getRootDir())
                     .build());
         }
     }

@@ -47,6 +47,40 @@ class SettingsTest {
     }
 
     @Test
+    void addsTheCommandLinesPackagesToTheFiles() throws IOException {
+        final Path file = Files.write(folder.resolve("airgap.yaml"),
+                "packages: [com.example.orders.]\n".getBytes(StandardCharsets.UTF_8));
+
+        assertAll(
+                () -> assertThat(Settings.parse("settings=" + file).getProject())
+                        .containsExactly("com.example.orders."),
+                () -> assertThat(Settings.parse("settings=" + file + ";project=com.example.billing.").getProject())
+                        .containsExactly("com.example.orders.", "com.example.billing."));
+    }
+
+    @Test
+    void namesTheFoldersWritesGoAheadIn() throws IOException {
+        final Path file = Files.write(folder.resolve("airgap.yaml"), ("file_writes: refuse\nwrite_folders:\n"
+                + "  - folder: ../shared/out\n    reason: a\n  - folder: ~/.m2/repository\n    reason: b\n"
+                + "  - folder: " + folder.resolve("absolute") + "\n    reason: c\n").getBytes(StandardCharsets.UTF_8));
+        final Path root = folder.resolve("root");
+
+        final Settings settings = Settings.parse("settings=" + file + ";root=" + root + ";report=" + folder
+                .resolve("reports").resolve("calls.jsonl"));
+
+        assertAll(
+                () -> assertThat(settings.refusesFileWrites()).isTrue(),
+                () -> assertThat(settings.getProjectFolders()).containsExactly(root.toString(),
+                        System.getProperty("java.io.tmpdir"), folder.resolve("reports").toString(),
+                        root.resolve("../shared/out").toString(),
+                        Path.of(System.getProperty("user.home"), ".m2/repository").toString(),
+                        folder.resolve("absolute").toString()),
+                () -> assertThat(Settings.parse(null).refusesFileWrites()).as("reported by default").isFalse(),
+                () -> assertThat(Settings.parse(null).getProjectFolders().get(0))
+                        .as("the folder the JVM starts in, by default").isEqualTo(System.getProperty("user.dir")));
+    }
+
+    @Test
     void refusesMistakesRatherThanIgnoringThem() {
         assertAll(
                 () -> assertThatIllegalArgumentException().isThrownBy(() -> Settings.parse("allwo=a.example"))

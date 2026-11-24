@@ -260,13 +260,10 @@ public final class Gate {
         return target.isLocal() || current != null && current.allows(Kind.TCP, target, RunningTests.context());
     }
 
-    /**
-     * While probing, stops the call before it does anything. A native library or an exit met while probing another
-     * kind of hook is the JDK's own work (loading a library a probed class needs), so it isn't stopped.
-     */
+    /** While probing, stops the call; a library, exit or file write met probing another kind is the JDK's own. */
     static void stopIfProbing(final Kind kind) {
         final Kind probing = PROBING.get();
-        if (probing != null && (probing == kind || kind != Kind.NATIVE_LIBRARY && kind != Kind.EXIT)) {
+        if (probing != null && (probing == kind || !kind.isTheJdksOwnWork())) {
             throw new Reached(kind);
         }
     }

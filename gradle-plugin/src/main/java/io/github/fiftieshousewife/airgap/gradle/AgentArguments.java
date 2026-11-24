@@ -23,8 +23,9 @@ import org.gradle.process.CommandLineArgumentProvider;
 /**
  * The {@code -javaagent:} arguments for one guarded task, worked out when the task runs, so settings made after the
  * plugin is applied still count. The project's settings file, {@code testing/airgap.yaml}, is named to the agent when
- * it's there, and its content is one of the task's inputs. The report's and the settings file's paths are left out of
- * the task's inputs, so moving the project doesn't make the task run again.
+ * it's there, and its content is one of the task's inputs. So is the build's root folder, inside which writes go ahead
+ * unreported. The report's, the settings file's and the root's paths are left out of the task's inputs, so moving the
+ * project doesn't make the task run again.
  */
 @SuppressFBWarnings(value = "EI_EXPOSE_REP",
         justification = "Gradle reads and sets these properties through the getters, so they return the live objects")
@@ -41,6 +42,8 @@ public final class AgentArguments implements CommandLineArgumentProvider {
     private final String run;
     private final Provider<RegularFile> report;
     private final FileCollection settingsFile;
+    /** The build's root folder, inside which writes go ahead unreported. */
+    private final File rootDir;
 
     /** @return the agent's jar */
     @Classpath
@@ -68,6 +71,12 @@ public final class AgentArguments implements CommandLineArgumentProvider {
         return settingsFile;
     }
 
+    /** @return the build's root folder; left out of the inputs, so moving the build doesn't run the task again */
+    @Internal
+    public File getRootDir() {
+        return rootDir;
+    }
+
     /** @return where the report is written */
     @Internal
     public Provider<RegularFile> getReport() {
@@ -86,7 +95,8 @@ public final class AgentArguments implements CommandLineArgumentProvider {
         final File file = settingsFile.getSingleFile();
         final String named = file.isFile() ? "settings=" + file.getAbsolutePath() + ";" : "";
         final List<String> arguments = new ArrayList<>(Arrays.asList("-Xbootclasspath/a:" + jar,
-                "-javaagent:" + jar + "=report=" + reportFile().getAbsolutePath() + ";" + named + getSettings()));
+                "-javaagent:" + jar + "=report=" + reportFile().getAbsolutePath() + ";root="
+                        + rootDir.getAbsolutePath() + ";" + named + getSettings()));
         if ("test".equals(run)) {
             arguments.add(ALLOW_ATTACH_SELF);
         }

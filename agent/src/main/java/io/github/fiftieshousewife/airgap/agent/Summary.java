@@ -64,14 +64,19 @@ final class Summary {
     /**
      * The target a call is summarised under. Libraries such as sqlite-jdbc and Netty unpack their native code to a new
      * file each run, named with a random id; in the summary each such id in a native library's file name becomes
-     * {@code *}, so one library is one target, and the name is the {@code native:} entry that would allow it. The
-     * report itself keeps each file's full path.
+     * {@code *}, so one library is one target, and the name is the {@code native:} entry that would allow it. Programs
+     * such as embedded-redis's are unpacked to a new, randomly named folder each run, so each random id anywhere in a
+     * program's path becomes {@code *}, which a {@code process:} entry can use too. The report itself keeps each full
+     * path.
      *
      * @param kind the call's kind
      * @param target the call's target, as the report gives it
-     * @return the target, with a native library's random ids as {@code *}
+     * @return the target, with a native library's or program's random ids as {@code *}
      */
     static String grouped(final String kind, final String target) {
+        if (target != null && Kind.PROCESS.getReportName().equals(kind)) {
+            return RANDOM_ID.matcher(target).replaceAll("*");
+        }
         if (target == null || !Kind.NATIVE_LIBRARY.getReportName().equals(kind)) {
             return target;
         }

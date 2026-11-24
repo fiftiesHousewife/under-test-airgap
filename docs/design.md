@@ -150,8 +150,8 @@ The same agent jar is added to every JVM that runs the project's code:
 
 | JVM | Why | How it's added |
 |---|---|---|
-| Test runs | Tests are where old code first runs | Gradle: every `Test` task. Maven (planned): Surefire's and Failsafe's `argLine` |
-| Application starts | Starting the application on its own is the next thing anyone tries | Gradle: every `JavaExec` task, and Spring Boot's `bootRun`. Maven (planned): the plugin's `jvmArguments` |
+| Test runs | Tests are where old code first runs | Gradle: every `Test` task. Maven (planned): Surefire's and Failsafe's `argLine`, added by a Maven core extension without editing the pom (see [Maven builds get the agent through a Maven core extension, without editing the pom](decisions/0020-maven-builds-get-the-agent-through-a-maven-core-extension-without-editing-the-pom.md)) |
+| Application starts | Starting the application on its own is the next thing anyone tries | Gradle: every `JavaExec` task, and Spring Boot's `bootRun`. Maven (planned): `spring-boot:run`'s `jvmArguments` and `exec:exec`'s arguments, by the same extension; `exec:java` runs in Maven's own JVM |
 | The build itself | An old project's build scripts are its code too, and run first | Gradle: `org.gradle.jvmargs` in the engineer's own `gradle.properties` (in the Gradle user home, which wins over the project's). Maven: `MAVEN_OPTS` |
 | Forked JVMs | PIT and some test set-ups start more JVMs | PIT's `jvmArgs`, set by hand. A JVM started with `java` from a guarded JVM is refused unless `process:java` is allowed, and then runs unguarded unless it is named the agent too; adding the agent to it automatically is planned |
 
@@ -182,7 +182,7 @@ JDK 22) applies only where that class is. Each is proved by tests on every suppo
 | Starting a process | `ProcessBuilder.start` (which `Runtime.exec` uses), and from JDK 9 `ProcessBuilder.startPipeline` | `IOException` ("cannot run program") |
 | Loading native code | `System.loadLibrary`, `System.load` and their `Runtime` versions, called directly or through reflection, and JDK 22's `SymbolLookup.libraryLookup` (which fails with `IllegalArgumentException`), except the JDK's own libraries and the build tool's own (see [Native libraries are refused unless allowed, except the JDK's and the build tool's own](decisions/0012-native-libraries-are-refused-unless-allowed-except-the-jdks-and-the-build-tools-own.md)). A library is the JDK's only when a JDK class loader can see the class asking for it, so a class path library in a JDK-like package, such as JNA's `com.sun.jna`, is not (see [A native library is the JDK's own only when a JDK class loader can see the class asking for it](decisions/0013-a-native-library-is-the-jdks-own-only-when-a-jdk-class-loader-can-see-the-class-asking-for-it.md)). A `native:` entry matches the library's name exactly, or with `*` wildcards (see [A native allow entry matches a library's name exactly, or by wildcards](decisions/0015-a-native-allow-entry-matches-a-librarys-name-exactly-or-by-wildcards.md)) | `UnsatisfiedLinkError` |
 | Ending the JVM | `System.exit` (through `Runtime.exit`) and `Runtime.halt`, only while a test or a test class's set-up is running on the thread, so test runners end their JVMs as usual (see [An exit is refused only while a test is running](decisions/0011-an-exit-is-refused-only-while-a-test-is-running.md)) | `SecurityException` naming the airgap agent |
-| Writing files outside the project (planned) | Opening a file to write, create or append (`FileOutputStream`, `RandomAccessFile`, `Files`' streams and channels), and deleting, renaming, moving and making folders (`File` and `Files`). Inside the project means the build's root folder, the temporary folder, the report's folder and folders the settings list in `write_folders`; the build tool's own writes go ahead (see [Writes outside the project are reported, and refused only when the settings say so](decisions/0019-writes-outside-the-project-are-reported-and-refused-only-when-the-settings-say-so.md)) | Reported only, unless the settings say `file_writes: refuse`; then as an unwritable folder: `FileNotFoundException`, `AccessDeniedException`, or `false` |
+| Writing files outside the project | Opening a file to write, create or append: `FileOutputStream`'s and `RandomAccessFile`'s private `open`, and the default file system's channels, which `Files`' streams, writers and `FileChannel.open` reach. Deleting, renaming, moving, copying to and linking files, and making folders: `File`'s `delete`, `mkdir`, `renameTo`, `createNewFile` and `createTempFile`, the default file system's own methods for each, and the secure directory stream Unix JDKs hand out, whose paths are relative to its folder. Reading, and changing a file's times, owner or permissions, aren't writes. Inside the project means the build's root folder, the temporary folder, the report's folder and folders the settings list in `write_folders`; the build tool's and the agent's own writes go ahead, and the null device and standard streams are no files (see [Writes outside the project are reported, and refused only when the settings say so](decisions/0019-writes-outside-the-project-are-reported-and-refused-only-when-the-settings-say-so.md)) | Reported only, unless the settings say `file_writes: refuse` and the mode is `refuse`; then as an unwritable folder: `FileNotFoundException` from `java.io`, `AccessDeniedException` from `java.nio.file`, `IOException` from `createNewFile`, and `false` from `File`'s methods that answer with one |
 
 **Planned:** higher-level calls recognised too, only to describe them better in the report: a JDBC connection saying
 `kind: database` with its URL, an HTTP client call `kind: http` with its address, a mail transport `kind: mail`.
@@ -218,8 +218,9 @@ What may go ahead, from three places:
    example, the company's package repository.
 3. **A test's own allowance:** `@AllowCalls("wiremock.test:8089")` on a test class or method.
 
-An entry is a host, a host and port, `process:` and a program's file name (exactly, for now; `*` patterns, as native
-libraries have, are planned), or `native:` and a library's name, exactly or with `*` wildcards. An allowed call is
+An entry is a host, a host and port, `process:` and a program's file name or full path, or `native:` and a library's
+name; programs and libraries exactly, or with `*` wildcards. Programs unpacked to a new, randomly named folder each
+run, as embedded-redis's are, are listed once in the summary, with `*` for the random part. An allowed call is
 still reported, so the report always shows everything the code touched.
 
 Some libraries unpack a native library of their own to a temporary file and load it: SQLite's JDBC driver, Conscrypt
@@ -239,8 +240,16 @@ lists in square brackets, and lists of `- ` items, each text or keys with text. 
 or text over several lines, stops the run with the line it's on, rather than being read as something it isn't. It
 checks the file by the schema's rules itself, and its tests hold those checks to agree with the schema, file by file.
 A file that's named but missing, isn't YAML it can read, or breaks the schema's rules stops the JVM at start, saying
-what's wrong. `production_profiles` and `file_writes` are checked, but nothing uses them until the hooks that need
-them are built.
+what's wrong. `production_profiles` is checked, but nothing uses it until the hooks that need it are built.
+
+`packages` lists the project's own package prefixes, so the report names the project's line that made each call
+however the agent is started; the run's `project` setting, and the Gradle plugin's `packages`, add to them. Without
+them, the caller is the first frame outside the JDK, the agent, the test runner and the build tool, which may be a
+library's.
+
+`write_folders` lists folders outside the build's root that the tests may write in, each with its reason: absolute,
+relative to the root, or under the home folder with `~/`. The plugin and the try-it script name the build's root
+folder to the agent (its `root` setting); started any other way, the root is the folder the JVM starts in.
 
 ## The report
 
@@ -248,8 +257,8 @@ them are built.
 JSON object per line, per call, checked against
 [schema/airgap-report.schema.json](../schema/airgap-report.schema.json). Each line says:
 
-- **what:** its kind (`host-lookup`, `tcp`, `udp`, `jndi`, `process`, `native-library`, `exit`; `database`, `http`,
-  `mail` and `file-write` are planned) and its target (host and port, URL, command or library);
+- **what:** its kind (`host-lookup`, `tcp`, `udp`, `jndi`, `process`, `native-library`, `file-write`, `exit`;
+  `database`, `http` and `mail` are planned) and its target (host and port, URL, command, library or file);
 - **what happened:** `refused`, `allowed` or `reported`;
 - **who:** the test that was running, and the first frame of the project's own code that made the call, with a
   trimmed stack;
@@ -358,14 +367,16 @@ that impossible to miss (see
   once, and reported correctly.
 - **Every route through the JDK, found by reading it:** on every supported JDK, a test reads all the JDK's own classes,
   builds who calls whom (through overriding methods, lambdas and callbacks too), and walks back from the JDK's last
-  steps before each kind of call: its native connects, sends, lookups, process starts, library loads and exits. Every
+  steps before each kind of call: its native connects, sends, lookups, process starts, library loads, exits, and file
+  opens, deletes, renames, links and new folders. Every
   public JDK method it reaches without passing a hook must be on a reviewed list saying why it is safe. A new JDK that
   opens a new route fails the build instead of going unnoticed. It found the socket a `SocketChannel` hands out,
   `isReachable`, the JDK's own name checks and the foreign function API, all now hooked.
 - **What the operating system saw:** in CI, on Linux, the agent's own tests run again under strace, which records
   every connection and packet, every program started and every library opened, by the test JVMs and every process
   they start. Anything to another machine, a program or a library that the agent didn't report as allowed fails the
-  build: a way round the hooks shows up there, whatever route it took, even one nobody thought of.
+  build: a way round the hooks shows up there, whatever route it took, even one nobody thought of. File writes aren't
+  compared with it yet.
 - **Every route to each kind of call:** plain sockets, NIO channels, asynchronous channels, `HttpURLConnection`, the
   JDK's HTTP client and JNDI; and the libraries old code most often uses, Apache HttpClient 4 and 5, OkHttp, Netty,
   and the PostgreSQL and MySQL JDBC drivers. Each library's call must be refused by the agent, fail as it would
@@ -401,9 +412,14 @@ that impossible to miss (see
 - **Programs other than Java** are refused at the point of starting, but if a start is allowed, the program runs
   unguarded.
 - **Shared drives** (`\\server\share` paths and mapped network drives) are opened by the operating system, not
-  through the JVM's sockets, so the network hooks don't see them. A planned hook on the JVM's file APIs will refuse
-  and report opening any file on a `\\server\share` path, and on drive letters the settings name as network drives
-  (the JVM can't tell a mapped drive from a local one without native code). Until then, they can be read and written.
+  through the JVM's sockets, so the network hooks don't see them. Writing to one is reported, as any write outside
+  the project is; reading isn't seen. A planned hook will refuse and report opening any file on a `\\server\share`
+  path, and on drive letters the settings name as network drives (the JVM can't tell a mapped drive from a local one
+  without native code).
+- **On Windows,** the build's tests don't run: CI runs on Linux. The file hooks there go on Windows' own file system
+  class, with the same methods; the check at start proves each is in place before anything runs.
+- **File writes through native code,** or through a file system other than the JDK's default one (a library's own
+  zip file system writes through the default one, so it is seen), aren't seen.
 - **Gradle daemons are reused** between builds: the agent goes into the daemon's own settings, so a daemon started
   before it was added has to be stopped first.
 - **It's no substitute for a secrets scan, or for network separation** where code can't be trusted; it's the safety net

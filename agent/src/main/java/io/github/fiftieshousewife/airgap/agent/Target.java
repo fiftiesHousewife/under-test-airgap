@@ -173,6 +173,11 @@ public final class Target {
         return of(address.getHostAddress(), NO_PORT, localOrRemote(isLocalAddress(address)));
     }
 
+    /** @return a file or folder being written, deleted, moved or made outside the project, by its absolute path */
+    public static Target ofFile(final String path) {
+        return of(path, NO_PORT, Reach.REMOTE);
+    }
+
     /**
      * A native library being loaded.
      *

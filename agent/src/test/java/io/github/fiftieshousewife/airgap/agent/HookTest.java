@@ -16,7 +16,7 @@ class HookTest {
                                 "jndi-name", "jndi-provider", "native-library-by-name", "exit", "halt"),
                 () -> assertThat(Hook.values()).allSatisfy(hook -> assertAll(
                         () -> assertThat(hook.getTypeName()).as(hook.id())
-                                .matches("(java\\.(net|lang)|javax\\.naming|sun\\.nio\\.ch"
+                                .matches("(java\\.(net|lang|io)|javax\\.naming|sun\\.nio\\.(ch|fs)"
                                         + "|jdk\\.internal\\.net\\.http)\\..+"),
                         () -> assertThat(hook.getMethods()).isNotNull(),
                         () -> assertThat(hook.getAdvice().getPackageName()).endsWith(".advice"))));
@@ -31,6 +31,8 @@ class HookTest {
                 () -> assertThat(Hook.PROCESS.kind()).isEqualTo(Kind.PROCESS),
                 () -> assertThat(Hook.JNDI_PROVIDER.kind()).isEqualTo(Kind.JNDI),
                 () -> assertThat(Hook.NATIVE_LIBRARY_BY_PATH.kind()).isEqualTo(Kind.NATIVE_LIBRARY),
+                () -> assertThat(Hook.FILE_WRITE_STREAM.kind()).isEqualTo(Kind.FILE_WRITE),
+                () -> assertThat(Hook.FILE_WRITE_SECURE_MOVE.kind()).isEqualTo(Kind.FILE_WRITE),
                 () -> assertThat(Hook.EXIT.kind()).isEqualTo(Kind.EXIT),
                 () -> assertThat(Hook.HALT.kind()).isEqualTo(Kind.EXIT));
     }
@@ -38,7 +40,8 @@ class HookTest {
     @Test
     void namesEachKindAsTheReportDoes() {
         assertThat(Arrays.stream(Kind.values()).map(Kind::getReportName))
-                .containsExactly("host-lookup", "tcp", "udp", "process", "jndi", "native-library", "exit");
+                .containsExactly("host-lookup", "tcp", "udp", "process", "jndi", "native-library", "file-write",
+                        "exit");
     }
 
     @Test
@@ -52,8 +55,13 @@ class HookTest {
                 () -> assertThat(Hook.TCP_HTTP_CLIENT_SEND.refuses()).isFalse(),
                 () -> assertThat(Hook.TCP_HTTP_CLIENT_TASKS.refuses()).isFalse(),
                 () -> assertThat(Hook.TCP_SOCKET.refuses()).isTrue(),
-                () -> assertThat(Hook.load("io.github.fiftieshousewife.airgap.agent.NoSuchClass")).isNull(),
-                () -> assertThat(Hook.load("java.net.InetAddress")).isEqualTo(java.net.InetAddress.class));
+                () -> assertThat(Hook.FILE_WRITE_SECURE_FOLDER.refuses()).as("only notes the folder").isFalse(),
+                () -> assertThat(Hook.FILE_WRITE_SECURE_DELETE.refuses()).isTrue(),
+                () -> assertThat(Hook.FILE_WRITE_CHANNEL.getTypeName()).as("the default file system's, here")
+                        .isEqualTo(java.io.File.separatorChar == '\\' ? "sun.nio.fs.WindowsFileSystemProvider"
+                                : "sun.nio.fs.UnixFileSystemProvider"),
+                () -> assertThat(HookMethods.load("io.github.fiftieshousewife.airgap.agent.NoSuchClass")).isNull(),
+                () -> assertThat(HookMethods.load("java.net.InetAddress")).isEqualTo(java.net.InetAddress.class));
     }
 
     /** The lookup hook is on the one private getAllByName0 every lookup reaches: the one with the most parameters. */

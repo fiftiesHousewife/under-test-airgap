@@ -1,5 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.PortUnreachableException;
@@ -54,10 +55,20 @@ public final class Refusals {
                 return new CommunicationException(what);
             case NATIVE_LIBRARY:
                 return new UnsatisfiedLinkError(what);
-            case EXIT:
-                return new SecurityException(target.text() + ": a test may not end the JVM; " + REFUSED + detail);
             default:
-                return new IOException("Cannot run program \"" + target.text() + "\": " + REFUSED + detail);
+                return forOther(kind, target, detail);
         }
+    }
+
+    /** Calls on this machine: a file write, an exit, or a program started. */
+    private static Throwable forOther(final Kind kind, final Target target, final String detail) {
+        if (kind == Kind.FILE_WRITE) {
+            // As the JDK words an unwritable file: the path, then why in brackets.
+            return new FileNotFoundException(target.text() + " (" + REFUSED + detail + ")");
+        }
+        if (kind == Kind.EXIT) {
+            return new SecurityException(target.text() + ": a test may not end the JVM; " + REFUSED + detail);
+        }
+        return new IOException("Cannot run program \"" + target.text() + "\": " + REFUSED + detail);
     }
 }
