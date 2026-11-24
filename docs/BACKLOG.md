@@ -21,5 +21,7 @@ Ordered by horizon (now, next, later), then items that are ready before items wa
 | | Item | Type | Owner | Done by | Waiting on |
 |---|---|---|---|---|---|
 | #64 | [The project's own packages can be named in testing/airgap.yaml, so the report names the project's line that made each call, however the agent is started](https://github.com/fiftiesHousewife/under-test-airgap/issues/64) | deliverable | Technical Architect | ai | – |
+| #65 | [Programs can be allowed with * patterns, and a program unpacked to randomly named folders is listed once in the summary](https://github.com/fiftiesHousewife/under-test-airgap/issues/65) | deliverable | Technical Architect | ai | – |
+| #66 | [The README lists common libraries that unpack and load their own native code, what fails when the agent refuses it, and the line that allows it](https://github.com/fiftiesHousewife/under-test-airgap/issues/66) | deliverable | Technical Architect | ai | – |
 | #27 | [Maven wiring: the agent on Surefire, Failsafe, application starts and Maven itself](https://github.com/fiftiesHousewife/under-test-airgap/issues/27) | deliverable | Technical Architect | ai | – |
 | #57 | [The Gradle plugin works when applied only in a subproject of a multi-project build with shared convention plugins and no root build file](https://github.com/fiftiesHousewife/under-test-airgap/issues/57) | deliverable | Technical Architect | ai | – |
