@@ -137,13 +137,18 @@ program a test starts on purpose:
 - **for one run**, use the agent's `allow` setting (see [Settings](#settings)), for example
   `allow=wiremock.test:8089,process:git`. It adds to the file's entries.
 
-Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), a program (`process:git`), or a
-native library (`native:sqlitejdbc`, which matches `libsqlitejdbc.so` and `sqlitejdbc.dll` too). Nothing allows a
-test to end the JVM.
+Each entry is a host (`wiremock.test`), a host and port (`wiremock.test:8089`), a program by its file name
+(`process:git`), or a native library (`native:sqlitejdbc`, which matches `libsqlitejdbc.so` and `sqlitejdbc.dll`
+too). Nothing allows a test to end the JVM.
 
-A `native:` entry may use `*` for any run of characters, for libraries that unpack themselves to files with versions
-or random ids in their names: `native:*sqlitejdbc` for sqlite-jdbc, `native:netty_transport_native_epoll*` for
-Netty's.
+Some libraries unpack native code of their own to a temporary file. A `native:` entry may use `*` for the version or
+random id in its name:
+
+| Library | Refused, the tests show | Entry |
+|---|---|---|
+| SQLite's JDBC driver | tests that use the database fail | `native:*sqlitejdbc` |
+| Conscrypt, used by WireMock's web server for TLS | `No Server ALPNProcessors` | `native:*conscrypt*` |
+| Netty's native transports and DNS resolver | nothing: Netty carries on without them | `native:netty_*` if you want them |
 
 ### Applications
 
@@ -218,21 +223,17 @@ A mistyped setting stops the JVM at start.
 
 ## An example report
 
-This report comes from the first run of an old order service's tests. Each line is one call, as JSON
-([the report's schema](schema/airgap-report.schema.json)). The stack traces are shortened here.
+Two lines from the first run of an old order service's tests. Each line is one call, as JSON
+([the report's schema](schema/airgap-report.schema.json)); the stacks are shortened here.
 
 ```json
 {"kind":"host-lookup","target":"db.orders.example.com","outcome":"refused","run":{"kind":"test","java_version":"17.0.12"},"test":"com.example.orders.OrderServiceTest.placesAnOrder","caller":"com.example.orders.OrderRepository.connect(OrderRepository.java:41)","stack":["java.base/java.net.InetAddress.getByName(InetAddress.java:1301)","com.example.orders.OrderRepository.connect(OrderRepository.java:41)"]}
-{"kind":"tcp","target":"10.20.4.17:25","outcome":"refused","run":{"kind":"test","java_version":"17.0.12"},"test":"com.example.orders.OrderServiceTest.emailsTheCustomer","caller":"com.example.orders.ConfirmationMailer.send(ConfirmationMailer.java:58)","stack":["java.base/java.net.Socket.connect(Socket.java:633)","com.example.orders.ConfirmationMailer.send(ConfirmationMailer.java:58)"]}
-{"kind":"tcp","target":"payments.example.com:443","outcome":"refused","run":{"kind":"test","java_version":"17.0.12"},"test":"com.example.orders.OrderServiceTest.takesPayment","caller":"com.example.orders.PaymentClient.charge(PaymentClient.java:112)","stack":["java.base/sun.nio.ch.SocketChannelImpl.connect(SocketChannelImpl.java:827)","com.example.orders.PaymentClient.charge(PaymentClient.java:112)"]}
 {"kind":"process","target":"sendmail","outcome":"refused","run":{"kind":"test","java_version":"17.0.12"},"test":"com.example.orders.NightlyReportJobTest.runsTheJob","caller":"com.example.orders.NightlyReportJob.mailReport(NightlyReportJob.java:77)","stack":["java.base/java.lang.ProcessBuilder.start(ProcessBuilder.java:1089)","com.example.orders.NightlyReportJob.mailReport(NightlyReportJob.java:77)"]}
 ```
 
 Each line names the test that was running and the line of the service's code that made the call. The test is named
 only when the tests run on the JUnit Platform (JUnit 5 and later, or JUnit 4 through its Vintage engine) with
-`airgap-junit` on their class path, as the plugin arranges; otherwise the line has no `test`, and the caller is what
-finds it. This report shows
-the service's tests depend on a database, a mail server, a payment service and the `sendmail` program.
+`airgap-junit` on their class path, as the plugin arranges.
 
 ## What it doesn't catch
 
@@ -247,24 +248,15 @@ Windows opens them itself, outside the JVM's network code.
 
 ## The check at start
 
-The agent works by changing a few classes inside the JDK. Those classes differ between JDK versions, and a JDK update
-could change one so that the agent's change no longer fits. Calls would then go ahead with no sign of it.
-
-So each time a JVM starts with the agent, before the program runs, the agent checks itself. For each kind of risky
-call it catches, it makes one test call (a host lookup of `airgap-self-check.invalid`, a connection to that name, a
-UDP packet to the same machine, a start of a program that doesn't exist, a JNDI lookup with no directory to ask, a
-load of a library that doesn't exist) and confirms the agent's change caught it. None of these test calls can reach
-another machine, even if the check fails. Ending the JVM can't be tried that way, so for `exit` and `halt` the check
-confirms the methods are there to change.
-
-If any test call isn't caught, the JVM stops before the program starts, with a message such as:
+The agent changes a few classes inside the JDK, and a JDK update could change one so the agent's change no longer
+fits, letting calls through unseen. So each JVM started with the agent first makes one harmless test call of each
+kind (a lookup of `airgap-self-check.invalid`, a start of a program that doesn't exist, and so on), none of which can
+reach another machine, and confirms each was caught. If one isn't, the JVM stops before the program starts:
 
 ```text
 The airgap agent couldn't put its hooks in place for [tcp-socket] on Java 26-ea, so it won't start: this JDK isn't
 supported yet. Nothing was run unguarded.
 ```
-
-Your tests don't need to do anything for the check.
 
 ## How it is tested
 
@@ -276,6 +268,8 @@ Your tests don't need to do anything for the check.
 - In CI, the tests run again under the operating system's own trace, which must show nothing the agent didn't report.
 - Each test checks the call was refused before a connection could start.
 - The check at start is tested to fail when one of the agent's changes is left out.
+- It is tested alongside JaCoCo, Mockito's inline mock maker and PIT.
+- Before each release, real open-source projects' tests are run under it, on the JDKs they were written for.
 
 ## For a security review
 

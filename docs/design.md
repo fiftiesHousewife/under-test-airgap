@@ -182,7 +182,7 @@ JDK 22) applies only where that class is. Each is proved by tests on every suppo
 | Starting a process | `ProcessBuilder.start` (which `Runtime.exec` uses), and from JDK 9 `ProcessBuilder.startPipeline` | `IOException` ("cannot run program") |
 | Loading native code | `System.loadLibrary`, `System.load` and their `Runtime` versions, called directly or through reflection, and JDK 22's `SymbolLookup.libraryLookup` (which fails with `IllegalArgumentException`), except the JDK's own libraries and the build tool's own (see [Native libraries are refused unless allowed, except the JDK's and the build tool's own](decisions/0012-native-libraries-are-refused-unless-allowed-except-the-jdks-and-the-build-tools-own.md)). A library is the JDK's only when a JDK class loader can see the class asking for it, so a class path library in a JDK-like package, such as JNA's `com.sun.jna`, is not (see [A native library is the JDK's own only when a JDK class loader can see the class asking for it](decisions/0013-a-native-library-is-the-jdks-own-only-when-a-jdk-class-loader-can-see-the-class-asking-for-it.md)). A `native:` entry matches the library's name exactly, or with `*` wildcards (see [A native allow entry matches a library's name exactly, or by wildcards](decisions/0015-a-native-allow-entry-matches-a-librarys-name-exactly-or-by-wildcards.md)) | `UnsatisfiedLinkError` |
 | Ending the JVM | `System.exit` (through `Runtime.exit`) and `Runtime.halt`, only while a test or a test class's set-up is running on the thread, so test runners end their JVMs as usual (see [An exit is refused only while a test is running](decisions/0011-an-exit-is-refused-only-while-a-test-is-running.md)) | `SecurityException` naming the airgap agent |
-| Writing files outside the project (planned) | `FileOutputStream`, `RandomAccessFile` and `Files` writes | Reported only, at first (see [Open questions](#open-questions)) |
+| Writing files outside the project (planned) | Opening a file to write, create or append (`FileOutputStream`, `RandomAccessFile`, `Files`' streams and channels), and deleting, renaming, moving and making folders (`File` and `Files`). Inside the project means the build's root folder, the temporary folder, the report's folder and folders the settings list in `write_folders`; the build tool's own writes go ahead (see [Writes outside the project are reported, and refused only when the settings say so](decisions/0019-writes-outside-the-project-are-reported-and-refused-only-when-the-settings-say-so.md)) | Reported only, unless the settings say `file_writes: refuse`; then as an unwritable folder: `FileNotFoundException`, `AccessDeniedException`, or `false` |
 
 **Planned:** higher-level calls recognised too, only to describe them better in the report: a JDBC connection saying
 `kind: database` with its URL, an HTTP client call `kind: http` with its address, a mail transport `kind: mail`.
@@ -218,7 +218,14 @@ What may go ahead, from three places:
    example, the company's package repository.
 3. **A test's own allowance:** `@AllowCalls("wiremock.test:8089")` on a test class or method.
 
-An allowed call is still reported, so the report always shows everything the code touched.
+An entry is a host, a host and port, `process:` and a program's file name (exactly, for now; `*` patterns, as native
+libraries have, are planned), or `native:` and a library's name, exactly or with `*` wildcards. An allowed call is
+still reported, so the report always shows everything the code touched.
+
+Some libraries unpack a native library of their own to a temporary file and load it: SQLite's JDBC driver, Conscrypt
+(which WireMock's web server uses for TLS) and Netty's native transports and DNS resolver. Refused, some fail
+(SQLite; WireMock with "No Server ALPNProcessors") and some carry on without it (Netty). A `native:` entry with `*`
+allows one, whatever its unpacked file is called.
 
 ### The settings file
 
@@ -371,6 +378,11 @@ that impossible to miss (see
   are there to rewrite. If any hook isn't in place it refuses to start, naming the gap: a JDK it can't fully guard
   stops the run rather than being guarded partly.
 - **With the other agents** in the same JVM: JaCoCo, Mockito's inline mock maker and PIT.
+- **On real projects:** before a release, real open-source projects' tests run under the agent through the try-it
+  script, on the JDKs they were written for: Spring PetClinic, the RealWorld example app, Halo and older Spring guides.
+  Each must give the same results as without the agent, or fail only on a call the agent should refuse. These runs
+  found that Mockito needs test JVMs to attach to themselves, and that unpacked native libraries need grouping and
+  `*` entries.
 - **On old code (planned):** example old services (Spring with Gradle, Spring with Maven, plain Java), run end to end, whose
   reports must match saved, approved reports.
 - **Mutation testing at a high bar:** PIT must kill at least 90% of the bugs it plants in the code that decides,
@@ -399,7 +411,4 @@ that impossible to miss (see
 
 ## Open questions
 
-- **Writing files outside the project:** refuse, or only report? Old batch jobs write to fixed paths such as
-  `C:\data\out`; refusing finds them, but breaks runs that would otherwise teach something. Proposed: report only at
-  first.
 - **Non-Java projects** (Node, shell scripts) aren't covered.

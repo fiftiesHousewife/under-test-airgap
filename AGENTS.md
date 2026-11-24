@@ -48,7 +48,10 @@ Testing is the centre of this project, because a hook that stops matching fails 
 promises users (the self-check at start, every hook on every JDK, every common route, refusal before any connection):
 
 - example old services are run end to end, and their reports must match saved, approved ones;
-- mutation testing must show the tests catch nearly every bug planted in the refusal and reporting code.
+- mutation testing must show the tests catch nearly every bug planted in the refusal and reporting code;
+- before each release, and before releasing any new hook, real open-source projects' tests are run under the agent
+  with the try-it script, on the JDKs they were written for, and compared with a run without it. A failure is either
+  a call the agent should refuse, or a bug to fix.
 
 The Gradle plugin's integration tests run a sample build on the latest Gradle 5, 6, 7, 8 and 9, each on a JDK it
 supports. Where Gradle can't download distributions, pass `-Pairgap.gradleDistributions=<folder of gradle-<version>-bin.zip>`.
