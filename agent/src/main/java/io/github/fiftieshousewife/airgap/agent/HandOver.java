@@ -52,7 +52,7 @@ public final class HandOver implements Runnable {
         return task -> executor.execute(task instanceof HandOver ? task : new HandOver(scope, caller, task));
     }
 
-    /** @return the caller a task running on this thread was handed over with, or {@code null} */
+    // Returns the caller a task running on this thread was handed over with, or null
     static String carriedCaller() {
         return CALLER.get();
     }

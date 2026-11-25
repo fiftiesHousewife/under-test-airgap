@@ -23,7 +23,7 @@ public final class AirgapRunListener extends RunListener {
         GateBridge.agent().leaveTest();
     }
 
-    /** @return the test as {@code class.method}, or its display name when JUnit gives no method */
+    // Returns the test as class.method, or its display name when JUnit gives no method
     static String name(final Description test) {
         return test.getMethodName() == null ? test.getDisplayName() : test.getClassName() + "." + test.getMethodName();
     }

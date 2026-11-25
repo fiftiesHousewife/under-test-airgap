@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import net.bytebuddy.asm.Advice;
 
 /**
@@ -14,11 +14,11 @@ public final class OwnNameAdvice {
 
     @Advice.OnMethodEnter
     static void enter() {
-        Gate.enterOwnName();
+        NetworkGate.enterOwnName();
     }
 
     @Advice.OnMethodExit(onThrowable = Throwable.class)
     static void exit() {
-        Gate.leaveOwnName();
+        NetworkGate.leaveOwnName();
     }
 }

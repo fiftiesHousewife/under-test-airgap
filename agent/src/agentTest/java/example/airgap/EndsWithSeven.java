@@ -3,7 +3,6 @@ package example.airgap;
 /** A program that ends its JVM with status 7, as a test runner does once its tests finish. */
 public final class EndsWithSeven {
 
-    /** The status it ends with. */
     static final int STATUS = 7;
 
     private EndsWithSeven() {

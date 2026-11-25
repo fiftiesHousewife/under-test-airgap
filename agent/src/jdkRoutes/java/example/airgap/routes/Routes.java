@@ -2,6 +2,7 @@ package example.airgap.routes;
 
 import io.github.fiftieshousewife.airgap.agent.Hook;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
@@ -14,14 +15,12 @@ import java.util.TreeMap;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
 
-/**
- * The JDK's public methods that can reach one of its last steps before a risky call (a native connect, send, lookup,
- * process start, library load, exit, or file open, delete, rename, link or new folder) without passing one of the
- * agent's hooks.
- */
+// The JDK's public methods that can reach one of its last steps before a risky call (a native connect, send, lookup,
+// process start, library load, exit, or file open, delete, rename, link or new folder) without passing one of the
+// agent's hooks. LAST_STEPS holds each kind's last steps, the JDK's own native methods by class and name on any
+// supported JDK, as last-steps.txt lists them.
 final class Routes {
 
-    /** Each kind's last steps: the JDK's own native methods, by class and name, on any supported JDK. */
     static final Map<String, List<String>> LAST_STEPS = lastSteps();
 
     private static final List<String> GENERAL = Arrays.asList("java/lang/Object", "java/lang/Runnable",
@@ -39,71 +38,43 @@ final class Routes {
 
     private static Map<String, List<String>> lastSteps() {
         final Map<String, List<String>> steps = new TreeMap<>();
-        steps.put("tcp", Arrays.asList("sun/nio/ch/Net.connect0", "java/net/PlainSocketImpl.socketConnect",
-                "java/net/DualStackPlainSocketImpl.connect0", "sun/nio/ch/sctp/SctpNet.connect0"));
-        steps.put("udp", Arrays.asList("sun/nio/ch/DatagramChannelImpl.send0",
-                "java/net/PlainDatagramSocketImpl.send", "java/net/PlainDatagramSocketImpl.send0",
-                "java/net/PlainDatagramSocketImpl.connect0",
-                "java/net/DualStackPlainDatagramSocketImpl.socketSend",
-                "java/net/DualStackPlainDatagramSocketImpl.socketConnect"));
-        steps.put("host-lookup", Arrays.asList("java/net/Inet4AddressImpl.lookupAllHostAddr",
-                "java/net/Inet6AddressImpl.lookupAllHostAddr", "java/net/Inet4AddressImpl.getHostByAddr",
-                "java/net/Inet6AddressImpl.getHostByAddr", "java/net/Inet4AddressImpl.isReachable0",
-                "java/net/Inet6AddressImpl.isReachable0"));
-        steps.put("process", Arrays.asList("java/lang/ProcessImpl.forkAndExec", "java/lang/ProcessImpl.create",
-                "java/lang/UNIXProcess.forkAndExec"));
-        steps.put("native-library", Arrays.asList("java/lang/ClassLoader$NativeLibrary.load0",
-                "java/lang/ClassLoader$NativeLibrary.load", "jdk/internal/loader/NativeLibraries.load",
-                "jdk/internal/loader/RawNativeLibraries.load0"));
-        steps.put("exit", Arrays.asList("java/lang/Shutdown.halt0"));
-        steps.put("file-write", Arrays.asList("java/io/FileOutputStream.open0", "java/io/RandomAccessFile.open0",
-                "java/io/UnixFileSystem.delete0", "java/io/UnixFileSystem.rename0",
-                "java/io/UnixFileSystem.createDirectory", "java/io/UnixFileSystem.createDirectory0",
-                "java/io/UnixFileSystem.createFileExclusively", "java/io/UnixFileSystem.createFileExclusively0",
-                "java/io/WinNTFileSystem.delete0", "java/io/WinNTFileSystem.rename0",
-                "java/io/WinNTFileSystem.createDirectory", "java/io/WinNTFileSystem.createDirectory0",
-                "java/io/WinNTFileSystem.createFileExclusively", "java/io/WinNTFileSystem.createFileExclusively0",
-                "sun/nio/fs/UnixNativeDispatcher.open0", "sun/nio/fs/UnixNativeDispatcher.openat0",
-                "sun/nio/fs/UnixNativeDispatcher.mkdir0", "sun/nio/fs/UnixNativeDispatcher.unlink0",
-                "sun/nio/fs/UnixNativeDispatcher.unlinkat0", "sun/nio/fs/UnixNativeDispatcher.rmdir0",
-                "sun/nio/fs/UnixNativeDispatcher.rename0", "sun/nio/fs/UnixNativeDispatcher.renameat0",
-                "sun/nio/fs/UnixNativeDispatcher.link0", "sun/nio/fs/UnixNativeDispatcher.symlink0",
-                "sun/nio/fs/UnixNativeDispatcher.mknod0", "sun/nio/fs/WindowsNativeDispatcher.CreateFile0",
-                "sun/nio/fs/WindowsNativeDispatcher.DeleteFile0", "sun/nio/fs/WindowsNativeDispatcher.MoveFileEx0",
-                "sun/nio/fs/WindowsNativeDispatcher.CreateDirectory0",
-                "sun/nio/fs/WindowsNativeDispatcher.RemoveDirectory0",
-                "sun/nio/fs/WindowsNativeDispatcher.CopyFileEx0",
-                "sun/nio/fs/WindowsNativeDispatcher.CreateSymbolicLink0",
-                "sun/nio/fs/WindowsNativeDispatcher.CreateHardLink0"));
+        for (final String line : ResourceLines.read("last-steps.txt")) {
+            final String[] kindAndStep = line.split("\\s+", 2);
+            steps.computeIfAbsent(kindAndStep[0], kind -> new ArrayList<>()).add(kindAndStep[1]);
+        }
         return Collections.unmodifiableMap(steps);
     }
 
-    /**
-     * The methods the agent's refusing hooks rewrite, worked out from the hooks themselves, as the self-check does.
-     * Hooks that only hand a test over to other threads guard nothing, so a route through them goes on.
-     */
+    // The methods the agent's refusing hooks rewrite, worked out from the hooks themselves, as the self-check does.
+    // Hooks that only hand a test over to other threads guard nothing, so a route through them goes on.
     private static Set<String> findHookedMethods() {
         final Set<String> methods = new HashSet<>();
         for (final Hook hook : Hook.values()) {
-            if (!hook.refuses()) {
-                continue;
-            }
-            final TypeDescription type;
-            try {
-                type = TypeDescription.ForLoadedType.of(Class.forName(hook.getTypeName(), false, null));
-            } catch (ClassNotFoundException notOnThisJdk) {
-                continue;
-            }
-            for (final MethodDescription method : type.getDeclaredMethods().filter(hook.getMethods())) {
-                methods.add(type.getInternalName() + "." + method.getInternalName() + method.getDescriptor());
+            if (hook.refuses()) {
+                methods.addAll(methodsOf(hook));
             }
         }
         return methods;
     }
 
-    /** @return the last steps of this kind found on this JDK */
+    // The methods one hook rewrites on this JDK; none if its class isn't on it
+    private static List<String> methodsOf(final Hook hook) {
+        final TypeDescription type;
+        try {
+            type = TypeDescription.ForLoadedType.of(Class.forName(hook.getTypeName(), false, null));
+        } catch (ClassNotFoundException notOnThisJdk) {
+            return Collections.emptyList();
+        }
+        final List<String> methods = new ArrayList<>();
+        for (final MethodDescription method : type.getDeclaredMethods().filter(hook.getMethods())) {
+            methods.add(type.getInternalName() + "." + method.getInternalName() + method.getDescriptor());
+        }
+        return methods;
+    }
+
+    // Returns the last steps of this kind found on this JDK
     List<String> lastStepsOf(final String kind) {
-        final List<String> found = new java.util.ArrayList<>();
+        final List<String> found = new ArrayList<>();
         for (final String step : LAST_STEPS.get(kind)) {
             final int dot = step.lastIndexOf('.');
             found.addAll(graph.methodsNamed(step.substring(0, dot), step.substring(dot + 1)));
@@ -111,51 +82,19 @@ final class Routes {
         return found;
     }
 
-    /**
-     * Walks back from a kind's last steps, never through a hooked method, noting each public JDK method on the way.
-     * The walk stops at a public method unless it is abstract: then JDK code calling it may lead to other ones.
-     *
-     * @param kind the kind of call
-     * @return each public method reached, with one route from it to a last step
-     */
+    // Returns each public method that reaches a last step of the kind, with one route from it to that step
     Map<String, String> unhooked(final String kind) {
-        final Map<String, String> routeTo = new HashMap<>();
-        final Deque<String> queue = new ArrayDeque<>();
-        for (final String step : lastStepsOf(kind)) {
-            routeTo.put(step, step);
-            queue.add(step);
-        }
-        final Map<String, String> found = new TreeMap<>();
-        while (!queue.isEmpty()) {
-            final String method = queue.remove();
-            if (isGeneral(method)) {
-                continue;
-            }
-            final boolean api = graph.isApi(method);
-            if (api) {
-                found.put(method, routeTo.get(method));
-            }
-            if (!api || graph.isAbstract(method)) {
-                walkToCallers(method, routeTo, queue);
-            }
-        }
-        return found;
+        return new Walk(lastStepsOf(kind)).run();
     }
 
-    private void walkToCallers(final String method, final Map<String, String> routeTo, final Deque<String> queue) {
-        for (final String caller : graph.callersOf(method)) {
-            if (!hookedMethods.contains(caller) && !routeTo.containsKey(caller)) {
-                routeTo.put(caller, caller + " -> " + routeTo.get(method));
-                queue.add(caller);
-            }
-        }
+    // Returns the hooked methods found on this JDK
+    Set<String> hooked() {
+        return Collections.unmodifiableSet(hookedMethods);
     }
 
-    /**
-     * Whether a method is one every kind of object has, or a general callback's, such as {@code Runnable.run}. A route
-     * through one carries on from the code that made the callback instead (see {@link CallGraph}), since following
-     * everything that calls {@code hashCode} or {@code run} would lead everywhere.
-     */
+    // Whether a method is one every kind of object has, or a general callback's, such as Runnable.run. A route
+    // through one carries on from the code that made the callback instead (see CallGraph), since following
+    // everything that calls hashCode or run would lead everywhere.
     private static boolean isGeneral(final String method) {
         for (final String owner : GENERAL) {
             if (method.startsWith(owner + ".")) {
@@ -165,8 +104,47 @@ final class Routes {
         return method.startsWith("java/util/function/");
     }
 
-    /** @return the hooked methods found on this JDK */
-    Set<String> hooked() {
-        return Collections.unmodifiableSet(hookedMethods);
+    // A walk back from a kind's last steps, never through a hooked method, noting each public JDK method on the way.
+    // It stops at a public method unless it is abstract: then JDK code calling it may lead to other ones.
+    private final class Walk {
+        private final Map<String, String> routeTo = new HashMap<>();
+        private final Deque<String> queue = new ArrayDeque<>();
+        private final Map<String, String> found = new TreeMap<>();
+
+        Walk(final List<String> lastSteps) {
+            for (final String step : lastSteps) {
+                routeTo.put(step, step);
+                queue.add(step);
+            }
+        }
+
+        Map<String, String> run() {
+            while (!queue.isEmpty()) {
+                visit(queue.remove());
+            }
+            return found;
+        }
+
+        private void visit(final String method) {
+            if (isGeneral(method)) {
+                return;
+            }
+            final boolean api = graph.isApi(method);
+            if (api) {
+                found.put(method, routeTo.get(method));
+            }
+            if (!api || graph.isAbstract(method)) {
+                walkToCallers(method);
+            }
+        }
+
+        private void walkToCallers(final String method) {
+            for (final String caller : graph.callersOf(method)) {
+                if (!hookedMethods.contains(caller) && !routeTo.containsKey(caller)) {
+                    routeTo.put(caller, caller + " -> " + routeTo.get(method));
+                    queue.add(caller);
+                }
+            }
+        }
     }
 }

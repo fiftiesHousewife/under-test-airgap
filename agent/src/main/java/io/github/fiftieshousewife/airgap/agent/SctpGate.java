@@ -28,7 +28,7 @@ public final class SctpGate {
             Gate.DECIDING.remove();
         }
         if (address instanceof SocketAddress) {
-            Gate.tcp((SocketAddress) address);
+            NetworkGate.tcp((SocketAddress) address);
         }
     }
 }

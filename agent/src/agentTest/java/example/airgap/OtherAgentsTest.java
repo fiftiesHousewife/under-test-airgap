@@ -25,12 +25,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.mockito.Mockito;
 
-/**
- * The agent shares the JVM with the other agents tests carry: JaCoCo, which this build attaches to every test task,
- * and Mockito's inline mock maker, which attaches itself and rewrites the classes it mocks, the JDK's among them. Each
- * keeps working, and so do the hooks. Run in a JVM whose agent allows nothing, as a project's does
- * ({@code otherAgentsOnJdk<version>}). PIT is proved in its own run, {@code pitestUnderAgentOnJdk<version>}.
- */
+// The agent shares the JVM with the other agents tests carry: JaCoCo, which this build attaches to every test task,
+// and Mockito's inline mock maker, which attaches itself and rewrites the classes it mocks, the JDK's among them. Each
+// keeps working, and so do the hooks. Run in a JVM whose agent allows nothing, as a project's does
+// (otherAgentsOnJdk<version>). PIT is proved in its own run, pitestUnderAgentOnJdk<version>.
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
 @SuppressFBWarnings(value = "UNENCRYPTED_SOCKET",
         justification = "The socket aims at an address reserved for documentation, and the agent refuses it")
@@ -46,7 +44,7 @@ class OtherAgentsTest {
         return lines;
     }
 
-    /** A final class, which only the inline mock maker can mock. */
+    // A final class, which only the inline mock maker can mock.
     static final class Prices {
         int priceOf(final String item) {
             return item.length();

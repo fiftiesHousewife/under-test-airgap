@@ -62,7 +62,7 @@ class ProjectFoldersTest {
                 () -> assertThat(folders.contains("/Data/out.csv")).isFalse());
     }
 
-    /** On macOS, /var and /tmp are links to /private/var and /private/tmp: a folder counts in either form. */
+    // On macOS, /var and /tmp are links to /private/var and /private/tmp: a folder counts in either form.
     @Test
     void countsAFolderInTheFormGivenAndThroughItsLinks() throws IOException {
         final Path real = Files.createDirectory(temporary.resolve("real"));

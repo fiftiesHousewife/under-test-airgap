@@ -1,7 +1,7 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import java.net.InetAddress;
 import net.bytebuddy.asm.Advice;
 
@@ -16,7 +16,7 @@ public final class ReverseLookupAdvice {
 
     @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
     static boolean enter(@Advice.Argument(0) final InetAddress address) {
-        return Gate.reverseLookup(address);
+        return NetworkGate.reverseLookup(address);
     }
 
     @Advice.OnMethodExit

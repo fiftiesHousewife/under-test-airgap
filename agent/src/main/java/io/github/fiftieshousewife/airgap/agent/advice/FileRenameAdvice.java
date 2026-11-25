@@ -21,11 +21,9 @@ public final class FileRenameAdvice {
 
     @Advice.OnMethodExit
     @SuppressWarnings("PMD.AvoidReassigningParameters")
-    @SuppressFBWarnings(value = {"IP_PARAMETER_IS_DEAD_BUT_OVERWRITTEN", "UC_USELESS_VOID_METHOD"},
-            justification = "Byte Buddy turns the assignment into the method's return value")
+    @SuppressFBWarnings(value = "UC_USELESS_VOID_METHOD",
+            justification = "The assignment is the rename's answer: Byte Buddy writes it as the return value")
     static void exit(@Advice.Enter final boolean refused, @Advice.Return(readOnly = false) boolean done) {
-        if (refused) {
-            done = false;
-        }
+        done = done && !refused;
     }
 }

@@ -8,49 +8,37 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
-/**
- * The report's summary ({@code schema/airgap-summary.schema.json}), beside it as {@code <name>-summary.json}: each
- * distinct kind and target once, with how many calls there were, how they ended, and the tests and lines of code
- * that made them. It is the list of everything the project's code reaches, for a person to confirm and give
- * stand-ins.
- */
+// The report's summary (schema/airgap-summary.schema.json), beside it as <name>-summary.json: each
+// distinct kind and target once, with how many calls there were, how they ended, and the tests and lines of code
+// that made them. It is the list of everything the project's code reaches, for a person to confirm and give
+// stand-ins. A random id, in an unpacked library's or program's name, is a UUID or a run of eight or more digits.
 final class Summary {
 
-    /** A UUID, or a run of eight or more digits: the random part of an unpacked library's file name. */
     private static final Pattern RANDOM_ID = Pattern.compile(
             "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9]{8,}");
 
     private Summary() {
     }
 
-    /**
-     * Where a report's summary goes.
-     *
-     * @param report the report's file
-     * @return {@code calls-summary.json} beside {@code calls.jsonl}; for any other name, {@code -summary.json} added
-     */
+    // Where a report's summary goes.
+    //
+    // report: the report's file
+    // Returns calls-summary.json beside calls.jsonl; for any other name, -summary.json added
     static Path fileFor(final Path report) {
         final String name = String.valueOf(report.getFileName());
         final String stem = name.endsWith(".jsonl") ? name.substring(0, name.length() - ".jsonl".length()) : name;
         return report.resolveSibling(stem + "-summary.json");
     }
 
-    /**
-     * Summarises a report.
-     *
-     * @param name the report's file name, as the summary names it
-     * @param report the report's lines; lines that aren't whole calls are skipped
-     * @return the summary, one target to a line, in order of kind and then target
-     */
+    // Summarises a report.
+    //
+    // name: the report's file name, as the summary names it
+    // report: the report's lines; lines that aren't whole calls are skipped
+    // Returns the summary, one target to a line, in order of kind and then target
     static String of(final String name, final String report) {
         final Map<String, Target> targets = new TreeMap<>();
         for (final String line : report.split("\n")) {
-            final Map<String, String> fields = JsonFields.of(line);
-            final String kind = fields.get("kind");
-            final String target = grouped(kind, fields.get("target"));
-            if (kind != null && target != null && fields.containsKey("outcome")) {
-                targets.computeIfAbsent(kind + '\u0000' + target, key -> new Target(kind, target)).add(fields);
-            }
+            add(targets, JsonFields.of(line));
         }
         final StringBuilder out = new StringBuilder("{\"report\":").append(Json.quote(name)).append(",\"targets\":[");
         String separator = "\n";
@@ -61,18 +49,25 @@ final class Summary {
         return out.append("\n]}\n").toString();
     }
 
-    /**
-     * The target a call is summarised under. Libraries such as sqlite-jdbc and Netty unpack their native code to a new
-     * file each run, named with a random id; in the summary each such id in a native library's file name becomes
-     * {@code *}, so one library is one target, and the name is the {@code native:} entry that would allow it. Programs
-     * such as embedded-redis's are unpacked to a new, randomly named folder each run, so each random id anywhere in a
-     * program's path becomes {@code *}, which a {@code process:} entry can use too. The report itself keeps each full
-     * path.
-     *
-     * @param kind the call's kind
-     * @param target the call's target, as the report gives it
-     * @return the target, with a native library's or program's random ids as {@code *}
-     */
+    // Counts one call under its kind and target; a line that isn't a whole call is skipped.
+    private static void add(final Map<String, Target> targets, final Map<String, String> fields) {
+        final String kind = fields.get("kind");
+        final String target = grouped(kind, fields.get("target"));
+        if (kind != null && target != null && fields.containsKey("outcome")) {
+            targets.computeIfAbsent(kind + '\u0000' + target, key -> new Target(kind, target)).add(fields);
+        }
+    }
+
+    // The target a call is summarised under. Libraries such as sqlite-jdbc and Netty unpack their native code to a new
+    // file each run, named with a random id; in the summary each such id in a native library's file name becomes
+    // *, so one library is one target, and the name is the native: entry that would allow it. Programs
+    // such as embedded-redis's are unpacked to a new, randomly named folder each run, so each random id anywhere in a
+    // program's path becomes *, which a process: entry can use too. The report itself keeps each full
+    // path.
+    //
+    // kind: the call's kind
+    // target: the call's target, as the report gives it
+    // Returns the target, with a native library's or program's random ids as *
     static String grouped(final String kind, final String target) {
         if (target != null && Kind.PROCESS.getReportName().equals(kind)) {
             return RANDOM_ID.matcher(target).replaceAll("*");
@@ -84,7 +79,7 @@ final class Summary {
         return target.substring(0, name) + RANDOM_ID.matcher(target.substring(name)).replaceAll("*");
     }
 
-    /** One distinct target, and what reached it. */
+    // One distinct target, and what reached it.
     private static final class Target {
 
         private final String kind;

@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import java.net.DatagramPacket;
 import net.bytebuddy.asm.Advice;
 
@@ -12,6 +12,6 @@ public final class UdpPacketAdvice {
 
     @Advice.OnMethodEnter
     static void enter(@Advice.Argument(0) final DatagramPacket packet) {
-        Gate.udp(packet);
+        NetworkGate.udp(packet);
     }
 }

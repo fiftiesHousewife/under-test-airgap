@@ -123,7 +123,7 @@ class SettingsTest {
                         .withMessageContaining("can't read the settings file " + missing));
     }
 
-    /** Run where a project's tests run, the agent finds testing/airgap.yaml without being told. */
+    // Run where a project's tests run, the agent finds testing/airgap.yaml without being told.
     @Test
     @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "Test code: starts this JDK's own java")
     void readsTestingAirgapYamlInTheWorkingFolderByDefault() throws IOException, InterruptedException {

@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.FileGate;
+import io.github.fiftieshousewife.airgap.agent.SecureStreamGate;
 import net.bytebuddy.asm.Advice;
 
 /**
@@ -14,6 +14,6 @@ public final class SecureMoveAdvice {
 
     @Advice.OnMethodEnter
     static void enter(@Advice.This final Object stream, @Advice.AllArguments final Object[] arguments) {
-        FileGate.secureMove(stream, arguments);
+        SecureStreamGate.secureMove(stream, arguments);
     }
 }

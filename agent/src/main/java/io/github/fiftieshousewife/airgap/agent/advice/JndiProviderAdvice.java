@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import java.util.Hashtable;
 import net.bytebuddy.asm.Advice;
 
@@ -16,6 +16,6 @@ public final class JndiProviderAdvice {
     @Advice.OnMethodEnter
     @SuppressWarnings("PMD.ReplaceHashtableWithMap") // The JDK's own field's type
     static void enter(@Advice.FieldValue("myProps") final Hashtable<?, ?> environment) {
-        Gate.jndiProvider(environment);
+        NetworkGate.jndiProvider(environment);
     }
 }

@@ -5,16 +5,14 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-/** What {@link AllowCalls} allows a test class: its own, its base classes' and the classes it is nested in. */
+// What AllowCalls allows a test class: its own, its base classes' and the classes it is nested in.
 final class Allowances {
 
     private Allowances() {
     }
 
-    /**
-     * @param testClass the test class, or {@code null} if it couldn't be loaded
-     * @return the entries of every {@link AllowCalls} on it, its base classes and its enclosing classes, and theirs
-     */
+    // testClass: the test class, or null if it couldn't be loaded
+    // Returns the entries of every AllowCalls on it, its base classes and its enclosing classes, and theirs
     static String[] of(final Class<?> testClass) {
         final Set<String> entries = new LinkedHashSet<>();
         for (Class<?> enclosing = testClass; enclosing != null; enclosing = enclosing.getEnclosingClass()) {
@@ -25,10 +23,8 @@ final class Allowances {
         return entries.toArray(new String[0]);
     }
 
-    /**
-     * @param element a test method
-     * @return the entries of the {@link AllowCalls} on it, if any
-     */
+    // element: a test method
+    // Returns the entries of the AllowCalls on it, if any
     static String[] on(final AnnotatedElement element) {
         final Set<String> entries = new LinkedHashSet<>();
         addFrom(entries, element);

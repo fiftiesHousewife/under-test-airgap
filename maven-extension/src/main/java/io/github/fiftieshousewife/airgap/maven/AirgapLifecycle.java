@@ -2,6 +2,8 @@ package io.github.fiftieshousewife.airgap.maven;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -44,21 +46,32 @@ public final class AirgapLifecycle extends AbstractMavenLifecycleParticipant {
     }
 
     @Override
-    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "CRLF_INJECTION_LOGS"},
-            justification = "The folders come from Maven's own model of the build, and the names from its poms")
+    @SuppressFBWarnings(value = "CRLF_INJECTION_LOGS",
+            justification = "Logged through Maven's own logger; the names are from the build's own poms")
     public void afterSessionEnd(final MavenSession session) {
         for (final MavenProject project : session.getProjects()) {
-            final File[] runs = new File(project.getBuild().getDirectory(), "airgap").listFiles(File::isDirectory);
-            for (final File run : runs == null ? new File[0] : runs) {
-                final File report = new File(run, "calls.jsonl");
-                if (report.isFile()) {
-                    LOG.info("airgap: {} made risky calls; see {}", project.getArtifactId(), report);
-                }
+            for (final File report : reports(project)) {
+                LOG.info("airgap: {} made risky calls; see {}", project.getArtifactId(), report);
             }
         }
     }
 
-    /** The build's root folder: the top-level project's, or else the folder Maven was started in. */
+    // Each of a module's runs' reports, where a run made calls.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "The folders come from Maven's own model of the build, only read")
+    private static List<File> reports(final MavenProject project) {
+        final File[] runs = new File(project.getBuild().getDirectory(), "airgap").listFiles(File::isDirectory);
+        final List<File> reports = new ArrayList<>();
+        for (final File run : runs == null ? new File[0] : runs) {
+            final File report = new File(run, "calls.jsonl");
+            if (report.isFile()) {
+                reports.add(report);
+            }
+        }
+        return reports;
+    }
+
+    // The build's root folder: the top-level project's, or else the folder Maven was started in.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
             justification = "The paths come from Maven's own model of the build being run, only read")
     private static File root(final MavenSession session) {

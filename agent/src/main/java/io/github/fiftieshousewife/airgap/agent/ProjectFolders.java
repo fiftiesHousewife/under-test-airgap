@@ -10,13 +10,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * The folders a run may write in without a report: the build's root, the temporary folder, the report's folder and
- * the folders the settings list. Each is kept in the form given and in its real form, since on macOS {@code /var}
- * and {@code /tmp} are links to {@code /private/var} and {@code /private/tmp}. Writing to the system's null device
- * and standard streams writes no file, so it counts as inside too. Paths are compared without regard to case on
- * Windows. Nothing here writes, so checking a path can't set off a hook.
- */
+// The folders a run may write in without a report: the build's root, the temporary folder, the report's folder and
+// the folders the settings list. Each is kept in the form given and in its real form, since on macOS /var
+// and /tmp are links to /private/var and /private/tmp. Writing to the system's null device
+// and standard streams writes no file, so it counts as inside too. Paths are compared without regard to case on
+// Windows. Nothing here writes, so checking a path can't set off a hook.
 final class ProjectFolders {
 
     private static final List<String> NOT_FILES = Collections.unmodifiableList(Arrays.asList("/dev/null",
@@ -40,7 +38,7 @@ final class ProjectFolders {
         }
     }
 
-    /** @return the folders for this machine, whose file system ignores case on Windows */
+    // Returns the folders for this machine, whose file system ignores case on Windows
     static ProjectFolders of(final List<String> folders) {
         return new ProjectFolders(folders, File.separatorChar == '\\');
     }
@@ -60,17 +58,19 @@ final class ProjectFolders {
         return caseless ? Ascii.lowerCase(path) : path;
     }
 
-    /**
-     * Whether a path is inside one of the folders, or writes no file.
-     *
-     * @param path the path, absolute (see {@link #absolute})
-     * @return true if a write to it goes ahead without a report
-     */
+    // Whether a path is inside one of the folders, or writes no file.
+    //
+    // path: the path, absolute (see absolute)
+    // Returns true if a write to it goes ahead without a report
     boolean contains(final String path) {
-        final String folded = folded(path);
-        if (NOT_FILES.contains(Ascii.lowerCase(path)) || path.startsWith(DEVICE_FILES)) {
-            return true;
-        }
+        return writesNoFile(path) || inAFolder(folded(path));
+    }
+
+    private static boolean writesNoFile(final String path) {
+        return NOT_FILES.contains(Ascii.lowerCase(path)) || path.startsWith(DEVICE_FILES);
+    }
+
+    private boolean inAFolder(final String folded) {
         for (final String prefix : prefixes) {
             if (folded.startsWith(prefix) || withSeparator(folded).equals(prefix)) {
                 return true;
@@ -79,13 +79,11 @@ final class ProjectFolders {
         return false;
     }
 
-    /**
-     * A path made absolute against the folder the JVM started in, as the JDK makes it, with {@code .} and {@code ..}
-     * worked out from the text alone. A path the file system can't read is kept as it is.
-     *
-     * @param path the path as the code gave it
-     * @return the path, absolute
-     */
+    // A path made absolute against the folder the JVM started in, as the JDK makes it, with . and ..
+    // worked out from the text alone. A path the file system can't read is kept as it is.
+    //
+    // path: the path as the code gave it
+    // Returns the path, absolute
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
             justification = "The path is one the code under test is writing, only compared, never opened here")
     static String absolute(final String path) {
@@ -97,7 +95,7 @@ final class ProjectFolders {
         }
     }
 
-    /** A folder's real path, through any links; the form given, if it can't be worked out. */
+    // A folder's real path, through any links; the form given, if it can't be worked out.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
             justification = "The folder is one the engineer's own settings name, only resolved, never opened")
     private static String real(final String folder) {
@@ -108,7 +106,7 @@ final class ProjectFolders {
         }
     }
 
-    /** @return each folder, ending with a separator, as compared */
+    // Returns each folder, ending with a separator, as compared
     List<String> getPrefixes() {
         return Collections.unmodifiableList(prefixes);
     }

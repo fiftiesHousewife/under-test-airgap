@@ -75,16 +75,25 @@ public final class Allowlist {
                 || LibraryNames.wildcardMatch(allowed, program);
     }
 
+    // An entry with one colon names a host and port; with none, or with several (an IPv6 address), only a host.
     private static boolean isHost(final String entry, final String host, final int port) {
-        if (entry.startsWith(PROCESS) || entry.startsWith(NATIVE)) {
+        if (!isHostEntry(entry)) {
             return false;
         }
         final int colon = entry.lastIndexOf(':');
         if (colon < 0 || entry.indexOf(':') != colon) {
             return entry.equals(host);
         }
-        final boolean sameHost = entry.substring(0, colon).equals(host);
-        return sameHost && (port < 0 || entry.substring(colon + 1).equals(String.valueOf(port)));
+        return entry.substring(0, colon).equals(host) && portMatches(entry.substring(colon + 1), port);
+    }
+
+    private static boolean isHostEntry(final String entry) {
+        return !entry.startsWith(PROCESS) && !entry.startsWith(NATIVE);
+    }
+
+    // A call with no port, such as a lookup, matches any port.
+    private static boolean portMatches(final String allowed, final int port) {
+        return port < 0 || allowed.equals(String.valueOf(port));
     }
 
     /** @return the entries, in lower case */

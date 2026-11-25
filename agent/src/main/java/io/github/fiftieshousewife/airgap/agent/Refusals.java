@@ -8,10 +8,12 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import javax.naming.CommunicationException;
 
-/** The exception an unplugged machine would throw for each kind of call, saying the agent refused it. */
+/**
+ * The exception an unplugged machine would throw for each kind of call, saying the agent refused it. Every refusal ends
+ * with {@link #REFUSED}, so people and tools can tell a refusal from a real failure.
+ */
 public final class Refusals {
 
-    /** The words every refusal ends with, so people and tools can tell a refusal from a real failure. */
     public static final String REFUSED = "refused by the airgap agent";
 
     private Refusals() {
@@ -43,24 +45,24 @@ public final class Refusals {
 
     private static Throwable forCall(final Kind kind, final Target target, final String detail) {
         final String what = target.text() + ": " + REFUSED + detail;
-        switch (kind) {
-            case HOST_LOOKUP:
-                return new UnknownHostException(what);
-            case TCP:
-                return target.isUnresolved() ? new UnknownHostException(what) : new ConnectException(what);
-            case UDP:
-                // The JDK's own refusal of a UDP address nobody looked up.
-                return target.isUnresolved() ? new SocketException(what) : new PortUnreachableException(what);
-            case JNDI:
-                return new CommunicationException(what);
-            case NATIVE_LIBRARY:
-                return new UnsatisfiedLinkError(what);
-            default:
-                return forOther(kind, target, detail);
+        if (kind.isNetwork()) {
+            return forNetwork(kind, target, what);
         }
+        if (kind == Kind.JNDI) {
+            return new CommunicationException(what);
+        }
+        return kind == Kind.NATIVE_LIBRARY ? new UnsatisfiedLinkError(what) : forOther(kind, target, detail);
     }
 
-    /** Calls on this machine: a file write, an exit, or a program started. */
+    // A lookup, or a TCP or UDP call; UDP to an address nobody looked up fails as the JDK's own refusal does.
+    private static Throwable forNetwork(final Kind kind, final Target target, final String what) {
+        if (kind == Kind.UDP) {
+            return target.isUnresolved() ? new SocketException(what) : new PortUnreachableException(what);
+        }
+        return kind == Kind.TCP && !target.isUnresolved() ? new ConnectException(what) : new UnknownHostException(what);
+    }
+
+    // Calls on this machine: a file write, an exit, or a program started.
     private static Throwable forOther(final Kind kind, final Target target, final String detail) {
         if (kind == Kind.FILE_WRITE) {
             // As the JDK words an unwritable file: the path, then why in brackets.

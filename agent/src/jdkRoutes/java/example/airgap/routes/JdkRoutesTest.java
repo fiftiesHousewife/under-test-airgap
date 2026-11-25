@@ -3,10 +3,7 @@ package example.airgap.routes;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,11 +15,9 @@ import java.util.TreeMap;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/**
- * Reads the running JDK's own classes and finds every public method that can reach one of the JDK's last steps
- * before a risky call without passing a hook. Each must be on the reviewed list, with why it is safe; anything else is
- * a way round the agent. Every route found is written to the file named by {@code airgap.routes.out}.
- */
+// Reads the running JDK's own classes and finds every public method that can reach one of the JDK's last steps
+// before a risky call without passing a hook. Each must be on the reviewed list, with why it is safe; anything else is
+// a way round the agent. Every route found is written to the file named by airgap.routes.out.
 class JdkRoutesTest {
 
     private static Routes routes;
@@ -56,34 +51,31 @@ class JdkRoutesTest {
                 }
             }
         }
-        final String out = System.getProperty("airgap.routes.out");
-        if (out != null) {
-            final Path file = Paths.get(out).toAbsolutePath();
-            final Path folder = file.getParent();
-            if (folder != null) {
-                Files.createDirectories(folder);
-            }
-            Files.write(file, all, StandardCharsets.UTF_8);
-        }
+        writeOut(all);
         assertThat(unreviewed).as("public JDK methods that reach a risky call without passing a hook").isEmpty();
     }
 
-    /** The reviewed list: one method per line, then {@code #} and why it is safe. */
-    private static Map<String, String> reviewed() throws IOException {
-        final Map<String, String> entries = new TreeMap<>();
-        final InputStream list = JdkRoutesTest.class.getResourceAsStream("reviewed-routes.txt");
-        if (list == null) {
-            throw new IOException("reviewed-routes.txt is missing from the test's resources");
+    // Every route found, to the file airgap.routes.out names, if it names one
+    private static void writeOut(final List<String> routesFound) throws IOException {
+        final String out = System.getProperty("airgap.routes.out");
+        if (out == null) {
+            return;
         }
-        try (InputStream in = list;
-             BufferedReader lines = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-            for (String line = lines.readLine(); line != null; line = lines.readLine()) {
-                final int hash = line.indexOf('#');
-                final String method = (hash < 0 ? line : line.substring(0, hash)).trim();
-                if (!method.isEmpty()) {
-                    entries.put(method, hash < 0 ? "" : line.substring(hash + 1).trim());
-                }
-            }
+        final Path file = Paths.get(out).toAbsolutePath();
+        final Path folder = file.getParent();
+        if (folder != null) {
+            Files.createDirectories(folder);
+        }
+        Files.write(file, routesFound, StandardCharsets.UTF_8);
+    }
+
+    // The reviewed list: one method per line, then # and why it is safe.
+    private static Map<String, String> reviewed() {
+        final Map<String, String> entries = new TreeMap<>();
+        for (final String line : ResourceLines.read("reviewed-routes.txt")) {
+            final int hash = line.indexOf('#');
+            entries.put((hash < 0 ? line : line.substring(0, hash)).trim(),
+                    hash < 0 ? "" : line.substring(hash + 1).trim());
         }
         return entries;
     }

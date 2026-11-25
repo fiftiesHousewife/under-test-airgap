@@ -17,17 +17,15 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
-/**
- * Run by checkOsTrace in CI, after the agent's tests ran under strace: whatever the operating system saw them do to
- * other machines, programs or libraries must be something the agent reported as allowed. Anything else got past it.
- */
+// Run by checkOsTrace in CI, after the agent's tests ran under strace: whatever the operating system saw them do to
+// other machines, programs or libraries must be something the agent reported as allowed. Anything else got past it.
 @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Test code: the folders come from this build")
 class OsTraceMatchesReportsTest {
 
     private static final Pattern LINE = Pattern.compile(
             "\"kind\":\"([^\"]+)\",\"target\":\"([^\"]*)\",\"outcome\":\"([^\"]+)\"");
 
-    /** A report line's kind, target and outcome. */
+    // A report line's kind, target and outcome.
     private static final class Reported {
         final String kind;
         final String target;
@@ -56,13 +54,13 @@ class OsTraceMatchesReportsTest {
     }
 
     private static boolean explains(final Reported reported, final OsTrace.Event event) {
-        if (!reported.wentAhead) {
-            return false;
-        }
+        return reported.wentAhead && explainsItsKind(reported, event);
+    }
+
+    private static boolean explainsItsKind(final Reported reported, final OsTrace.Event event) {
         switch (event.kind) {
             case "network":
-                return event.target.endsWith(":53") ? "host-lookup".equals(reported.kind)
-                        : reported.target.endsWith(event.target.substring(event.target.lastIndexOf(':')));
+                return explainsNetwork(reported, event);
             case "program":
                 return "process".equals(reported.kind)
                         && event.target.endsWith("/" + reported.target.substring(reported.target.lastIndexOf('/') + 1));
@@ -71,16 +69,25 @@ class OsTraceMatchesReportsTest {
         }
     }
 
-    @Test
-    void theOperatingSystemSawNothingTheAgentDidntReport() throws IOException {
-        final List<String> trace = linesOf(filesUnder(System.getProperty("airgap.osTrace"), "trace."));
+    // A packet to port 53 is a host lookup; any other connection is matched by its port
+    private static boolean explainsNetwork(final Reported reported, final OsTrace.Event event) {
+        return event.target.endsWith(":53") ? "host-lookup".equals(reported.kind)
+                : reported.target.endsWith(event.target.substring(event.target.lastIndexOf(':')));
+    }
+
+    private static List<Reported> reported(final List<String> reportLines) {
         final List<Reported> reported = new ArrayList<>();
-        for (final String line : linesOf(filesUnder(System.getProperty("airgap.agentTestReports"), ".jsonl"))) {
+        for (final String line : reportLines) {
             final Matcher fields = LINE.matcher(line);
             if (fields.find()) {
                 reported.add(new Reported(fields));
             }
         }
+        return reported;
+    }
+
+    // Each event in the trace that no report line explains, with the trace's line
+    private static List<String> unexplained(final List<String> trace, final List<Reported> reported) {
         final List<String> unexplained = new ArrayList<>();
         for (final String line : trace) {
             final OsTrace.Event event = OsTrace.parse(line);
@@ -88,6 +95,14 @@ class OsTraceMatchesReportsTest {
                 unexplained.add(event + "    <- " + line);
             }
         }
+        return unexplained;
+    }
+
+    @Test
+    void theOperatingSystemSawNothingTheAgentDidntReport() throws IOException {
+        final List<String> trace = linesOf(filesUnder(System.getProperty("airgap.osTrace"), "trace."));
+        final List<String> unexplained = unexplained(trace,
+                reported(linesOf(filesUnder(System.getProperty("airgap.agentTestReports"), ".jsonl"))));
         assertAll(
                 () -> assertThat(trace).as("strace recorded the agent's tests")
                         .anyMatch(line -> line.startsWith("execve(")),

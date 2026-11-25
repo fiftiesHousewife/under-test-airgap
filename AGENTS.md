@@ -27,7 +27,7 @@ in [The code is held to strict quality checks run by the build, and pushes go th
 | [`.github/workflows/sync-backlog.yml`](.github/workflows/sync-backlog.yml) | Brings the issues and `docs/BACKLOG.md` up to date after a push that changes the backlog, through the shared workflow |
 | [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle) | Runs any Gradle build's tests under the agent, from outside, without changing that build |
 | [`tools/try-it/airgap-mvn.sh`](tools/try-it/airgap-mvn.sh) | The same for any Maven build, through the Maven extension |
-| `build-logic/`, `config/quality/` | Gradle conventions and the quality-check rules |
+| `build-logic/` | How the published parts are published, and the helper that runs a build's own tests under the agent |
 
 ## Skills
 | Skill | Use it to |
@@ -67,19 +67,24 @@ The README is written for people using the agent. Keep build, quality and contri
 numbers out of it.
 
 ## Code standards
-Enforced by `./gradlew check`:
+Enforced by `./gradlew check`. The general rules come from the shared
+[java-conventions](https://github.com/fiftiesHousewife/under-test-java-conventions) plugin, pinned in
+`settings.gradle.kts`; why each is what it is is in that repo's decisions, and why this repo uses it is in
+[The code-quality rules come from the shared java-conventions plugin, pinned to a version](docs/decisions/0023-the-code-quality-rules-come-from-the-shared-java-conventions-plugin-pinned-to-a-version.md). The rest are this repo's own.
 
 | Standard | Enforced by |
 |---|---|
-| Line coverage at least 80% per project; and in the agent, PIT must catch at least 90% of the bugs it plants in the code that decides, refuses and reports calls (`min-mutation-score` in the version catalog) | JaCoCo; PIT |
+| Line coverage at least 80% per project; and in the agent, PIT must catch at least 90% of the bugs it plants in the code that decides, refuses and reports calls (`min-mutation-score` in the version catalog), as part of `check` | JaCoCo; PIT |
 | No more than **three parameters** for any method or constructor. Use a Lombok `@Builder` instead | Checkstyle, PMD |
 | No record with more than three components | Checkstyle |
-| A test with more than one assertion wraps them in `assertAll(...)` | PMD |
+| Exactly one assertion statement per test: several go in one `assertAll(...)` | PMD |
+| No comment on a field or an enum entry: name it so it needs none, or say it on the class; Javadoc only on public API, `//` comments elsewhere | Checkstyle |
+| No package of more than 20 classes (the agent's main package: 40, since the hooks reach its package-private parts) | java-conventions |
 | Logging through SLF4J; no `System.out`, no `java.util.logging`. **In the agent itself**, no logging library at all: it writes only its report, so it can't clash with the application's own logging | forbidden-APIs check; review |
 | Time from an injected `java.time.Clock` | forbidden-APIs check |
-| No unsafe, deprecated, internal or non-portable JDK APIs, with no exceptions. The JDK internals the hooks rewrite are named only as text, in `Hook.java`, each with the JDKs it applies to, so no compiled code uses them | forbidden-APIs bundled signatures, on every source set; the self-check and `jdkRoutesOnJdk<version>` |
-| Methods short and simple: cyclomatic complexity 10 or less, cognitive complexity 15 or less, 50 lines or fewer | Checkstyle, PMD |
-| No copy-pasted code | PMD's copy-paste detector |
+| No unsafe, deprecated, internal or non-portable JDK APIs, with no exceptions. The JDK internals the hooks rewrite are named only as text, in the tables in `agent/.../agent/hooks/`, each with the JDKs it applies to, so no compiled code uses them | forbidden-APIs bundled signatures, on every source set; the self-check and `jdkRoutesOnJdk<version>` |
+| Methods short and simple: cyclomatic complexity 5 or less, cognitive complexity 6 or less, 20 lines or fewer; files of 150 lines or fewer | Checkstyle, PMD |
+| No copy-pasted code (50 tokens or more) | PMD's copy-paste detector |
 | No bug patterns or security bugs | SpotBugs with FindSecBugs |
 | Dependencies kept current | Ben Manes versions plugin |
 | **The agent and the JUnit parts compile to Java 8** (`--release 8`) and are tested on JDK 8, 11, 17, 21 and 25 | The build's toolchains |

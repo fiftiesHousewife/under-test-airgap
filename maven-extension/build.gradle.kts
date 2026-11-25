@@ -1,4 +1,5 @@
 plugins {
+    `java-library`
     id("io.github.fiftieshousewife.java-conventions")
     id("io.github.fiftieshousewife.airgap-publishing")
 }
@@ -10,6 +11,12 @@ plugins {
 // each supported Maven line.
 group = "io.github.fiftieshousewife.airgap"
 base.archivesName = "airgap-maven-extension"
+
+underTest {
+    // Names no logging library to its users: Maven provides SLF4J to the extension, and the listener logs nothing.
+    logging = false
+}
+
 
 dependencies {
     // Maven provides its own API, and SLF4J with it, to every extension.

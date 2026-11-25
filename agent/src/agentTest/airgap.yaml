@@ -9,4 +9,4 @@ allow:
 file_writes: refuse
 write_folders:
   - folder: ../build
-    reason: "FileWritesTest writes in the repo's build folder, outside the agent's folder, to prove a listed folder is the project's; the whole folder, since on a fresh checkout the test makes it"
+    reason: "FileWritesAllowedTest writes in the repo's build folder, outside the agent's folder, to prove a listed folder is the project's; the whole folder, since on a fresh checkout the test makes it"

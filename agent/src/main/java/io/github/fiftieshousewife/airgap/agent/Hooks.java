@@ -3,6 +3,7 @@ package io.github.fiftieshousewife.airgap.agent;
 import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.nameStartsWith;
 
+import io.github.fiftieshousewife.airgap.agent.hooks.HookMethods;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
@@ -16,11 +17,9 @@ import net.bytebuddy.asm.Advice;
 import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.Nexus;
 
-/**
- * Installs the hooks: rewrites the JDK's classes, those already loaded and those loaded later, so each risky method
- * calls {@link Gate} before it does anything else. Any class that can't be rewritten is kept, with why, for the
- * self-check's message.
- */
+// Installs the hooks: rewrites the JDK's classes, those already loaded and those loaded later, so each risky method
+// calls Gate before it does anything else. Any class that can't be rewritten is kept, with why, for the
+// self-check's message.
 final class Hooks {
 
     private Hooks() {
@@ -29,19 +28,32 @@ final class Hooks {
     static List<String> install(final Instrumentation instrumentation, final Set<String> without)
             throws UnsupportedEncodingException {
         final ByteArrayOutputStream errorText = new ByteArrayOutputStream();
-        final PrintStream errorStream = new PrintStream(errorText, true, "UTF-8");
         // The advice classes are loaded from the bootstrap class path, which Byte Buddy can't read class files from;
         // the agent's jar is also on the system class path, so their class files are read from there.
         final ClassFileLocator adviceFiles = ClassFileLocator.ForClassLoader.ofSystemLoader();
+        final AgentBuilder builder = withJdkHooks(builder(instrumentation, errorText), without, adviceFiles);
+        loadHookedClasses();
+        TestRunnerHooks.addTo(builder, adviceFiles).installOn(instrumentation);
+        return errorLines(new String(errorText.toByteArray(), StandardCharsets.UTF_8));
+    }
+
+    private static AgentBuilder builder(final Instrumentation instrumentation, final ByteArrayOutputStream errorText)
+            throws UnsupportedEncodingException {
         // Byte Buddy's nexus, which the hooks never use, reaches for sun.misc.Unsafe when a builder is made, and JDK 24
         // and later print a warning about it. The property's name is shaded, so it turns off only the agent's own copy.
         System.setProperty(Nexus.PROPERTY, Boolean.TRUE.toString());
-        AgentBuilder builder = new AgentBuilder.Default()
+        return new AgentBuilder.Default()
                 .disableClassFormatChanges()
                 .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
-                .with(new AgentBuilder.Listener.StreamWriting(errorStream).withErrorsOnly())
+                .with(new AgentBuilder.Listener.StreamWriting(new PrintStream(errorText, true, "UTF-8"))
+                        .withErrorsOnly())
                 .ignore(nameStartsWith("io.github.fiftieshousewife.airgap."))
                 .assureReadEdgeTo(instrumentation, Gate.class);
+    }
+
+    private static AgentBuilder withJdkHooks(final AgentBuilder start, final Set<String> without,
+            final ClassFileLocator adviceFiles) {
+        AgentBuilder builder = start;
         for (final Hook hook : Hook.values()) {
             if (!without.contains(hook.id()) && hook.appliesHere()) {
                 final Advice advice = Advice.to(hook.getAdvice(), adviceFiles);
@@ -50,9 +62,7 @@ final class Hooks {
                                 type.visit(advice.on(hook.getMethods())));
             }
         }
-        loadHookedClasses();
-        builder.installOn(instrumentation);
-        return errorLines(new String(errorText.toByteArray(), StandardCharsets.UTF_8));
+        return builder;
     }
 
     private static List<String> errorLines(final String text) {
@@ -65,10 +75,8 @@ final class Hooks {
         return lines;
     }
 
-    /**
-     * Loads every class the hooks rewrite before installing them, so each is rewritten once it's loaded rather than
-     * while it loads; rewriting while loading can make Byte Buddy need the class it's in the middle of loading.
-     */
+    // Loads every class the hooks rewrite before installing them, so each is rewritten once it's loaded rather than
+    // while it loads; rewriting while loading can make Byte Buddy need the class it's in the middle of loading.
     private static void loadHookedClasses() {
         for (final Hook hook : Hook.values()) {
             // A class this JDK lacks is reported by the self-check, as a hook missing.

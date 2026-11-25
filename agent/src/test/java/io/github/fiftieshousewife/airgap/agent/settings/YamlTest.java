@@ -1,4 +1,4 @@
-package io.github.fiftieshousewife.airgap.agent;
+package io.github.fiftieshousewife.airgap.agent.settings;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;

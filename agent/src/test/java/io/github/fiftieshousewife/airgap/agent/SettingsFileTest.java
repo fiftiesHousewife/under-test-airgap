@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import io.github.fiftieshousewife.airgap.agent.settings.SettingsFile;
 import java.io.IOException;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -59,7 +60,13 @@ class SettingsFileTest {
                 () -> assertThat(SettingsFile.read("").getWriteFolders()).isEmpty());
     }
 
+    // Each file, and the problem the agent finds in it, or null for none
     static Stream<Arguments> files() {
+        return Stream.of(modeFiles(), allowFiles(), profileAndPackageFiles(), writeFolderFiles())
+                .flatMap(files -> files);
+    }
+
+    private static Stream<Arguments> modeFiles() {
         return Stream.of(
                 Arguments.of(EXAMPLE, null),
                 Arguments.of("", null),
@@ -68,7 +75,11 @@ class SettingsFileTest {
                 Arguments.of("mode: sometimes\n", "mode is 'sometimes'; it must be one of [refuse, report, off]"),
                 Arguments.of("mode: Report\n", "mode is 'Report'"),
                 Arguments.of("mode: [refuse]\n", "mode is [refuse]"),
-                Arguments.of("allwo: []\n", "unknown setting 'allwo'; known settings: [mode, allow,"),
+                Arguments.of("allwo: []\n", "unknown setting 'allwo'; known settings: [mode, allow,"));
+    }
+
+    private static Stream<Arguments> allowFiles() {
+        return Stream.of(
                 Arguments.of("allow:\n",
                         "allow must be a list of stand-ins, each with a target and a reason, not empty"),
                 Arguments.of("allow: localhost:8089\n", "allow must be a list of stand-ins"),
@@ -82,17 +93,25 @@ class SettingsFileTest {
                 Arguments.of("allow:\n  - target: \"local host\"\n    reason: a\n",
                         "allow entry 1's target 'local host' has a space in it"),
                 Arguments.of("allow:\n  - target: a\n    reason: b\n    port: 1\n",
-                        "allow entry 1 has 'port'; an entry has only [target, reason]"),
+                        "allow entry 1 has 'port'; an entry has only [target, reason]"));
+    }
+
+    private static Stream<Arguments> profileAndPackageFiles() {
+        return Stream.of(
                 Arguments.of("production_profiles: prod\n", "production_profiles must be a list of Spring profile"),
                 Arguments.of("production_profiles:\n  - name: prod\n", "production_profiles entry must be text"),
                 Arguments.of("production_profiles: [\"\"]\n", "production_profiles entry must be text, not ''"),
-                Arguments.of("file_writes: never\n", "file_writes is 'never'; it must be one of [report, refuse]"),
-                Arguments.of("write_folders: []\n", null),
                 Arguments.of("packages:\n  - com.example.\n", null),
                 Arguments.of("packages: com.example.\n", "packages must be a list of package prefixes"),
                 Arguments.of("packages: [\"com.example. orders\"]\n",
                         "packages entry 'com.example. orders' has a space in it"),
-                Arguments.of("packages: [\"\"]\n", "packages entry must be text, not ''"),
+                Arguments.of("packages: [\"\"]\n", "packages entry must be text, not ''"));
+    }
+
+    private static Stream<Arguments> writeFolderFiles() {
+        return Stream.of(
+                Arguments.of("file_writes: never\n", "file_writes is 'never'; it must be one of [report, refuse]"),
+                Arguments.of("write_folders: []\n", null),
                 Arguments.of("write_folders:\n  - folder: \"C:\\\\data\\\\out\"\n    reason: \"The job's\"\n", null),
                 Arguments.of("write_folders:\n  - folder: My Documents/out\n    reason: a\n", null),
                 Arguments.of("write_folders: /tmp\n", "write_folders must be a list of folders, each with a folder"),
@@ -105,7 +124,7 @@ class SettingsFileTest {
                         "write_folders entry 1 has 'path'; an entry has only [folder, reason]"));
     }
 
-    /** The agent can't read the schema itself, so its checks are held to agree with it, file by file. */
+    // The agent can't read the schema itself, so its checks are held to agree with it, file by file.
     @ParameterizedTest
     @MethodSource("files")
     void acceptsExactlyWhatTheSchemaAccepts(final String text, final String problem) throws IOException {

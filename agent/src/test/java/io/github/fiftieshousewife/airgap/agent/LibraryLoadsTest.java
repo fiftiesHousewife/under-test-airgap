@@ -24,6 +24,13 @@ class LibraryLoadsTest {
                 () -> assertThat(LibraryLoads.askingClass(frame("java.lang.Runtime", "load"),
                         frame("org.sqlite.SQLiteJDBCLoader", "loadNativeLibrary")))
                         .isEqualTo("org.sqlite.SQLiteJDBCLoader"),
+                () -> assertThat(LibraryLoads.askingClass(frame("com.example.Main", "main"))).isEmpty(),
+                () -> assertThat(LibraryLoads.askingClass()).isEmpty());
+    }
+
+    @Test
+    void namesTheClassThatCalledLoadLibraryThroughReflection() {
+        assertAll(
                 () -> assertThat(LibraryLoads.askingClass(frame("java.lang.System", "loadLibrary"),
                         frame("jdk.internal.reflect.DirectMethodHandleAccessor", "invoke"),
                         frame("java.lang.reflect.Method", "invoke"), frame("com.example.Loader", "load")))
@@ -34,9 +41,7 @@ class LibraryLoadsTest {
                         frame("java.lang.invoke.LambdaForm$MH/0x1", "invoke"),
                         frame("java.lang.System", "loadLibrary"), frame("com.example.Loader", "load")))
                         .as("through reflection on JDK 8, and System calling Runtime")
-                        .isEqualTo("com.example.Loader"),
-                () -> assertThat(LibraryLoads.askingClass(frame("com.example.Main", "main"))).isEmpty(),
-                () -> assertThat(LibraryLoads.askingClass()).isEmpty());
+                        .isEqualTo("com.example.Loader"));
     }
 
     @Test

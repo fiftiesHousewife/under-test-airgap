@@ -11,7 +11,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import org.junit.jupiter.api.Test;
 
-/** Run by PIT, once for each bug it plants, in JVMs started with the airgap agent and PIT's own agent. */
+// Run by PIT, once for each bug it plants, in JVMs started with the airgap agent and PIT's own agent.
 @SuppressFBWarnings(value = "UNENCRYPTED_SOCKET",
         justification = "The socket aims at an address reserved for documentation, and the agent refuses it")
 class DiscountTest {
@@ -23,7 +23,7 @@ class DiscountTest {
                 () -> assertEquals(100, Discount.priceAfter(100, 0)));
     }
 
-    /** Fails if the agent isn't guarding the JVM PIT runs the tests in. */
+    // Fails if the agent isn't guarding the JVM PIT runs the tests in.
     @Test
     void theAgentRefusesCallsInTheJvmsPitStarts() {
         assertTrue(assertThrows(ConnectException.class, () -> {

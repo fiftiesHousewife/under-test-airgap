@@ -9,10 +9,8 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
-/**
- * {@link AllowCalls} on a class and on a method allows those stand-ins for that test only. Checked with the agent's
- * own answer to "would this be allowed?", so no call is made.
- */
+// AllowCalls on a class and on a method allows those stand-ins for that test only. Checked with the agent's
+// own answer to "would this be allowed?", so no call is made.
 @AllowCalls("partner.example.invalid:443")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class AllowCallsTest {

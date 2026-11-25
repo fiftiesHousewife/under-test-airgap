@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  */
 class AgentTestReportsMatchSchemaTest {
 
-    /** @return every report the agent's tests wrote, on every JDK; there must be some */
+    // Returns every report the agent's tests wrote, on every JDK; there must be some
     private static List<Path> reports() throws IOException {
         final List<Path> reports;
         try (Stream<Path> files = Files.walk(Path.of(System.getProperty("airgap.agentTestReports")))) {
@@ -36,7 +36,7 @@ class AgentTestReportsMatchSchemaTest {
         }
     }
 
-    /** As each test JVM ended, the agent summarised its report: the summary is beside it, and agrees with it. */
+    // As each test JVM ended, the agent summarised its report: the summary is beside it, and agrees with it.
     @Test
     void everyReportHasASummaryThatMatchesItsSchemaAndItsReport() throws IOException {
         final ReportSchema schema = new ReportSchema("airgap.summarySchema");

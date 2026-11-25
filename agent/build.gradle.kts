@@ -1,8 +1,8 @@
 import io.github.fiftieshousewife.airgap.build.runWithOwnAgent
 
 plugins {
+    `java-library`
     id("io.github.fiftieshousewife.java-conventions")
-    id("info.solidsoft.pitest")
     alias(libs.plugins.shadow)
     id("io.github.fiftieshousewife.airgap-publishing")
 }
@@ -11,6 +11,19 @@ plugins {
 // Byte Buddy, relocated under the agent's own package so it never meets the copy Mockito brings.
 group = "io.github.fiftieshousewife.airgap"
 base.archivesName = "airgap-agent"
+
+
+underTest {
+    // The agent logs nothing and names no logging library to its users.
+    logging = false
+    // The hooks reach package-private parts of the agent, so they share one package.
+    maxClassesPerPackage = 40
+    minMutationScore = libs.versions.min.mutation.score.map { it.toInt() }
+    mutationTestingInCheck = true
+    // The JDK route check's ASM visitors override ASM's own methods, whose signatures take more than three
+    // parameters; that one file is kept out of the code-quality checks.
+    codeStyleExcludes.add("**/routes/ClassFileVisitors.java")
+}
 
 dependencies {
     implementation(libs.byte.buddy)
@@ -92,6 +105,8 @@ dependencies {
     "agentTestImplementation"(libs.junit5.jupiter.api)
     "agentTestImplementation"(libs.junit5.jupiter.params)
     "agentTestImplementation"(libs.assertj.core)
+    // JUnit 4, run by itself in JUnit4NamingTest, to prove the hook in its RunNotifier names each test.
+    "agentTestImplementation"(libs.junit4)
     "agentTestRuntimeOnly"("org.junit.jupiter:junit-jupiter-engine")
     "agentTestRuntimeOnly"(libs.junit5.platform.launcher)
     // The common clients old code reaches the network with, each proved refused and reported on every JDK.
@@ -212,15 +227,14 @@ tasks.named<JavaCompile>(pitUnderAgent.compileJavaTaskName) {
     options.release = 8
     options.compilerArgs.add("-Xlint:-options")
 }
-val pitestTool: Configuration = configurations.create("pitestTool")
+// PIT itself: the conventions plugin's own pitestTool configuration, with the same command line and JUnit 5 plugin.
+val pitestTool: Configuration = configurations.getByName("pitestTool")
 dependencies {
     "pitUnderAgentCompileOnly"(libs.spotbugs.annotations)
     "pitUnderAgentImplementation"(platform(libs.junit5.bom))
     "pitUnderAgentImplementation"(libs.junit5.jupiter.api)
     "pitUnderAgentRuntimeOnly"("org.junit.jupiter:junit-jupiter-engine")
     "pitUnderAgentRuntimeOnly"(libs.junit5.platform.launcher)
-    pitestTool("org.pitest:pitest-command-line:${libs.versions.pitest.asProvider().get()}")
-    pitestTool("org.pitest:pitest-junit5-plugin:${libs.versions.pitest.junit5.get()}")
 }
 testJdks.get().filter { it.toInt() >= 11 }.forEach { jdk ->
     val out = layout.buildDirectory.dir("pit-under-agent/jdk$jdk")
@@ -319,7 +333,8 @@ tasks.register<Test>("checkOsTrace") {
 val attachedOnly = listOf(
     "**/agent/AirgapAgent*", "**/agent/AgentStart*", "**/agent/Hooks*", "**/agent/SelfCheck*", "**/agent/advice/**",
     "**/agent/Gate*", "**/agent/RunningTests*", "**/agent/NativeGate*", "**/agent/SctpGate*", "**/agent/HandOver*",
-    "**/agent/FileGate*",
+    "**/agent/FileGate*", "**/agent/TestRunnerHooks*",
+    "**/agent/NetworkGate*", "**/agent/SecureStreamGate*", "**/agent/probes/**",
 )
 listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { task ->
     task.configure {
@@ -329,30 +344,21 @@ listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { t
 
 // Mutation testing: PIT plants bugs in the code that decides, refuses and reports each call, and the unit tests must
 // catch nearly all of them. The classes that only run with the agent attached are left out, as for coverage.
-pitest {
-    pitestVersion = libs.versions.pitest.asProvider()
-    junit5PluginVersion = libs.versions.pitest.junit5.get()
-    targetClasses = listOf("io.github.fiftieshousewife.airgap.agent.*")
-    excludedClasses = listOf(
-        "io.github.fiftieshousewife.airgap.agent.AirgapAgent*", "io.github.fiftieshousewife.airgap.agent.AgentStart*",
-        "io.github.fiftieshousewife.airgap.agent.Hooks*", "io.github.fiftieshousewife.airgap.agent.SelfCheck*",
-        "io.github.fiftieshousewife.airgap.agent.advice.*", "io.github.fiftieshousewife.airgap.agent.Gate*",
-        "io.github.fiftieshousewife.airgap.agent.RunningTests*", "io.github.fiftieshousewife.airgap.agent.NativeGate*",
-        "io.github.fiftieshousewife.airgap.agent.SctpGate*", "io.github.fiftieshousewife.airgap.agent.HandOver*",
-        "io.github.fiftieshousewife.airgap.agent.FileGate*",
-    )
-    excludedTestClasses = listOf("*AgentTestReportsMatchSchemaTest", "*OsTraceMatchesReportsTest")
-    jvmArgs = listOf(
-        "-Dairgap.schema=${reportSchema.asFile.absolutePath}",
-        "-Dairgap.summarySchema=${summarySchema.asFile.absolutePath}",
-        "-Dairgap.settingsSchema=${settingsSchema.asFile.absolutePath}",
-    )
-    outputFormats = listOf("HTML", "XML")
-    timestampedReports = false
-    mutationThreshold = libs.versions.min.mutation.score.map { it.toInt() }
-}
-tasks.check {
-    dependsOn(tasks.named("pitest"))
+tasks.named<JavaExec>("pitest") {
+    val excludedClasses = listOf(
+        "AirgapAgent*", "AgentStart*", "Hooks*", "SelfCheck*", "advice.*", "Gate*", "RunningTests*", "NativeGate*",
+        "SctpGate*", "HandOver*", "FileGate*", "TestRunnerHooks*", "NetworkGate*",
+        "SecureStreamGate*", "probes.*",
+    ).joinToString(",") { "io.github.fiftieshousewife.airgap.agent.$it" }
+    val schemas = listOf(reportSchema, summarySchema, settingsSchema).map { it.asFile.absolutePath }
+    argumentProviders.add(CommandLineArgumentProvider {
+        listOf(
+            "--excludedClasses", excludedClasses,
+            "--excludedTestClasses", "*AgentTestReportsMatchSchemaTest,*OsTraceMatchesReportsTest",
+            "--jvmArgs", "-Dairgap.schema=${schemas[0]},-Dairgap.summarySchema=${schemas[1]}," +
+                "-Dairgap.settingsSchema=${schemas[2]}",
+        )
+    })
 }
 
 publishing {

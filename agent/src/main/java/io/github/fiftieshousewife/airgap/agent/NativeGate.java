@@ -40,26 +40,29 @@ public final class NativeGate {
         return library.indexOf('/') < 0 && library.indexOf('\\') < 0;
     }
 
-    /**
-     * @param library the library's name or path
-     * @param jdkFirst true if a name is looked for in the JDK's own folder first, as {@code System} and
-     *     {@code Runtime} do; the foreign function API asks the operating system, which looks elsewhere
-     */
+    // library: the library's name or path
+    // jdkFirst: true if a name is looked for in the JDK's own folder first, as System and
+    //     Runtime do; the foreign function API asks the operating system, which looks elsewhere
     private static Throwable refusal(final String library, final boolean jdkFirst) {
         Gate.stopIfProbing(Kind.NATIVE_LIBRARY);
         final Decider current = Gate.currentDecider();
         if (current == null || Gate.DECIDING.get() != null) {
             return null;
         }
-        final boolean theirOwn;
+        return isTheJdksOrBuildToolsOwn(current, library, jdkFirst) ? null
+                : Gate.refusal(Kind.NATIVE_LIBRARY, Target.ofLibrary(library));
+    }
+
+    // Decided with the gate closed to the agent's own work, since reading the stack and the JDK's folder could load.
+    private static boolean isTheJdksOrBuildToolsOwn(final Decider current, final String library,
+            final boolean jdkFirst) {
         Gate.DECIDING.set(Boolean.TRUE);
         try {
             final String asking = LibraryLoads.askingClass(new Throwable().getStackTrace());
-            theirOwn = LibraryLoads.isJdks(asking) || current.isBuildToolsOwn(asking)
+            return LibraryLoads.isJdks(asking) || current.isBuildToolsOwn(asking)
                     || LibraryLoads.isJdksFile(library, jdkFirst && isName(library));
         } finally {
             Gate.DECIDING.remove();
         }
-        return theirOwn ? null : Gate.refusal(Kind.NATIVE_LIBRARY, Target.ofLibrary(library));
     }
 }

@@ -10,7 +10,7 @@ import org.apache.maven.model.PluginExecution;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 
-/** Modules and plugins as Maven holds them once it has read a pom, built in memory for the tests. */
+// Modules and plugins as Maven holds them once it has read a pom, built in memory for the tests.
 @SuppressFBWarnings(value = "DMI_HARDCODED_ABSOLUTE_FILENAME",
         justification = "The paths are made up, to compare as text; nothing opens them")
 final class Sample {
@@ -53,7 +53,7 @@ final class Sample {
         return execution;
     }
 
-    /** A configuration with one setting, or none for {@code null}. */
+    // A configuration with one setting, or none for null.
     static Xpp3Dom configuration(final String name, final String value) {
         final Xpp3Dom configuration = new Xpp3Dom("configuration");
         if (name != null) {

@@ -1,6 +1,7 @@
 import io.github.fiftieshousewife.airgap.build.runWithOwnAgent
 
 plugins {
+    `java-library`
     id("io.github.fiftieshousewife.java-conventions")
     id("io.github.fiftieshousewife.airgap-publishing")
 }
@@ -9,6 +10,12 @@ plugins {
 // Java 8, so it runs on JUnit 5 and JUnit 6 alike. It talks to the agent by reflection, and does nothing without it.
 group = "io.github.fiftieshousewife.airgap"
 base.archivesName = "airgap-junit"
+
+underTest {
+    // Names no logging library to its users: Maven provides SLF4J to the extension, and the listener logs nothing.
+    logging = false
+}
+
 
 dependencies {
     compileOnly(platform(libs.junit5.bom))

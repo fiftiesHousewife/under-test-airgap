@@ -41,5 +41,5 @@ Gradle and Maven adds the agent; nobody adds it by hand.
 ## More Information
 
 * Builds on: [The airgap agent is built rather than adopted, because no maintained tool does the job](0001-the-airgap-agent-is-built-rather-than-adopted-because-no-maintained-tool-does-the-job.md)
-* Later decisions that build on this: [It runs on JDK 8 and later, needing no administrator rights or containers](0005-it-runs-on-jdk-8-and-later-needing-no-administrator-rights-or-containers.md)
+* Later decisions that build on this: [It runs on JDK 8 and later, needing no administrator rights or containers](0005-it-runs-on-jdk-8-and-later-needing-no-administrator-rights-or-containers.md), [The agent names JUnit 4 tests itself, through a hook in JUnit 4's run notifier](0022-the-agent-names-junit-4-tests-itself-through-a-hook-in-junit-4s-run-notifier.md)
 * Background: [JEP 451: Prepare to Disallow the Dynamic Loading of Agents](https://openjdk.org/jeps/451)

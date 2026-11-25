@@ -11,8 +11,7 @@ import java.util.List;
  */
 public final class Callers {
 
-    /** What {@link #caller} gives when no frame is the project's. */
-    static final String UNKNOWN = "(unknown)";
+    static final String NO_PROJECT_FRAME = "(unknown)";
     private static final int STACK_FRAMES = 12;
     private static final List<String> NOT_THE_PROJECT = Collections.unmodifiableList(Arrays.asList(
             "java.", "javax.", "jdk.", "sun.", "com.sun.", "io.github.fiftieshousewife.airgap.", "org.junit.",
@@ -42,7 +41,7 @@ public final class Callers {
                 return frame.toString();
             }
         }
-        return UNKNOWN;
+        return NO_PROJECT_FRAME;
     }
 
     /**
@@ -63,19 +62,15 @@ public final class Callers {
     }
 
     private boolean isProject(final String className) {
-        if (!project.isEmpty()) {
-            for (final String prefix : project) {
-                if (className.startsWith(prefix)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        for (final String prefix : NOT_THE_PROJECT) {
+        return project.isEmpty() ? !startsWithAny(className, NOT_THE_PROJECT) : startsWithAny(className, project);
+    }
+
+    private static boolean startsWithAny(final String className, final List<String> prefixes) {
+        for (final String prefix : prefixes) {
             if (className.startsWith(prefix)) {
-                return false;
+                return true;
             }
         }
-        return true;
+        return false;
     }
 }

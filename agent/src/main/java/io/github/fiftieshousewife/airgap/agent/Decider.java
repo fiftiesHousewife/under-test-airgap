@@ -41,8 +41,7 @@ public final class Decider {
             return null;
         }
         final String allowedBy = allowedBy(kind, target, context);
-        final boolean refused = allowedBy == null && settings.getMode() == Mode.REFUSE
-                && (kind != Kind.FILE_WRITE || settings.refusesFileWrites());
+        final boolean refused = allowedBy == null && refuses(kind);
         try {
             report.record(call(kind, target, context).outcome(outcome(refused, allowedBy)).allowedBy(allowedBy)
                     .build());
@@ -51,6 +50,11 @@ public final class Decider {
             return Refusals.forUnreportedCall(kind, target, unreported);
         }
         return refused ? Refusals.forCall(kind, target) : null;
+    }
+
+    // Whether the settings refuse what they don't allow: every kind in refuse mode, but file writes only if asked to.
+    private boolean refuses(final Kind kind) {
+        return settings.getMode() == Mode.REFUSE && (kind != Kind.FILE_WRITE || settings.refusesFileWrites());
     }
 
     /**
@@ -99,20 +103,18 @@ public final class Decider {
         return allowedBy == null ? "reported" : "allowed";
     }
 
-    /**
-     * @param frames a stack, innermost first
-     * @return the project's frame in it, or {@code null} if it has none
-     */
+    // frames: a stack, innermost first
+    // Returns the project's frame in it, or null if it has none
     String callerOf(final StackTraceElement... frames) {
         final String caller = callers.caller(frames);
-        return Callers.UNKNOWN.equals(caller) ? null : caller;
+        return Callers.NO_PROJECT_FRAME.equals(caller) ? null : caller;
     }
 
-    /** The project's frame on this thread, or else the one a handed-over task carries. */
+    // The project's frame on this thread, or else the one a handed-over task carries.
     private String callerOrCarried(final StackTraceElement... frames) {
         final String caller = callers.caller(frames);
         final String carried = HandOver.carriedCaller();
-        return Callers.UNKNOWN.equals(caller) && carried != null ? carried : caller;
+        return Callers.NO_PROJECT_FRAME.equals(caller) && carried != null ? carried : caller;
     }
 
     private Call.CallBuilder call(final Kind kind, final Target target, final CallContext context) {

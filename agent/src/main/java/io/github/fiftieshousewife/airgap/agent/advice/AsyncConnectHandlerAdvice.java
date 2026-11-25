@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import java.net.SocketAddress;
 import java.nio.channels.CompletionHandler;
 import net.bytebuddy.asm.Advice;
@@ -16,7 +16,7 @@ public final class AsyncConnectHandlerAdvice {
 
     @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
     static Throwable enter(@Advice.Argument(0) final SocketAddress address) {
-        return Gate.tcpRefusal(address);
+        return NetworkGate.tcpRefusal(address);
     }
 
     @Advice.OnMethodExit

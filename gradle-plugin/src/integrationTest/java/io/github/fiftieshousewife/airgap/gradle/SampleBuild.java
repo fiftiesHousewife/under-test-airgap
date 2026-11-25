@@ -8,12 +8,33 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
-/**
- * Writes the sample build: one class that makes a host lookup, and one JUnit 4 test that makes another; with the
- * plugin, or without it, for the try-it init script.
- */
+// Writes the sample build: one class that makes a host lookup, and one JUnit 4 test that makes another; with the
+// plugin, or without it, for the try-it init script.
 @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Test code: the paths come from this build")
 final class SampleBuild {
+
+    private static final String MAIN_CLASS = "package sample;\n"
+            + "public class Main {\n"
+            + "    public static void main(String[] args) {\n"
+            + "        try {\n"
+            + "            java.net.InetAddress.getByName(\"sample-main.invalid\");\n"
+            + "        } catch (java.net.UnknownHostException e) {\n"
+            + "            System.out.println(e.getMessage());\n"
+            + "        }\n"
+            + "    }\n"
+            + "}\n";
+    private static final String TEST_CLASS = "package sample;\n"
+            + "public class SampleTest {\n"
+            + "    @org.junit.Test\n"
+            + "    public void lookupIsRefused() {\n"
+            + "        try {\n"
+            + "            java.net.InetAddress.getByName(\"sample-test.invalid\");\n"
+            + "            org.junit.Assert.fail(\"the lookup went ahead\");\n"
+            + "        } catch (java.net.UnknownHostException e) {\n"
+            + "            org.junit.Assert.assertTrue(e.getMessage(), e.getMessage().contains(\"airgap\"));\n"
+            + "        }\n"
+            + "    }\n"
+            + "}\n";
 
     private SampleBuild() {
     }
@@ -28,28 +49,8 @@ final class SampleBuild {
         write(folder, "settings.gradle", "pluginManagement { repositories { maven { url '" + repo + "' } } }\n"
                 + "rootProject.name = 'sample'\n");
         write(folder, "build.gradle", withPlugin ? buildScript(repo) : plainBuildScript(repo));
-        write(folder, "src/main/java/sample/Main.java", "package sample;\n"
-                + "public class Main {\n"
-                + "    public static void main(String[] args) {\n"
-                + "        try {\n"
-                + "            java.net.InetAddress.getByName(\"sample-main.invalid\");\n"
-                + "        } catch (java.net.UnknownHostException e) {\n"
-                + "            System.out.println(e.getMessage());\n"
-                + "        }\n"
-                + "    }\n"
-                + "}\n");
-        write(folder, "src/test/java/sample/SampleTest.java", "package sample;\n"
-                + "public class SampleTest {\n"
-                + "    @org.junit.Test\n"
-                + "    public void lookupIsRefused() {\n"
-                + "        try {\n"
-                + "            java.net.InetAddress.getByName(\"sample-test.invalid\");\n"
-                + "            org.junit.Assert.fail(\"the lookup went ahead\");\n"
-                + "        } catch (java.net.UnknownHostException e) {\n"
-                + "            org.junit.Assert.assertTrue(e.getMessage(), e.getMessage().contains(\"airgap\"));\n"
-                + "        }\n"
-                + "    }\n"
-                + "}\n");
+        write(folder, "src/main/java/sample/Main.java", MAIN_CLASS);
+        write(folder, "src/test/java/sample/SampleTest.java", TEST_CLASS);
     }
 
     private static String buildScript(final String repo) {

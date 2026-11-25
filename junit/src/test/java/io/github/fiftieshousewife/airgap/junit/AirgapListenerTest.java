@@ -22,16 +22,18 @@ class AirgapListenerTest {
     }
 
     @Test
-    void theReportNamesTheTestBehindARefusedCall() throws IOException {
+    void theReportNamesTheTestBehindARefusedCall() {
         final String host = "listener-test.example.invalid";
-        assertThatThrownBy(() -> InetAddress.getByName(host)).isInstanceOf(UnknownHostException.class);
 
-        final List<String> lines = Files.readAllLines(Path.of(System.getProperty("airgap.test.report"))).stream()
-                .filter(line -> line.contains(host)).toList();
         assertAll(
-                () -> assertThat(lines).hasSize(1),
-                () -> assertThat(lines.get(0)).contains("\"test\":\"" + AirgapListenerTest.class.getName()
-                        + ".theReportNamesTheTestBehindARefusedCall\""));
+                () -> assertThatThrownBy(() -> InetAddress.getByName(host)).isInstanceOf(UnknownHostException.class),
+                () -> assertThat(reportLinesAbout(host)).singleElement().asString().contains("\"test\":\""
+                        + AirgapListenerTest.class.getName() + ".theReportNamesTheTestBehindARefusedCall\""));
+    }
+
+    private static List<String> reportLinesAbout(final String host) throws IOException {
+        return Files.readAllLines(Path.of(System.getProperty("airgap.test.report"))).stream()
+                .filter(line -> line.contains(host)).toList();
     }
 
     @Test

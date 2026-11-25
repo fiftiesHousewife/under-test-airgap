@@ -1,7 +1,7 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import java.net.SocketAddress;
 import java.util.concurrent.Future;
 import net.bytebuddy.asm.Advice;
@@ -18,7 +18,7 @@ public final class AsyncConnectAdvice {
 
     @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
     static Throwable enter(@Advice.Argument(0) final SocketAddress address) {
-        return Gate.tcpRefusal(address);
+        return NetworkGate.tcpRefusal(address);
     }
 
     @Advice.OnMethodExit
@@ -28,7 +28,7 @@ public final class AsyncConnectAdvice {
     static void exit(@Advice.Enter final Throwable refusal,
             @Advice.Return(readOnly = false, typing = Assigner.Typing.DYNAMIC) Future<Void> result) {
         if (refusal != null) {
-            result = Gate.failedFuture(refusal);
+            result = NetworkGate.failedFuture(refusal);
         }
     }
 }

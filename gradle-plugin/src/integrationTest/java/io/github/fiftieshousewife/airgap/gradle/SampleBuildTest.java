@@ -18,11 +18,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Runs a sample build under the plugin on the latest release of each supported major Gradle version, each on a JDK
- * that Gradle supports, and checks the tests and an application start both ran with the agent. The sample build
- * resolves everything from a local repository that this build publishes, so it needs no network.
- */
+// Runs a sample build under the plugin on the latest release of each supported major Gradle version, each on a JDK
+// that Gradle supports, and checks the tests and an application start both ran with the agent. The sample build
+// resolves everything from a local repository that this build publishes, so it needs no network.
 @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Test code: the paths come from this build")
 class SampleBuildTest {
 
@@ -53,7 +51,7 @@ class SampleBuildTest {
                         "\"run\":{\"kind\":\"application\"", "\"caller\":\"sample.Main.main("));
     }
 
-    /** The try-it init script adds the agent to a build that doesn't use the plugin, on every supported Gradle. */
+    // The try-it init script adds the agent to a build that doesn't use the plugin, on every supported Gradle.
     @ParameterizedTest(name = "Gradle {0}")
     @MethodSource("gradleVersions")
     void theInitScriptRunsTheTestsWithTheAgent(final String gradle, final String jdk) throws IOException {
@@ -66,7 +64,7 @@ class SampleBuildTest {
                         .contains("\"target\":\"sample-test.invalid\"", "\"outcome\":\"refused\""));
     }
 
-    /** A jar that isn't there is named in the failure, not met with a null pointer. */
+    // A jar that isn't there is named in the failure, not met with a null pointer.
     @org.junit.jupiter.api.Test
     void theInitScriptSaysSoWhenTheAgentIsMissing() throws IOException {
         SampleBuild.write(sample, System.getProperty("airgap.it.currentJdk"), false);

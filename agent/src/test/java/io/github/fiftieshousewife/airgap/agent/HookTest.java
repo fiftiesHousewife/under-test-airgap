@@ -3,6 +3,7 @@ package io.github.fiftieshousewife.airgap.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import io.github.fiftieshousewife.airgap.agent.hooks.HookMethods;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +65,7 @@ class HookTest {
                 () -> assertThat(HookMethods.load("java.net.InetAddress")).isEqualTo(java.net.InetAddress.class));
     }
 
-    /** The lookup hook is on the one private getAllByName0 every lookup reaches: the one with the most parameters. */
+    // The lookup hook is on the one private getAllByName0 every lookup reaches: the one with the most parameters.
     @Test
     void hooksTheJdksInnermostLookup() {
         final net.bytebuddy.description.method.MethodList<?> hooked =

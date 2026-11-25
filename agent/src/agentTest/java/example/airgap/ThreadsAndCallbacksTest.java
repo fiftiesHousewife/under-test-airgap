@@ -19,16 +19,14 @@ import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-/**
- * Refusals that reach code on other threads: through an asynchronous connect's handler, and on pool threads a test
- * started. Every target is an address reserved for documentation or a name that can't resolve.
- */
+// Refusals that reach code on other threads: through an asynchronous connect's handler, and on pool threads a test
+// started. Every target is an address reserved for documentation or a name that can't resolve.
 @Timeout(value = 10, unit = TimeUnit.SECONDS)
 class ThreadsAndCallbacksTest {
 
     private static final String POOL_TARGET = "pool.example.invalid";
 
-    /** Hands the failure, if its attachment came back with it, to a future. */
+    // Hands the failure, if its attachment came back with it, to a future.
     private static final class Recording implements CompletionHandler<Void, String> {
         private final CompletableFuture<Throwable> failure = new CompletableFuture<>();
 
@@ -61,7 +59,7 @@ class ThreadsAndCallbacksTest {
                 .get(5, TimeUnit.SECONDS);
     }
 
-    /** Pools started during a test, as OkHttp's, Hikari's and Spring's are, outlive it. */
+    // Pools started during a test, as OkHttp's, Hikari's and Spring's are, outlive it.
     @Test
     void forgetsATestsNameAndAllowancesOnThreadsItStartedOnceItEnds()
             throws InterruptedException, ExecutionException, TimeoutException {
@@ -83,7 +81,7 @@ class ThreadsAndCallbacksTest {
         }
     }
 
-    /** A test class's scope covers its set-up; each test inside it starts with what the class allows. */
+    // A test class's scope covers its set-up; each test inside it starts with what the class allows.
     @Test
     void aTestRunsInsideItsClassAndTheClassComesBackAfter() {
         try {

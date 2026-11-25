@@ -1,107 +1,69 @@
 package io.github.fiftieshousewife.airgap.agent;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.io.Closeable;
-import java.io.File;
-import java.io.FileOutputStream;
+import io.github.fiftieshousewife.airgap.agent.hooks.HookMethods;
+import io.github.fiftieshousewife.airgap.agent.probes.FileProbes;
+import io.github.fiftieshousewife.airgap.agent.probes.NetworkProbes;
+import io.github.fiftieshousewife.airgap.agent.probes.Probe;
+import io.github.fiftieshousewife.airgap.agent.probes.SystemProbes;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.lang.reflect.InvocationTargetException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.MulticastSocket;
-import java.net.Socket;
-import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousFileChannel;
-import java.nio.channels.AsynchronousSocketChannel;
-import java.nio.channels.CompletionHandler;
-import java.nio.channels.DatagramChannel;
-import java.nio.channels.FileChannel;
-import java.nio.channels.SocketChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.naming.CompositeName;
-import javax.naming.Context;
-import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import net.bytebuddy.description.type.TypeDescription;
 
-/**
- * Proves, at start, that every hook is in place: makes each hooked call with the gate in probing mode, where a hook
- * that is reached throws {@link Gate.Reached} before the call does anything. A hook that isn't reached means the JDK
- * has changed under it, and the agent refuses to start rather than guard partly.
- *
- * <p>Every probe is harmless even if its hook is missing: lookups and connects go to a name that can't resolve,
- * reverse lookups and packets to the machine itself, the program started and the libraries loaded don't exist, the
- * JNDI contexts have no provider to connect with, and the files written are in a folder that doesn't exist. A few
- * hooks can't be probed that way: ending the JVM (a missing hook would end it), the machine asking its own name and
- * the HTTP client's hand-overs (which don't refuse), SCTP (not every platform supports it), the foreign function API
- * (probing it sets off the JDK's warning about native access) and the secure directory stream (not every system's
- * JDK hands one out). Those are proved by their methods being there to rewrite, in classes the other probes prove
- * rewritten, or, for SCTP, the foreign function API, the HTTP client and the secure directory stream, by the agent's
- * own tests.</p>
- */
-@SuppressFBWarnings(value = "UNENCRYPTED_SOCKET",
-        justification = "The probes never connect: the hook refuses them, and their target can't resolve")
+// Proves, at start, that every hook is in place: makes each hooked call with the gate in probing mode, where a hook
+// that is reached throws Gate.Reached before the call does anything. A hook that isn't reached means the JDK
+// has changed under it, and the agent refuses to start rather than guard partly.
+//
+// Every probe is harmless even if its hook is missing: lookups and connects go to a name that can't resolve,
+// reverse lookups and packets to the machine itself, the program started and the libraries loaded don't exist, the
+// JNDI contexts have no provider to connect with, and the files written are in a folder that doesn't exist. A few
+// hooks can't be probed that way: ending the JVM (a missing hook would end it), the machine asking its own name and
+// the HTTP client's hand-overs (which don't refuse), SCTP (not every platform supports it), the foreign function API
+// (probing it sets off the JDK's warning about native access) and the secure directory stream (not every system's
+// JDK hands one out). Those are proved by their methods being there to rewrite, in classes the other probes prove
+// rewritten, or, for SCTP, the foreign function API, the HTTP client and the secure directory stream, by the agent's
+// own tests.
 final class SelfCheck {
 
-    static final String PROBE_HOST = "airgap-self-check.invalid";
-    private static final String NO_SUCH_LIBRARY = "airgap-self-check-no-such-library";
-    private static final String NO_SUCH_FOLDER = "airgap-self-check-no-such-folder";
-    /** A handler for the asynchronous connect's probe, which the hook stops before it could be called. */
-    private static final CompletionHandler<Void, Object> IGNORED = new CompletionHandler<Void, Object>() {
-        @Override
-        public void completed(final Void result, final Object attachment) {
-            // Never called: the probe's connect can't resolve its address.
-        }
-
-        @Override
-        public void failed(final Throwable thrown, final Object attachment) {
-            // Never called: the probe's connect can't resolve its address.
-        }
-    };
     private static final Map<Hook, Probe> PROBES = buildProbes();
 
     private SelfCheck() {
     }
 
-    /** A hooked call made only to see whether its hook is reached. */
-    private interface Probe {
-        void call() throws IOException, NamingException, ReflectiveOperationException;
-    }
-
-    /**
-     * Probes every hook, including any the settings left out, so leaving one out proves this check works.
-     *
-     * @param installErrors classes that couldn't be rewritten, and why, to name in the message
-     * @param without hooks the settings left out, which the exit hooks' check can't otherwise see
-     */
+    // Probes every hook, including any the settings left out, so leaving one out proves this check works.
+    //
+    // installErrors: classes that couldn't be rewritten, and why, to name in the message
+    // without: hooks the settings left out, which the exit hooks' check can't otherwise see
     static void run(final List<String> installErrors, final Set<String> without) {
         final List<String> missing = new ArrayList<>();
         for (final Hook hook : Hook.values()) {
-            if (!hook.appliesHere()) {
-                continue;
-            }
-            final boolean inPlace = PROBES.containsKey(hook) ? reaches(hook, probe(hook))
-                    : !without.contains(hook.id()) && isThereToRewrite(hook);
-            if (!inPlace) {
+            if (isMissing(hook, without)) {
                 missing.add(hook.id());
             }
         }
         if (!missing.isEmpty()) {
-            throw new IllegalStateException("The airgap agent couldn't put its hooks in place for " + missing
-                    + " on Java " + System.getProperty("java.version") + ", so it won't start: this JDK isn't supported"
-                    + " yet. Nothing was run unguarded." + (installErrors.isEmpty() ? "" : " Why: " + installErrors));
+            throw new IllegalStateException(whyItWontStart(missing, installErrors));
         }
+    }
+
+    private static String whyItWontStart(final List<String> missing, final List<String> installErrors) {
+        return "The airgap agent couldn't put its hooks in place for " + missing + " on Java "
+                + System.getProperty("java.version") + ", so it won't start: this JDK isn't supported yet. Nothing was"
+                + " run unguarded." + (installErrors.isEmpty() ? "" : " Why: " + installErrors);
+    }
+
+    private static boolean isMissing(final Hook hook, final Set<String> without) {
+        return hook.appliesHere() && !isInPlace(hook, without);
+    }
+
+    private static boolean isInPlace(final Hook hook, final Set<String> without) {
+        return PROBES.containsKey(hook) ? reaches(hook, PROBES.get(hook))
+                : !without.contains(hook.id()) && isThereToRewrite(hook);
     }
 
     private static boolean reaches(final Hook hook, final Probe probe) {
@@ -123,162 +85,20 @@ final class SelfCheck {
         }
     }
 
-    /** For a hook with no harmless probe: whether its class has the methods it rewrites. */
+    // For a hook with no harmless probe: whether its class has the methods it rewrites.
     private static boolean isThereToRewrite(final Hook hook) {
         final Class<?> type = HookMethods.load(hook.getTypeName());
         return type != null && !TypeDescription.ForLoadedType.of(type).getDeclaredMethods()
                 .filter(hook.getMethods()).isEmpty();
     }
 
-    private static InetSocketAddress nowhere() {
-        return InetSocketAddress.createUnresolved(PROBE_HOST, 9);
-    }
-
-    private static Probe probe(final Hook hook) {
-        return PROBES.get(hook);
-    }
-
     private static Map<Hook, Probe> buildProbes() {
         final Map<Hook, Probe> probes = new EnumMap<>(Hook.class);
-        // Through getByName, so a JDK where getByName stopped reaching getAllByName fails the check.
-        probes.put(Hook.HOST_LOOKUP_ALL, () -> InetAddress.getByName(PROBE_HOST));
-        probes.put(Hook.HOST_LOOKUP_REVERSE, () -> InetAddress.getByAddress(new byte[] {127, 0, 0, 1}).getHostName());
-        probes.put(Hook.TCP_SOCKET, () -> closing(new Socket(), socket -> socket.connect(nowhere(), 1)));
-        probes.put(Hook.TCP_CHANNEL, () -> closing(SocketChannel.open(), channel -> channel.connect(nowhere())));
-        probes.put(Hook.TCP_SOCKET_ADAPTOR,
-                () -> closing(SocketChannel.open(), channel -> channel.socket().connect(nowhere(), 1)));
-        probes.put(Hook.TCP_REACHABILITY, SelfCheck::pingTheMachineItself);
-        probes.put(Hook.TCP_ASYNC,
-                () -> closing(AsynchronousSocketChannel.open(), channel -> channel.connect(nowhere())));
-        probes.put(Hook.TCP_ASYNC_HANDLER,
-                () -> closing(AsynchronousSocketChannel.open(), channel -> channel.connect(nowhere(), null, IGNORED)));
-        probes.put(Hook.UDP_SOCKET_CONNECT, () -> closing(new DatagramSocket(), socket -> socket.connect(nowhere())));
-        probes.put(Hook.UDP_SOCKET_CONNECT_ADDRESS,
-                () -> closing(new DatagramSocket(), socket -> socket.connect(InetAddress.getLoopbackAddress(), 9)));
-        probes.put(Hook.UDP_SOCKET_SEND, () -> closing(new DatagramSocket(), socket -> socket.send(loopbackPacket())));
-        probes.put(Hook.UDP_MULTICAST_SEND, SelfCheck::sendWithATimeToLive);
-        probes.put(Hook.UDP_CHANNEL_CONNECT,
-                () -> closing(DatagramChannel.open(), channel -> channel.connect(nowhere())));
-        probes.put(Hook.UDP_CHANNEL_SEND,
-                () -> closing(DatagramChannel.open(), channel -> channel.send(ByteBuffer.allocate(1), nowhere())));
-        probes.put(Hook.PROCESS, () -> new ProcessBuilder("airgap-self-check-no-such-program").start());
-        probes.put(Hook.JNDI_NAME, () -> new ProbeContext().lookup("ldap://" + PROBE_HOST + "/o=probe"));
-        probes.put(Hook.JNDI_COMPOSITE_NAME,
-                () -> new ProbeContext().lookup(new CompositeName("ldap://" + PROBE_HOST + "/o=probe")));
-        probes.put(Hook.JNDI_PROVIDER, () -> new ProbeContext().makeTheDefaultContext());
-        probes.put(Hook.NATIVE_LIBRARY_BY_NAME, () -> System.loadLibrary(NO_SUCH_LIBRARY));
-        probes.put(Hook.NATIVE_LIBRARY_BY_PATH, () -> System.load(noSuchLibraryFile()));
-        probes.put(Hook.NATIVE_LIBRARY_RUNTIME_BY_NAME, () -> Runtime.getRuntime().loadLibrary(NO_SUCH_LIBRARY));
-        probes.put(Hook.NATIVE_LIBRARY_RUNTIME_BY_PATH, () -> Runtime.getRuntime().load(noSuchLibraryFile()));
-        addFileProbes(probes);
+        NetworkProbes.addLookups(probes);
+        NetworkProbes.addTcp(probes);
+        NetworkProbes.addUdp(probes);
+        SystemProbes.addTo(probes);
+        FileProbes.addTo(probes);
         return probes;
-    }
-
-    /**
-     * Each file probe writes in a folder that doesn't exist, so even with its hook missing it fails without changing
-     * anything.
-     */
-    @SuppressFBWarnings(value = {"RV_RETURN_VALUE_IGNORED_BAD_PRACTICE", "PATH_TRAVERSAL_IN"},
-            justification = "The probes need only the calls made, which fail before opening anything, in a folder"
-                    + " of the agent's own naming")
-    private static void addFileProbes(final Map<Hook, Probe> probes) {
-        probes.put(Hook.FILE_WRITE_STREAM, () -> new FileOutputStream(noSuchFolder("stream")).close());
-        probes.put(Hook.FILE_WRITE_RANDOM_ACCESS, () -> new RandomAccessFile(noSuchFolder("random"), "rw").close());
-        probes.put(Hook.FILE_WRITE_CHANGE, each(() -> noSuchFolder("delete").delete(),
-                () -> noSuchFolder("mkdir").mkdir()));
-        probes.put(Hook.FILE_WRITE_RENAME, () -> noSuchFolder("from").renameTo(noSuchFolder("to")));
-        probes.put(Hook.FILE_WRITE_CREATE, () -> noSuchFolder("create").createNewFile());
-        probes.put(Hook.FILE_WRITE_TEMP_FILE, () -> File.createTempFile("probe", null, noSuchFolder("temp")));
-        probes.put(Hook.FILE_WRITE_CHANNEL, each(
-                () -> Files.newByteChannel(noSuchPath("channel"), StandardOpenOption.WRITE).close(),
-                () -> FileChannel.open(noSuchPath("file-channel"), StandardOpenOption.WRITE).close(),
-                () -> AsynchronousFileChannel.open(noSuchPath("async"), StandardOpenOption.WRITE).close()));
-        probes.put(Hook.FILE_WRITE_PATH, each(() -> Files.createDirectory(noSuchPath("directory")),
-                () -> Files.deleteIfExists(noSuchPath("delete")),
-                () -> Files.createSymbolicLink(noSuchPath("link"), noSuchPath("link-to")),
-                () -> Files.createLink(noSuchPath("hard-link"), noSuchPath("hard-link-to"))));
-        probes.put(Hook.FILE_WRITE_COPY, () -> Files.copy(noSuchPath("copy-from"), noSuchPath("copy-to")));
-        probes.put(Hook.FILE_WRITE_MOVE, () -> Files.move(noSuchPath("move-from"), noSuchPath("move-to")));
-    }
-
-    /**
-     * A probe for a hook on several methods: each call must be stopped by a file-write hook, or the hook counts as
-     * missing.
-     */
-    private static Probe each(final Probe... calls) {
-        return () -> {
-            for (final Probe call : calls) {
-                try {
-                    call.call();
-                    return;
-                } catch (Gate.Reached reached) {
-                    if (reached.getKind() != Kind.FILE_WRITE) {
-                        return;
-                    }
-                }
-            }
-            throw new Gate.Reached(Kind.FILE_WRITE);
-        };
-    }
-
-    /** A file in a folder that doesn't exist, in the temporary folder. */
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "The agent's own names, in the temporary folder")
-    private static File noSuchFolder(final String name) {
-        return new File(new File(System.getProperty("java.io.tmpdir"), NO_SUCH_FOLDER), name);
-    }
-
-    private static Path noSuchPath(final String name) {
-        return noSuchFolder(name).toPath();
-    }
-
-    @SuppressFBWarnings(value = "RV_RETURN_VALUE_IGNORED", justification = "The probe needs only the call made")
-    private static void pingTheMachineItself() throws IOException {
-        InetAddress.getLoopbackAddress().isReachable(null, 0, 1);
-    }
-
-    private static String noSuchLibraryFile() {
-        return new File(System.getProperty("java.io.tmpdir"), NO_SUCH_LIBRARY).getAbsolutePath();
-    }
-
-    /** The deprecated {@code MulticastSocket.send(packet, ttl)}, called by reflection as the API checks require. */
-    private static void sendWithATimeToLive() throws IOException, ReflectiveOperationException {
-        try (MulticastSocket socket = new MulticastSocket()) {
-            MulticastSocket.class.getMethod("send", DatagramPacket.class, byte.class)
-                    .invoke(socket, loopbackPacket(), (byte) 1);
-        }
-    }
-
-    private static DatagramPacket loopbackPacket() {
-        return new DatagramPacket(new byte[1], 1, InetAddress.getLoopbackAddress(), 9);
-    }
-
-    /** A call on something that must be closed afterwards. */
-    private interface Use<T> {
-        void on(T resource) throws IOException;
-    }
-
-    private static <T extends Closeable> void closing(final T resource, final Use<T> use) throws IOException {
-        try (T opened = resource) {
-            use.on(opened);
-        }
-    }
-
-    /**
-     * A JNDI context with no settings read and no provider: a lookup of a URL fails without connecting, and making
-     * its default context fails for want of a provider, if the hooks don't stop them first.
-     */
-    @SuppressWarnings("PMD.ReplaceHashtableWithMap") // JNDI's own type
-    private static final class ProbeContext extends InitialContext {
-
-        ProbeContext() throws NamingException {
-            super(true);
-        }
-
-        void makeTheDefaultContext() throws NamingException {
-            final Hashtable<Object, Object> environment = new Hashtable<>();
-            environment.put(Context.PROVIDER_URL, "ldap://" + PROBE_HOST + ":389/o=probe");
-            myProps = environment;
-            getDefaultInitCtx();
-        }
     }
 }

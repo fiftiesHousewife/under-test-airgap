@@ -3,22 +3,17 @@ package io.github.fiftieshousewife.airgap.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.PortUnreachableException;
 import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import javax.naming.CommunicationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 class DeciderTest {
 
@@ -43,49 +38,7 @@ class DeciderTest {
     }
 
     @Test
-    void reportsAFileWriteOutsideTheProjectAndRefusesItOnlyWhenTheSettingsSay(@TempDir final Path folder)
-            throws IOException {
-        final Target outside = Target.ofFile("/data/out/orders.csv");
-        final Path refusing = Files.write(folder.resolve("airgap.yaml"),
-                "file_writes: refuse\n".getBytes(StandardCharsets.UTF_8));
-
-        final Throwable reported = decider(null).decide(Kind.FILE_WRITE, outside, CallContext.NONE);
-        final Throwable refused = decider("settings=" + refusing).decide(Kind.FILE_WRITE, outside, CallContext.NONE);
-        final Throwable inReportMode = decider("settings=" + refusing + ";mode=report")
-                .decide(Kind.FILE_WRITE, outside, CallContext.NONE);
-
-        assertAll(
-                () -> assertThat(reported).as("reported by default, even in refuse mode").isNull(),
-                () -> assertThat(refused).isExactlyInstanceOf(FileNotFoundException.class)
-                        .hasMessage("/data/out/orders.csv (" + Refusals.REFUSED + ")"),
-                () -> assertThat(inReportMode).as("the mode report lets everything go ahead").isNull(),
-                () -> assertThat(recorded).extracting(Call::getOutcome)
-                        .containsExactly("reported", "refused", "reported"),
-                () -> assertThat(recorded).extracting(Call::getKind).containsOnly(Kind.FILE_WRITE),
-                () -> assertThat(recorded).extracting(call -> schema.problems(call.toJson())).allSatisfy(
-                        problems -> assertThat(problems).isEmpty()));
-    }
-
-    @Test
-    void knowsTheProjectsFolders(@TempDir final Path folder) {
-        final Decider decider = decider("root=" + folder + ";report=" + folder.resolve("elsewhere/calls.jsonl"));
-
-        assertAll(
-                () -> assertThat(decider.isProjects(folder.resolve("build/out.txt").toString())).isTrue(),
-                () -> assertThat(decider.isProjects(System.getProperty("java.io.tmpdir") + "/x")).isTrue(),
-                () -> assertThat(decider.isProjects("/data/out/orders.csv")).isFalse());
-    }
-
-    @Test
-    void neverAllowsAFileWriteByAnAllowEntry() {
-        final Decider decider = decider("allow=/data/out/orders.csv");
-
-        assertThat(decider.allows(Kind.FILE_WRITE, Target.ofFile("/data/out/orders.csv"), CallContext.NONE))
-                .as("folders are allowed in write_folders").isFalse();
-    }
-
-    @Test
-    void refusesEachKindWithTheExceptionAnUnpluggedMachineWouldThrow() {
+    void refusesEachNetworkCallWithTheExceptionAnUnpluggedMachineWouldThrow() {
         final Decider decider = decider(null);
 
         assertAll(
@@ -101,6 +54,16 @@ class DeciderTest {
                 () -> assertThat(decider.decide(Kind.UDP, remote("db.example.invalid", 53), CallContext.NONE))
                         .as("a UDP address nobody looked up fails as the JDK refuses one")
                         .isExactlyInstanceOf(java.net.SocketException.class),
+                () -> assertThat(recorded).extracting(Call::getOutcome).containsOnly("refused").hasSize(5),
+                () -> assertThat(recorded).extracting(call -> schema.problems(call.toJson())).allSatisfy(
+                        problems -> assertThat(problems).isEmpty()));
+    }
+
+    @Test
+    void refusesEachOtherKindWithTheExceptionAnUnpluggedMachineWouldThrow() {
+        final Decider decider = decider(null);
+
+        assertAll(
                 () -> assertThat(decider.decide(Kind.PROCESS, Target.ofCommand(List.of("curl")), CallContext.NONE))
                         .isInstanceOf(IOException.class).hasMessageContaining(Refusals.REFUSED),
                 () -> assertThat(decider.decide(Kind.JNDI, Target.ofJndi("ldap://ldap.example.invalid/o=x"),
@@ -110,26 +73,9 @@ class DeciderTest {
                         .isInstanceOf(UnsatisfiedLinkError.class).hasMessageContaining(Refusals.REFUSED),
                 () -> assertThat(decider.decide(Kind.EXIT, Target.ofExit("exit", 1), CallContext.NONE))
                         .isInstanceOf(SecurityException.class).hasMessageContaining(Refusals.REFUSED),
-                () -> assertThat(recorded).extracting(Call::getOutcome).containsOnly("refused").hasSize(9),
+                () -> assertThat(recorded).extracting(Call::getOutcome).containsOnly("refused").hasSize(4),
                 () -> assertThat(recorded).extracting(call -> schema.problems(call.toJson())).allSatisfy(
                         problems -> assertThat(problems).isEmpty()));
-    }
-
-    @Test
-    void recognisesNativeLibrariesTheBuildToolLoadsForItself() {
-        final Decider test = decider("run=test");
-        final Decider build = decider("run=build");
-
-        assertAll(
-                () -> assertThat(test.isBuildToolsOwn("org.gradle.internal.nativeintegration.NativeServices")).isTrue(),
-                () -> assertThat(test.isBuildToolsOwn("net.rubygrapefruit.platform.internal.NativeLibraryLoader"))
-                        .isTrue(),
-                () -> assertThat(test.isBuildToolsOwn("org.apache.maven.cli.MavenCli")).isTrue(),
-                () -> assertThat(build.isBuildToolsOwn("org.fusesource.jansi.internal.JansiLoader")).isTrue(),
-                () -> assertThat(test.isBuildToolsOwn("org.fusesource.jansi.internal.JansiLoader"))
-                        .as("the console library is the build tool's only in the build JVM").isFalse(),
-                () -> assertThat(test.isBuildToolsOwn("io.netty.util.internal.NativeLibraryLoader")).isFalse(),
-                () -> assertThat(test.isBuildToolsOwn("org.sqlite.SQLiteJDBCLoader")).isFalse());
     }
 
     @Test

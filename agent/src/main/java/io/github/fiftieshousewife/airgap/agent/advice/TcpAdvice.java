@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import java.net.SocketAddress;
 import net.bytebuddy.asm.Advice;
 
@@ -12,6 +12,6 @@ public final class TcpAdvice {
 
     @Advice.OnMethodEnter
     static void enter(@Advice.Argument(0) final SocketAddress address) {
-        Gate.tcp(address);
+        NetworkGate.tcp(address);
     }
 }

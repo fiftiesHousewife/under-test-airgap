@@ -3,6 +3,7 @@ package io.github.fiftieshousewife.airgap.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import io.github.fiftieshousewife.airgap.agent.hooks.HookMethods;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetAddress;

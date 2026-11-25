@@ -1,36 +1,28 @@
 package example.airgap;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 /** A refused call is written to the report, with what was tried and the line of the project's code that tried it. */
 class ReportTest {
 
-    private static List<String> linesAbout(final String target) throws IOException {
-        return Files.readAllLines(Paths.get(System.getProperty("airgap.test.report")), StandardCharsets.UTF_8)
-                .stream().filter(line -> line.contains("\"target\":\"" + target)).collect(Collectors.toList());
-    }
 
     @Test
     void recordsARefusedCallWithItsCaller() throws IOException {
         final String host = "orders.report-test.example.invalid";
-        assertThatThrownBy(() -> InetAddress.getByName(host)).isInstanceOf(UnknownHostException.class);
+        final Throwable thrown = catchThrowable(() -> InetAddress.getByName(host));
 
-        final List<String> lines = linesAbout(host);
+        final List<String> lines = ReportLines.about(host);
 
         assertAll(
+                () -> assertThat(thrown).isInstanceOf(UnknownHostException.class),
                 () -> assertThat(lines).hasSize(1),
                 () -> assertThat(lines.get(0)).contains("\"kind\":\"host-lookup\"", "\"outcome\":\"refused\"",
                         "\"caller\":\"" + ReportTest.class.getName() + ".lambda"));
@@ -44,12 +36,12 @@ class ReportTest {
         assertAll(
                 () -> assertThat(named.getHostName()).as("the address back, as offline").isEqualTo("192.0.2.7"),
                 () -> assertThat(canonical.getCanonicalHostName()).isEqualTo("192.0.2.8"),
-                () -> assertThat(linesAbout("192.0.2.7")).singleElement().asString()
+                () -> assertThat(ReportLines.about("192.0.2.7")).singleElement().asString()
                         .contains("\"kind\":\"host-lookup\"", "\"outcome\":\"refused\""),
-                () -> assertThat(linesAbout("192.0.2.8")).hasSize(1));
+                () -> assertThat(ReportLines.about("192.0.2.8")).hasSize(1));
     }
 
-    /** getByName goes through getAllByName; the call is still one call, and one line. */
+    // getByName goes through getAllByName; the call is still one call, and one line.
     @Test
     void recordsEachLookupOnce() throws IOException {
         final String host = "lookup-once.example.invalid";
@@ -58,7 +50,7 @@ class ReportTest {
         assertAll(
                 () -> assertThat(thrown).as("allowed, so it fails only because it can't resolve")
                         .isInstanceOf(UnknownHostException.class).hasMessageNotContaining("airgap"),
-                () -> assertThat(linesAbout(host)).singleElement().asString()
+                () -> assertThat(ReportLines.about(host)).singleElement().asString()
                         .contains("\"outcome\":\"allowed\""));
     }
 }

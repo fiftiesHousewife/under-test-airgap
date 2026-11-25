@@ -39,16 +39,28 @@ public final class JsonLinesReport implements Report {
      */
     public void checkWritable() {
         final Path folder = file.getParent();
+        if (folder != null) {
+            makeFolder(folder);
+        }
+        if (cantWriteIn(folder) || cantWriteOver(file)) {
+            throw cantWrite(folder, "not writable");
+        }
+    }
+
+    private static boolean cantWriteOver(final Path report) {
+        return Files.exists(report) && !Files.isWritable(report);
+    }
+
+    private void makeFolder(final Path folder) {
         try {
-            if (folder != null) {
-                Files.createDirectories(folder);
-            }
+            Files.createDirectories(folder);
         } catch (IOException e) {
             throw cantWrite(folder, e.toString());
         }
-        if (folder != null && !Files.isWritable(folder) || Files.exists(file) && !Files.isWritable(file)) {
-            throw cantWrite(folder, "not writable");
-        }
+    }
+
+    private static boolean cantWriteIn(final Path folder) {
+        return folder != null && !Files.isWritable(folder);
     }
 
     private IllegalStateException cantWrite(final Path folder, final String why) {

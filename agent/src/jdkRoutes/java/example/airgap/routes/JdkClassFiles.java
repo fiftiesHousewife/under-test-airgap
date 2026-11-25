@@ -15,7 +15,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
-/** Every class file of the running JDK: its modules from JDK 9, its rt.jar on JDK 8. */
+// Every class file of the running JDK: its modules from JDK 9, its rt.jar on JDK 8.
 final class JdkClassFiles {
 
     private JdkClassFiles() {

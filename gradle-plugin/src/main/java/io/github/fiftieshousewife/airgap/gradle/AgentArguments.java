@@ -25,7 +25,8 @@ import org.gradle.process.CommandLineArgumentProvider;
  * plugin is applied still count. The project's settings file, {@code testing/airgap.yaml}, is named to the agent when
  * it's there, and its content is one of the task's inputs. So is the build's root folder, inside which writes go ahead
  * unreported. The report's, the settings file's and the root's paths are left out of the task's inputs, so moving the
- * project doesn't make the task run again.
+ * project doesn't make the task run again. Test JVMs get {@link #ALLOW_ATTACH_SELF}, which lets a JVM attach an agent
+ * to itself, from inside, with no second program.
  */
 @SuppressFBWarnings(value = "EI_EXPOSE_REP",
         justification = "Gradle reads and sets these properties through the getters, so they return the live objects")
@@ -34,7 +35,6 @@ public final class AgentArguments implements CommandLineArgumentProvider {
 
     private final FileCollection agent;
     private final Property<String> mode;
-    /** Lets a JVM attach an agent to itself, from inside, with no second program. */
     public static final String ALLOW_ATTACH_SELF = "-Djdk.attach.allowAttachSelf=true";
 
     private final ListProperty<String> allow;
@@ -42,7 +42,6 @@ public final class AgentArguments implements CommandLineArgumentProvider {
     private final String run;
     private final Provider<RegularFile> report;
     private final FileCollection settingsFile;
-    /** The build's root folder, inside which writes go ahead unreported. */
     private final File rootDir;
 
     /** @return the agent's jar */

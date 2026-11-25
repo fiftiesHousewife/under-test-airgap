@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.FileGate;
+import io.github.fiftieshousewife.airgap.agent.SecureStreamGate;
 import java.nio.file.Path;
 import net.bytebuddy.asm.Advice;
 
@@ -15,6 +15,6 @@ public final class SecureFolderAdvice {
 
     @Advice.OnMethodExit
     static void exit(@Advice.This final Object stream, @Advice.Argument(0) final Path folder) {
-        FileGate.openedFolder(stream, folder);
+        SecureStreamGate.openedFolder(stream, folder);
     }
 }

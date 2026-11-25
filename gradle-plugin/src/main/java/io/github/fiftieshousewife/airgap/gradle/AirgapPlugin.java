@@ -18,11 +18,11 @@ import org.gradle.process.JavaForkOptions;
 /**
  * Starts every {@link Test} task, and every {@link JavaExec} task (which includes Spring Boot's {@code bootRun}),
  * with the airgap agent, and gives the tests the JUnit listener. Each task's report goes to
- * {@code build/airgap/<task name>/calls.jsonl}. Uses only Gradle APIs that Gradle 5.6 has.
+ * {@code build/airgap/<task name>/calls.jsonl}. The agent's jar is held in the configuration named
+ * {@link #AGENT_CONFIGURATION}. Uses only Gradle APIs that Gradle 5.6 has.
  */
 public final class AirgapPlugin implements Plugin<Project> {
 
-    /** The configuration that holds the agent's jar. */
     public static final String AGENT_CONFIGURATION = "airgapAgent";
 
     private static final String GROUP = "io.github.fiftieshousewife.airgap";
@@ -58,7 +58,7 @@ public final class AirgapPlugin implements Plugin<Project> {
         return properties.getProperty("version");
     }
 
-    /** Adds the agent to one task. */
+    // Adds the agent to one task.
     private static final class Guard {
 
         private final Project project;

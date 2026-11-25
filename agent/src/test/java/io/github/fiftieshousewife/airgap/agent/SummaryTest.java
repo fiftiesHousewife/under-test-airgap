@@ -13,7 +13,7 @@ class SummaryTest {
 
     private static final JsonMapper JSON = new JsonMapper();
 
-    /** A call to the target, refused unless the test says otherwise, from a line of code that depends on it. */
+    // A call to the target, refused unless the test says otherwise, from a line of code that depends on it.
     private static Call.CallBuilder call(final Kind kind, final String target) {
         return Call.builder().kind(kind).target(target).outcome("refused").run("test").javaVersion("25")
                 .caller("com.example.Orders.save(Orders.java:" + target.length() + ")");
@@ -23,25 +23,36 @@ class SummaryTest {
         return call.build().toJson() + "\n";
     }
 
-    @Test
-    void listsEachTargetOnceWithItsCallsOutcomesTestsAndCallers() throws IOException {
-        final String report = line(call(Kind.TCP, "db.example.invalid:5432").test("OrdersTest.saves"))
+    // Five calls to three targets: the database three times, by two tests, and its name looked up once
+    private static String fiveCalls() {
+        return line(call(Kind.TCP, "db.example.invalid:5432").test("OrdersTest.saves"))
                 + line(call(Kind.TCP, "db.example.invalid:5432").test("OrdersTest.saves"))
                 + line(call(Kind.TCP, "db.example.invalid:5432").outcome("allowed").test("BillingTest.bills"))
                 + line(call(Kind.HOST_LOOKUP, "db.example.invalid"))
                 + line(call(Kind.TCP, "a.example.invalid:80").outcome("reported").test("AuditTest.audits"));
+    }
 
-        final String summary = Summary.of("calls.jsonl", report);
+    @Test
+    void listsEachTargetOnceInOrderOfKindThenTarget() throws IOException {
+        final String summary = Summary.of("calls.jsonl", fiveCalls());
         final JsonNode targets = JSON.readTree(summary).get("targets");
-        final JsonNode database = targets.get(2);
 
         assertAll(
                 () -> assertThat(new ReportSchema("airgap.summarySchema").problems(summary)).isEmpty(),
                 () -> assertThat(JSON.readTree(summary).get("report").asString()).isEqualTo("calls.jsonl"),
                 () -> assertThat(targets.size()).as("each distinct kind and target once").isEqualTo(3),
-                () -> assertThat(targets.get(0).get("target").asString()).as("in order of kind, then target")
-                        .isEqualTo("db.example.invalid"),
+                () -> assertThat(targets.get(0).get("target").asString()).isEqualTo("db.example.invalid"),
                 () -> assertThat(targets.get(1).get("target").asString()).isEqualTo("a.example.invalid:80"),
+                () -> assertThat(summary).as("one target per line, for a person to read")
+                        .contains("[\n{\"kind\":\"host-lookup\"", "},\n{\"kind\":\"tcp\"").endsWith("\n]}\n"));
+    }
+
+    @Test
+    void givesEachTargetItsCallsOutcomesTestsAndCallers() throws IOException {
+        final JsonNode targets = JSON.readTree(Summary.of("calls.jsonl", fiveCalls())).get("targets");
+        final JsonNode database = targets.get(2);
+
+        assertAll(
                 () -> assertThat(database.get("calls").asInt()).isEqualTo(3),
                 () -> assertThat(database.get("outcomes").get("refused").asInt()).isEqualTo(2),
                 () -> assertThat(database.get("outcomes").get("allowed").asInt()).isEqualTo(1),
@@ -50,9 +61,7 @@ class SummaryTest {
                         .isEqualTo("[\"BillingTest.bills\",\"OrdersTest.saves\"]"),
                 () -> assertThat(database.get("callers").toString())
                         .isEqualTo("[\"com.example.Orders.save(Orders.java:23)\"]"),
-                () -> assertThat(targets.get(0).has("tests")).as("no test was running").isFalse(),
-                () -> assertThat(summary).as("one target per line, for a person to read")
-                        .contains("[\n{\"kind\":\"host-lookup\"", "},\n{\"kind\":\"tcp\"").endsWith("\n]}\n"));
+                () -> assertThat(targets.get(0).has("tests")).as("no test was running").isFalse());
     }
 
     @Test
@@ -106,7 +115,12 @@ class SummaryTest {
                         .isEqualTo("/tmp/sqlite-3.36.0.3-*-libsqlitejdbc.jnilib"),
                 () -> assertThat(targets.get(1).get("calls").asInt()).isEqualTo(2),
                 () -> assertThat(targets.get(2).get("target").asString())
-                        .isEqualTo("C:\\Temp\\netty_transport_native_epoll_x86_*.dll"),
+                        .isEqualTo("C:\\Temp\\netty_transport_native_epoll_x86_*.dll"));
+    }
+
+    @Test
+    void groupsOnlyTheRandomPartsOfLibrariesAndPrograms() {
+        assertAll(
                 () -> assertThat(Summary.grouped("tcp", "12345678.example.invalid:80")).as("only libraries")
                         .isEqualTo("12345678.example.invalid:80"),
                 () -> assertThat(Summary.grouped("native-library", "/tmp/12345678/libfoo.so"))

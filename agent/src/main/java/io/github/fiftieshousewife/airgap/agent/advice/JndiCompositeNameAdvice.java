@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import javax.naming.Name;
 import net.bytebuddy.asm.Advice;
 
@@ -12,6 +12,6 @@ public final class JndiCompositeNameAdvice {
 
     @Advice.OnMethodEnter
     static void enter(@Advice.Argument(0) final Name name) {
-        Gate.jndi(name == null ? null : name.toString());
+        NetworkGate.jndi(name == null ? null : name.toString());
     }
 }

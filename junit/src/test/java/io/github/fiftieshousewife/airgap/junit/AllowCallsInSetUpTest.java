@@ -9,10 +9,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-/**
- * A class's {@link AllowCalls} covers its set-up and tear-down too, and is inherited from base classes and the classes
- * a test is nested in. Checked with the agent's own answer to "would this be allowed?", so no call is made.
- */
+// A class's AllowCalls covers its set-up and tear-down too, and is inherited from base classes and the classes
+// a test is nested in. Checked with the agent's own answer to "would this be allowed?", so no call is made.
 @AllowCalls("setup.example.invalid:443")
 class AllowCallsInSetUpTest extends AllowCallsBase {
 
@@ -71,7 +69,7 @@ class AllowCallsInSetUpTest extends AllowCallsBase {
     }
 }
 
-/** A base class whose {@link AllowCalls} its subclasses' tests inherit. */
+// A base class whose AllowCalls its subclasses' tests inherit.
 @AllowCalls("base.example.invalid:443")
 abstract class AllowCallsBase {
 }

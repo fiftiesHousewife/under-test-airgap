@@ -32,29 +32,40 @@ public final class AirgapAgent {
      * @throws ReflectiveOperationException if the agent's start can't be found; if the agent can't start, the JVM
      *         stops, rather than running unguarded
      */
-    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "THROWS_METHOD_THROWS_RUNTIMEEXCEPTION"},
-            justification = "The path is the agent's own jar, from its code source, not from any input; the agent's"
-                    + " own failure to start is passed on unchanged, so the JVM shows why it stopped")
     public static void premain(final String arguments, final Instrumentation instrumentation)
             throws IOException, URISyntaxException, ReflectiveOperationException {
-        // Named with -Xbootclasspath/a as well, the jar is on the bootstrap class path from the start, and HotSpot's
-        // class-data sharing has no warning to print about it being added later.
-        if (AirgapAgent.class.getClassLoader() != null) {
-            final File jar = new File(AirgapAgent.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-            instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(jar));
-        }
+        onTheBootstrapClassPath(instrumentation);
         final Class<?> start = Class.forName(START, true, null);
         try {
             start.getMethod("start", String.class, Instrumentation.class).invoke(null, arguments, instrumentation);
         } catch (InvocationTargetException e) {
-            final Throwable cause = e.getCause();
-            if (cause instanceof RuntimeException) {
-                throw (RuntimeException) cause;
-            }
-            if (cause instanceof Error) {
-                throw (Error) cause;
-            }
-            throw e;
+            throw startFailure(e);
         }
+    }
+
+    // Named with -Xbootclasspath/a as well, the jar is on the bootstrap class path from the start, and HotSpot's
+    // class-data sharing has no warning to print about it being added later.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "The path is the agent's own jar, from its code source, not from any input")
+    private static void onTheBootstrapClassPath(final Instrumentation instrumentation)
+            throws IOException, URISyntaxException {
+        if (AirgapAgent.class.getClassLoader() != null) {
+            final File jar = new File(AirgapAgent.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(jar));
+        }
+    }
+
+    // The start-up's own failure, as itself, so the JVM reports why the agent couldn't start.
+    @SuppressFBWarnings(value = "THROWS_METHOD_THROWS_RUNTIMEEXCEPTION",
+            justification = "The agent's own failure to start is passed on unchanged, so the JVM shows why it stopped")
+    private static ReflectiveOperationException startFailure(final InvocationTargetException failed) {
+        final Throwable cause = failed.getCause();
+        if (cause instanceof RuntimeException) {
+            throw (RuntimeException) cause;
+        }
+        if (cause instanceof Error) {
+            throw (Error) cause;
+        }
+        return failed;
     }
 }

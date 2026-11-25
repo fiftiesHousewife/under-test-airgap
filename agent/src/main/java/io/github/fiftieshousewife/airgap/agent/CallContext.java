@@ -2,10 +2,12 @@ package io.github.fiftieshousewife.airgap.agent;
 
 import java.util.Collections;
 
-/** What's known about the thread making a call: the test it's running, and what that test allows. */
+/**
+ * What's known about the thread making a call: the test it's running, and what that test allows. {@link #NONE} is no
+ * test running, with nothing extra allowed.
+ */
 public final class CallContext {
 
-    /** No test running, nothing extra allowed. */
     public static final CallContext NONE = new CallContext(null, new Allowlist(Collections.<String>emptyList()));
 
     private final String test;

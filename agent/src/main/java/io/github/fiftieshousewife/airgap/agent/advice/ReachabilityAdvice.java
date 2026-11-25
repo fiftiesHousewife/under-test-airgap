@@ -1,7 +1,7 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import java.net.InetAddress;
 import net.bytebuddy.asm.Advice;
 
@@ -16,7 +16,7 @@ public final class ReachabilityAdvice {
 
     @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
     static boolean enter(@Advice.This final InetAddress address) {
-        return Gate.reachability(address);
+        return NetworkGate.reachability(address);
     }
 
     @Advice.OnMethodExit

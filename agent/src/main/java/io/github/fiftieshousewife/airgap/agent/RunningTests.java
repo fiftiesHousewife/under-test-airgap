@@ -4,15 +4,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * The test running on each thread, and what it allows. Threads a test starts share it while it runs, so a pool the
- * test fills works for it; once it ends, none of them see it, so a pool that outlives its test (OkHttp's, Hikari's,
- * Spring's) isn't allowed what the test was, nor blamed for its calls.
- *
- * <p>Scopes nest: a test class's scope covers its set-up (BeforeAll, the test instance, Spring's start-up) and
- * tear-down, and each of its tests runs in a scope inside it that starts with what the class allows. When the test
- * ends, the class's scope is back.</p>
- */
+// The test running on each thread, and what it allows. Threads a test starts share it while it runs, so a pool the
+// test fills works for it; once it ends, none of them see it, so a pool that outlives its test (OkHttp's, Hikari's,
+// Spring's) isn't allowed what the test was, nor blamed for its calls.
+//
+// Scopes nest: a test class's scope covers its set-up (BeforeAll, the test instance, Spring's start-up) and
+// tear-down, and each of its tests runs in a scope inside it that starts with what the class allows. When the test
+// ends, the class's scope is back.
 final class RunningTests {
 
     private static final InheritableThreadLocal<Scope> SCOPE = new InheritableThreadLocal<>();
@@ -20,7 +18,7 @@ final class RunningTests {
     private RunningTests() {
     }
 
-    /** A test, as seen by its thread and the threads it starts. */
+    // A test, as seen by its thread and the threads it starts.
     private static final class Scope {
         private final String test;
         private final Scope outer;
@@ -63,7 +61,7 @@ final class RunningTests {
         }
     }
 
-    /** Adds to what the scope on this thread allows, starting one for no test if there is none. */
+    // Adds to what the scope on this thread allows, starting one for no test if there is none.
     static void allow(final String... targets) {
         Scope scope = running();
         if (scope == null) {
@@ -76,17 +74,15 @@ final class RunningTests {
         scope.entries = entries;
     }
 
-    /** @return the scope running on this thread, to hand over to another, or {@code null} */
+    // Returns the scope running on this thread, to hand over to another, or null
     static Object toHandOver() {
         return running();
     }
 
-    /**
-     * Makes a handed-over scope this thread's, while a handed-over task runs.
-     *
-     * @param scope the scope from {@link #toHandOver()}, or {@code null} for none
-     * @return the scope this thread had, to put back afterwards
-     */
+    // Makes a handed-over scope this thread's, while a handed-over task runs.
+    //
+    // scope: the scope from toHandOver(), or null for none
+    // Returns the scope this thread had, to put back afterwards
     static Object adopt(final Object scope) {
         final Scope outer = SCOPE.get();
         if (scope == null) {

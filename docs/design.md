@@ -309,12 +309,13 @@ it runs every request on its own threads, so the agent hooks where a request is 
 `sendAsync` and its executor) and hands each task the sender's test, allowances and calling line. These two hooks
 refuse nothing themselves, so the JDK route check doesn't count them as guarding a route.
 
-With Gradle, projects on JUnit 4 move onto the JUnit Platform first: JUnit 4 tests keep running, unchanged, on its
-Vintage engine. With Maven, Surefire's own JUnit 4 provider runs JUnit 3 and 4 tests with JUnit 4 itself, which has no
-service loader for listeners; the Maven extension names `AirgapRunListener`, a JUnit 4 listener in `airgap-junit`, in
-Surefire's `listener` property, after any listeners the module already names. It names each test and gives it its
-class's `@AllowCalls`, but no class-level scope: calls in a class's `@BeforeClass` and `@AfterClass` name no test. On TestNG, where that
-property names TestNG's own listeners, the extension leaves it alone.
+JUnit 3 and 4 tests run by JUnit 4 itself (Surefire's JUnit 4 provider, Gradle's JUnit 4 runner, an IDE) are named
+by the agent: it hooks JUnit 4's `RunNotifier`, which every JUnit 4 runner reports each test through, when the
+application loads it (see [The agent names JUnit 4 tests itself, through a hook in JUnit 4's run notifier](decisions/0022-the-agent-names-junit-4-tests-itself-through-a-hook-in-junit-4s-run-notifier.md)).
+`@AllowCalls` on those tests comes from `AirgapRunListener`, a JUnit 4 listener in `airgap-junit`, which the Maven
+extension names in Surefire's `listener` property, after any the module names (not on TestNG, where that property
+names TestNG's listeners; and Surefire 2.19 runs no custom listener). There is no class-level scope: calls in a
+class's `@BeforeClass` and `@AfterClass` name no test.
 JUnit 6 needs Java 17, so projects on JDK 8 to 16 use JUnit 5. The listener and extension are built against the JUnit 5
 API, which JUnit 6 also runs.
 

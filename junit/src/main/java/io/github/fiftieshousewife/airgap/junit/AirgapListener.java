@@ -49,7 +49,7 @@ public final class AirgapListener implements TestExecutionListener {
         return test.getDisplayName();
     }
 
-    /** The test class, as the engine loaded it, or {@code null} if it can't be loaded here. */
+    // The test class, as the engine loaded it, or null if it can't be loaded here.
     private static Class<?> load(final String className) {
         try {
             return ClassSource.from(className).getJavaClass();

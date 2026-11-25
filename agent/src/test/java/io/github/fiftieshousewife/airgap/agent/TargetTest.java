@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 class TargetTest {
 
-    /** An address that isn't an internet address, like a Unix domain socket's. */
+    // An address that isn't an internet address, like a Unix domain socket's.
     private static final class OtherAddress extends SocketAddress {
         private static final long serialVersionUID = 1L;
     }
@@ -107,64 +107,12 @@ class TargetTest {
     }
 
     @Test
-    void readsJndiPortsOnlyWhenTheyAreThere() {
-        assertAll(
-                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid:/o=x").getPort()).isEqualTo(-1),
-                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid:123456/o=x").getPort()).isEqualTo(-1),
-                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid:9/o=x").getPort()).isEqualTo(9),
-                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid:65535").getPort()).isEqualTo(65535),
-                () -> assertThat(Target.ofJndi("ldap://[2001:db8::1]/o=x").getPort()).isEqualTo(-1),
-                () -> assertThat(Target.ofJndi("ldap://[2001:db8::1/o=x").getName()).as("no closing bracket")
-                        .isEqualTo("2001:db8::1"),
-                () -> assertThat(Target.ofJndi("ldap://a/o=x").getName()).isEqualTo("a"),
-                () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid?x").getName())
-                        .isEqualTo("ldap.example.invalid"),
-                () -> assertThat(Target.isNetworkJndiName(":ldap://x")).isFalse(),
-                () -> assertThat(Target.isNetworkJndiName("l:x")).isFalse());
-    }
-
-    @Test
     void namesAProgramByItsCommand() {
         assertAll(
                 () -> assertThat(Target.ofCommand(List.of("/usr/bin/curl", "https://example.com")).text())
                         .isEqualTo("/usr/bin/curl"),
                 () -> assertThat(Target.ofCommand(List.of()).getName()).isEmpty(),
                 () -> assertThat(Target.ofCommand(List.of("curl")).isLocal()).isFalse());
-    }
-
-    @Test
-    void namesAJndiCallByItsUrlAndJudgesItByItsHost() {
-        final Target ldap = Target.ofJndi("ldap://ldap.example.invalid:389/dc=example,dc=com");
-        final Target rmi = Target.ofJndi("rmi://[2001:db8::1]:1099/orders");
-        final Target dns = Target.ofJndi("dns:/example.com");
-
-        assertAll(
-                () -> assertThat(ldap.text()).isEqualTo("ldap://ldap.example.invalid:389/dc=example,dc=com"),
-                () -> assertThat(ldap.getName()).isEqualTo("ldap.example.invalid"),
-                () -> assertThat(ldap.getPort()).isEqualTo(389),
-                () -> assertThat(ldap.isLocal()).isFalse(),
-                () -> assertThat(rmi.getName()).isEqualTo("2001:db8::1"),
-                () -> assertThat(rmi.getPort()).isEqualTo(1099),
-                () -> assertThat(Target.ofJndi("LDAP://user@ldap.example.invalid/o=x").getName())
-                        .isEqualTo("ldap.example.invalid"),
-                () -> assertThat(Target.ofJndi("ldap://localhost:389/o=x").isLocal()).isTrue(),
-                () -> assertThat(Target.ofJndi("ldap:///o=x").isLocal()).as("no host means the machine itself")
-                        .isTrue(),
-                () -> assertThat(dns.isLocal()).as("no host means the system's DNS servers").isFalse(),
-                () -> assertThat(dns.getPort()).isEqualTo(-1));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"ldap://h/o", "LDAPS://h/o", "rmi://h/x", "dns://h/x", "dns:x", "iiop://h/x",
-        "iiopname://h/x", "corbaname:iiop:h#x"})
-    void recognisesJndiNamesThatReachOtherMachines(final String name) {
-        assertThat(Target.isNetworkJndiName(name)).isTrue();
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"java:comp/env/jdbc/orders", "jdbc/orders", "", "ldap", "file:/tmp/x", "x:ldap://h"})
-    void leavesOtherJndiNamesAlone(final String name) {
-        assertThat(Target.isNetworkJndiName(name)).isFalse();
     }
 
     @Test

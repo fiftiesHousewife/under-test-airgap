@@ -1,6 +1,6 @@
 package io.github.fiftieshousewife.airgap.agent.advice;
 
-import io.github.fiftieshousewife.airgap.agent.Gate;
+import io.github.fiftieshousewife.airgap.agent.NetworkGate;
 import java.net.InetAddress;
 import net.bytebuddy.asm.Advice;
 
@@ -12,6 +12,6 @@ public final class UdpAddressAdvice {
 
     @Advice.OnMethodEnter
     static void enter(@Advice.Argument(0) final InetAddress address, @Advice.Argument(1) final int port) {
-        Gate.udp(address, port);
+        NetworkGate.udp(address, port);
     }
 }

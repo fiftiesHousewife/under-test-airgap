@@ -8,7 +8,7 @@ import org.gradle.api.Task;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.provider.Provider;
 
-/** Deletes a task's report before the task runs, so the report holds that run's calls only. */
+// Deletes a task's report before the task runs, so the report holds that run's calls only.
 final class ClearReport implements Action<Task> {
 
     private final Provider<RegularFile> report;

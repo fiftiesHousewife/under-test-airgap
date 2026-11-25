@@ -21,7 +21,7 @@ class JUnit4ListenerTest {
     @TempDir
     Path folder;
 
-    /** Guards a module whose Surefire has one execution with the configuration given, and returns that execution. */
+    // Guards a module whose Surefire has one execution with the configuration given, and returns that execution.
     private PluginExecution guarded(final Xpp3Dom configuration, final String dependencyGroup) {
         final PluginExecution test = Sample.execution("default-test", configuration);
         final Plugin surefire = Sample.plugin(SUREFIRE, "2.19.1", null);

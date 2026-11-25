@@ -4,6 +4,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -19,17 +21,20 @@ public final class RepoChecks {
     private RepoChecks() {
     }
 
+    private static final Map<String, Consumer<Path>> COMMANDS = Map.of(
+            "check", root -> failOn(check(root)),
+            "index", root -> decisionFolders(root).forEach(folder -> new DecisionIndex().write(folder)),
+            "fix-links", root -> log.info("{} file(s) relinked", new DecisionLinkFixer().fix(new RepoFiles(root))));
+
     public static void main(final String... args) {
         if (args.length != 2) {
             throw new IllegalArgumentException("usage: RepoChecks check|index|fix-links <repository root>");
         }
-        final Path root = Path.of(args[1]);
-        switch (args[0]) {
-            case "check" -> failOn(check(root));
-            case "index" -> decisionFolders(root).forEach(folder -> new DecisionIndex().write(folder));
-            case "fix-links" -> log.info("{} file(s) relinked", new DecisionLinkFixer().fix(new RepoFiles(root)));
-            default -> throw new IllegalArgumentException("unknown command: " + args[0]);
+        final Consumer<Path> command = COMMANDS.get(args[0]);
+        if (command == null) {
+            throw new IllegalArgumentException("unknown command: " + args[0]);
         }
+        command.accept(Path.of(args[1]));
     }
 
     static List<Problem> check(final Path root) {
@@ -46,7 +51,7 @@ public final class RepoChecks {
         return problems;
     }
 
-    /** The decision folders this repo has: not every repo that reuses these checks has decision guides. */
+    // The decision folders this repo has: not every repo that reuses these checks has decision guides.
     static List<Path> decisionFolders(final Path root) {
         return DECISION_FOLDERS.stream().map(root::resolve).filter(Files::isDirectory).toList();
     }

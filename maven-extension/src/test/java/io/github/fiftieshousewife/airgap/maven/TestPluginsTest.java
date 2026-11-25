@@ -68,7 +68,7 @@ class TestPluginsTest {
                 .contains("airgap/failsafe-default-test/calls.jsonl");
     }
 
-    /** Maven 3.6 runs Surefire 2.12.4 when the pom names none, which leaves {@code @{argLine}} as it is. */
+    // Maven 3.6 runs Surefire 2.12.4 when the pom names none, which leaves {@code @{argLine}} as it is.
     @Test
     void givesAnOldSurefireTheArgLineAsItIsNow() {
         final Plugin surefire = Sample.plugin(SUREFIRE, "2.12.4", null);
@@ -132,14 +132,14 @@ class TestPluginsTest {
     @Test
     void knowsWhichSurefiresReplacePropertiesLate() {
         assertAll(
-                () -> assertThat(TestPlugins.replacesLate("2.17")).isTrue(),
-                () -> assertThat(TestPlugins.replacesLate("2.22.2")).isTrue(),
-                () -> assertThat(TestPlugins.replacesLate("3.0.0-M5")).isTrue(),
-                () -> assertThat(TestPlugins.replacesLate("3")).isTrue(),
-                () -> assertThat(TestPlugins.replacesLate("2.16")).isFalse(),
-                () -> assertThat(TestPlugins.replacesLate("2.12.4")).isFalse(),
-                () -> assertThat(TestPlugins.replacesLate("1.9")).isFalse(),
-                () -> assertThat(TestPlugins.replacesLate("${surefire.version}")).isFalse(),
-                () -> assertThat(TestPlugins.replacesLate(null)).isFalse());
+                () -> assertThat(SurefireVersions.replacesLate("2.17")).isTrue(),
+                () -> assertThat(SurefireVersions.replacesLate("2.22.2")).isTrue(),
+                () -> assertThat(SurefireVersions.replacesLate("3.0.0-M5")).isTrue(),
+                () -> assertThat(SurefireVersions.replacesLate("3")).isTrue(),
+                () -> assertThat(SurefireVersions.replacesLate("2.16")).isFalse(),
+                () -> assertThat(SurefireVersions.replacesLate("2.12.4")).isFalse(),
+                () -> assertThat(SurefireVersions.replacesLate("1.9")).isFalse(),
+                () -> assertThat(SurefireVersions.replacesLate("${surefire.version}")).isFalse(),
+                () -> assertThat(SurefireVersions.replacesLate(null)).isFalse());
     }
 }

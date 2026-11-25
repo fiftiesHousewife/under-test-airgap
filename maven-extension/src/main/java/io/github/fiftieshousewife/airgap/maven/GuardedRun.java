@@ -5,20 +5,19 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 
-/** One run of a module's code under the agent: a test plugin's execution, or an application start. */
+// One run of a module's code under the agent: a test plugin's execution, or an application start. Its report goes to
+// target/airgap/<name>/calls.jsonl; root is the build's root folder, inside which writes go ahead unreported; settings
+// is the module's testing/airgap.yaml, or null if it has none; run is the kind of JVM, for the report: test or
+// application.
 @Getter
 @Builder
 final class GuardedRun {
 
-    /** Where its report goes: {@code target/airgap/<name>/calls.jsonl}. */
     @NonNull
     private final File report;
-    /** The build's root folder, inside which writes go ahead unreported. */
     @NonNull
     private final File root;
-    /** The module's {@code testing/airgap.yaml}, or {@code null} if it has none. */
     private final File settings;
-    /** The kind of JVM, for the report: {@code test} or {@code application}. */
     @NonNull
     private final String run;
 }

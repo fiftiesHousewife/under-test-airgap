@@ -1,9 +1,7 @@
 package io.github.fiftieshousewife.airgap.agent;
 
-/**
- * Compares setting values and host names without regard to case, for the letters A to Z only. Host names and the
- * agent's settings are plain ASCII, and folding case only there avoids the surprises of Unicode case rules.
- */
+// Compares setting values and host names without regard to case, for the letters A to Z only. Host names and the
+// agent's settings are plain ASCII, and folding case only there avoids the surprises of Unicode case rules.
 final class Ascii {
 
     private static final int CASE_DISTANCE = 'a' - 'A';

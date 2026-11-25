@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-/** Calls to the machine itself go ahead with the agent attached: loopback, and the machine's own network addresses. */
+// Calls to the machine itself go ahead with the agent attached: loopback, and the machine's own network addresses.
 @Timeout(value = 10, unit = TimeUnit.SECONDS)
 @SuppressFBWarnings(value = {"UNENCRYPTED_SOCKET", "UNENCRYPTED_SERVER_SOCKET"},
         justification = "The only connections made are to the machine itself")
@@ -39,7 +39,7 @@ class TheMachineItselfTest {
         }
     }
 
-    /** RMI and JMX hand out the machine's own network address for objects in the same JVM. */
+    // RMI and JMX hand out the machine's own network address for objects in the same JVM.
     @Test
     void allowsTheMachinesOwnNetworkAddresses() throws IOException {
         final InetAddress own = ownNetworkAddress();
@@ -55,10 +55,21 @@ class TheMachineItselfTest {
 
     private static InetAddress ownNetworkAddress() throws SocketException {
         for (final NetworkInterface network : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-            for (final InetAddress address : Collections.list(network.getInetAddresses())) {
-                if (network.isUp() && address instanceof Inet4Address && !address.isLoopbackAddress()) {
-                    return address;
-                }
+            final InetAddress address = firstOwnAddress(network);
+            if (address != null) {
+                return address;
+            }
+        }
+        return null;
+    }
+
+    private static InetAddress firstOwnAddress(final NetworkInterface network) throws SocketException {
+        if (!network.isUp()) {
+            return null;
+        }
+        for (final InetAddress address : Collections.list(network.getInetAddresses())) {
+            if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
+                return address;
             }
         }
         return null;

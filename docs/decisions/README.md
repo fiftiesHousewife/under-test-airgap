@@ -33,13 +33,15 @@ records by `./gradlew buildDecisionIndexes`.
 | [Test JVMs let agents attach to themselves, so Mockito starts no java program](0018-test-jvms-let-agents-attach-to-themselves-so-mockito-starts-no-java-program.md) | accepted | Airgap maintainers |
 | [Writes outside the project are reported, and refused only when the settings say so](0019-writes-outside-the-project-are-reported-and-refused-only-when-the-settings-say-so.md) | accepted | Airgap maintainers |
 | [Maven builds get the agent through a Maven core extension, without editing the pom](0020-maven-builds-get-the-agent-through-a-maven-core-extension-without-editing-the-pom.md) | accepted | Airgap maintainers |
+| [The agent names JUnit 4 tests itself, through a hook in JUnit 4's run notifier](0022-the-agent-names-junit-4-tests-itself-through-a-hook-in-junit-4s-run-notifier.md) | accepted (chosen in discussion) | Airgap maintainers |
 
 ## How this repo works
 
 | Decision | Status | Who decides |
 |---|---|---|
-| [The code is held to strict quality checks run by the build, and pushes go through a script that syncs the issues](0007-the-code-is-held-to-strict-quality-checks-run-by-the-build-and-pushes-go-through-a-script-that-syncs-the-issues.md) | accepted (chosen in discussion); its push rule replaced by [The backlog syncs to the issues in GitHub Actions after each push, and pushes are plain git pushes after the checks](0021-the-backlog-syncs-to-the-issues-in-github-actions-after-each-push-and-pushes-are-plain-git-pushes-after-the-checks.md) | Airgap maintainers |
+| [The code is held to strict quality checks run by the build, and pushes go through a script that syncs the issues](0007-the-code-is-held-to-strict-quality-checks-run-by-the-build-and-pushes-go-through-a-script-that-syncs-the-issues.md) | accepted (chosen in discussion); its rules replaced by [The code-quality rules come from the shared java-conventions plugin, pinned to a version](0023-the-code-quality-rules-come-from-the-shared-java-conventions-plugin-pinned-to-a-version.md), and its push rule by [The backlog syncs to the issues in GitHub Actions after each push, and pushes are plain git pushes after the checks](0021-the-backlog-syncs-to-the-issues-in-github-actions-after-each-push-and-pushes-are-plain-git-pushes-after-the-checks.md) | Airgap maintainers |
 | [This repo runs its own builds under its own agent, and fails on any risky call](0009-this-repo-runs-its-own-builds-under-its-own-agent-and-fails-on-any-risky-call.md) | accepted (chosen in discussion) | Airgap maintainers |
 | [CI stays on setup-gradle v5 for now, rather than accept v6's terms for caching](0016-ci-stays-on-setup-gradle-v5-for-now-rather-than-accept-v6s-terms-for-caching.md) | accepted | Airgap maintainers |
 | [The backlog syncs to the issues in GitHub Actions after each push, and pushes are plain git pushes after the checks](0021-the-backlog-syncs-to-the-issues-in-github-actions-after-each-push-and-pushes-are-plain-git-pushes-after-the-checks.md) | accepted (chosen in discussion) | Airgap maintainers |
+| [The code-quality rules come from the shared java-conventions plugin, pinned to a version](0023-the-code-quality-rules-come-from-the-shared-java-conventions-plugin-pinned-to-a-version.md) | accepted (chosen in discussion) | Airgap maintainers |
 

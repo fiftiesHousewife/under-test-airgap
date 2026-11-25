@@ -1,20 +1,17 @@
 package io.github.fiftieshousewife.airgap.agent;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import io.github.fiftieshousewife.airgap.agent.settings.SettingsFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 /**
  * The agent's settings, from the text after {@code =} on its command line: {@code key=value} pairs separated by
@@ -42,9 +39,8 @@ import java.util.Set;
  */
 public final class Settings {
 
-    private static final List<String> KEYS = Arrays.asList("settings", "mode", "report", "allow", "run", "project",
-            "withoutHooks", "root");
     private static final Path DEFAULT_FILE = Paths.get("testing", "airgap.yaml");
+    private static final Map<String, BiConsumer<Settings, String>> SETTERS = settersByKey();
 
     private Mode mode = Mode.REFUSE;
     private Path report = Paths.get("build", "airgap", "calls.jsonl");
@@ -60,6 +56,21 @@ public final class Settings {
     private Settings() {
     }
 
+    // What each command-line key but settings sets; settings is read first, as the file allow and project add to.
+    private static Map<String, BiConsumer<Settings, String>> settersByKey() {
+        final Map<String, BiConsumer<Settings, String>> set = new HashMap<>();
+        set.put("mode", (settings, value) -> settings.mode = SettingsSources.modeNamed(value));
+        set.put("report", (settings, value) -> settings.report = SettingsSources.path(value));
+        set.put("allow", (settings, value) -> settings.allowlist = new Allowlist(
+                SettingsSources.plus(settings.fileAllow, value)));
+        set.put("run", (settings, value) -> settings.run = value);
+        set.put("project", (settings, value) -> settings.project = SettingsSources.plus(settings.project, value));
+        set.put("root", (settings, value) -> settings.root = value);
+        set.put("withoutHooks",
+                (settings, value) -> settings.withoutHooks = new LinkedHashSet<>(SettingsSources.list(value)));
+        return Collections.unmodifiableMap(set);
+    }
+
     /**
      * Reads the settings.
      *
@@ -69,38 +80,14 @@ public final class Settings {
      *     settings file that's named but can't be read, or that's wrong
      */
     public static Settings parse(final String arguments) {
-        final Map<String, String> given = pairs(arguments);
+        final Map<String, String> given = SettingsSources.pairs(arguments);
         final Settings settings = new Settings();
         settings.readFile(given.get("settings"));
+        given.remove("settings");
         for (final Map.Entry<String, String> pair : given.entrySet()) {
-            settings.apply(pair.getKey(), pair.getValue());
+            SETTERS.get(pair.getKey()).accept(settings, pair.getValue());
         }
         return settings;
-    }
-
-    private static Map<String, String> pairs(final String arguments) {
-        final Map<String, String> pairs = new LinkedHashMap<>();
-        if (arguments == null) {
-            return pairs;
-        }
-        for (final String pair : arguments.split(";")) {
-            if (!pair.trim().isEmpty()) {
-                add(pairs, pair.trim());
-            }
-        }
-        return pairs;
-    }
-
-    private static void add(final Map<String, String> pairs, final String pair) {
-        final int equals = pair.indexOf('=');
-        if (equals < 1) {
-            throw new IllegalArgumentException("airgap agent: setting '" + pair + "' needs the form key=value");
-        }
-        final String key = pair.substring(0, equals).trim();
-        if (!KEYS.contains(key)) {
-            throw new IllegalArgumentException("airgap agent: unknown setting '" + key + "'; known settings: " + KEYS);
-        }
-        pairs.put(key, pair.substring(equals + 1).trim());
     }
 
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
@@ -110,16 +97,7 @@ public final class Settings {
         if (named == null && !Files.isRegularFile(file)) {
             return;
         }
-        final SettingsFile read;
-        try {
-            read = SettingsFile.read(new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
-        } catch (IOException unreadable) {
-            throw new IllegalArgumentException("airgap agent: can't read the settings file " + file + " ("
-                    + unreadable + ")", unreadable);
-        } catch (IllegalArgumentException wrong) {
-            throw new IllegalArgumentException("airgap agent: the settings file " + file + " is wrong: "
-                    + wrong.getMessage() + ". Its schema is schema/airgap-settings.schema.json", wrong);
-        }
+        final SettingsFile read = SettingsSources.readFile(file);
         if (read.getMode() != null) {
             mode = read.getMode();
         }
@@ -128,56 +106,6 @@ public final class Settings {
         writeFolders = read.getWriteFolders();
         project = read.getPackages();
         refuseFileWrites = read.refusesFileWrites();
-    }
-
-    private void apply(final String key, final String value) {
-        if ("settings".equals(key)) {
-            return;
-        }
-        if ("mode".equals(key)) {
-            mode = modeNamed(value);
-        } else if ("report".equals(key)) {
-            report = reportPath(value);
-        } else if ("allow".equals(key)) {
-            final List<String> entries = new ArrayList<>(fileAllow);
-            entries.addAll(list(value));
-            allowlist = new Allowlist(entries);
-        } else if ("run".equals(key)) {
-            run = value;
-        } else if ("project".equals(key)) {
-            final List<String> prefixes = new ArrayList<>(project);
-            prefixes.addAll(list(value));
-            project = Collections.unmodifiableList(prefixes);
-        } else if ("root".equals(key)) {
-            root = value;
-        } else {
-            withoutHooks = new LinkedHashSet<>(list(value));
-        }
-    }
-
-    private static Mode modeNamed(final String value) {
-        for (final Mode candidate : Mode.values()) {
-            if (Ascii.equalsIgnoringCase(candidate.name(), value)) {
-                return candidate;
-            }
-        }
-        throw new IllegalArgumentException("airgap agent: mode '" + value + "' isn't refuse, report or off");
-    }
-
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
-            justification = "The engineer running the build chooses where the report goes, on their own machine")
-    private static Path reportPath(final String value) {
-        return Paths.get(value);
-    }
-
-    private static List<String> list(final String value) {
-        final List<String> items = new ArrayList<>();
-        for (final String item : value.split(",")) {
-            if (!item.trim().isEmpty()) {
-                items.add(item.trim());
-            }
-        }
-        return Collections.unmodifiableList(items);
     }
 
     /** @return how the agent behaves */
@@ -210,37 +138,9 @@ public final class Settings {
         return refuseFileWrites;
     }
 
-    /**
-     * The folders writes go ahead in unreported: the build's root, the temporary folder, the report's folder, and the
-     * settings file's {@code write_folders}, relative to the root or, with {@code ~/}, to the home folder.
-     *
-     * @return each folder's path, absolute
-     */
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
-            justification = "The engineer running the build names the root folder, on their own machine")
+    /** @return the folders writes go ahead in unreported, absolute (see {@code root} and {@code write_folders}) */
     public List<String> getProjectFolders() {
-        final List<String> folders = new ArrayList<>();
-        final File rootFolder = new File(root).getAbsoluteFile();
-        folders.add(rootFolder.getPath());
-        folders.add(System.getProperty("java.io.tmpdir", rootFolder.getPath()));
-        final Path reportFolder = report.toAbsolutePath().getParent();
-        if (reportFolder != null) {
-            folders.add(reportFolder.toString());
-        }
-        for (final String folder : writeFolders) {
-            folders.add(resolved(rootFolder, folder).getPath());
-        }
-        return Collections.unmodifiableList(folders);
-    }
-
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
-            justification = "The project's own settings file names folders on the engineer's own machine")
-    private static File resolved(final File rootFolder, final String folder) {
-        if (folder.startsWith("~/") || folder.startsWith("~\\")) {
-            return new File(System.getProperty("user.home", "."), folder.substring(2));
-        }
-        final File given = new File(folder);
-        return given.isAbsolute() ? given : new File(rootFolder, folder);
+        return SettingsSources.projectFolders(root, report, writeFolders);
     }
 
     /** @return the hooks to leave out, by name; empty except when testing the self-check */

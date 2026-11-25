@@ -85,18 +85,11 @@ public final class Json {
         return quoted.append('"').toString();
     }
 
+    // A quote, a backslash, a line end or a tab is written with a backslash; any other control character as \\uXXXX.
     private static String escape(final char c) {
-        if (c == '"' || c == '\\') {
-            return "\\" + c;
-        }
-        if (c == '\n') {
-            return "\\n";
-        }
-        if (c == '\r') {
-            return "\\r";
-        }
-        if (c == '\t') {
-            return "\\t";
+        final int named = "\"\\\n\r\t".indexOf(c);
+        if (named >= 0) {
+            return "\\" + "\"\\nrt".charAt(named);
         }
         return c < 0x20 ? String.format(Locale.ROOT, "\\u%04x", (int) c) : String.valueOf(c);
     }

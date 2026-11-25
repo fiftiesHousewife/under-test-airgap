@@ -3,10 +3,8 @@ package io.github.fiftieshousewife.airgap.junit;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-/**
- * Reaches the agent's gate, which the agent puts on the bootstrap class path. Found by name, so a project can keep
- * this jar on its test classpath and run without the agent: every call is then ignored.
- */
+// Reaches the agent's gate, which the agent puts on the bootstrap class path. Found by name, so a project can keep
+// this jar on its test classpath and run without the agent: every call is then ignored.
 final class GateBridge {
 
     static final String GATE = "io.github.fiftieshousewife.airgap.agent.Gate";
@@ -23,7 +21,7 @@ final class GateBridge {
         this.allowForThreadMethod = allowForThread;
     }
 
-    /** @return the bridge to the attached agent, which does nothing if no agent is attached */
+    // Returns the bridge to the attached agent, which does nothing if no agent is attached
     static GateBridge agent() {
         return ATTACHED;
     }
@@ -38,7 +36,7 @@ final class GateBridge {
         }
     }
 
-    /** @return whether an agent is attached */
+    // Returns whether an agent is attached
     boolean isAttached() {
         return enterTestMethod != null;
     }

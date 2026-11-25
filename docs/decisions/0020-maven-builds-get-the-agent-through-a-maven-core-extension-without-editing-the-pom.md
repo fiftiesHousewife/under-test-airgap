@@ -83,5 +83,5 @@ Chosen by the airgap maintainers in discussion: a Maven core extension,
 
 * Builds on: [Refused calls fail as an unplugged machine would, never with made-up success](0003-refused-calls-fail-as-an-unplugged-machine-would-never-with-made-up-success.md)
 * Builds on: [Test JVMs let agents attach to themselves, so Mockito starts no java program](0018-test-jvms-let-agents-attach-to-themselves-so-mockito-starts-no-java-program.md)
-* Later decisions that build on this: none yet
+* Later decisions that build on this: [The agent names JUnit 4 tests itself, through a hook in JUnit 4's run notifier](0022-the-agent-names-junit-4-tests-itself-through-a-hook-in-junit-4s-run-notifier.md)
 * Background: [the design: where it runs](../design.md#where-it-runs)
