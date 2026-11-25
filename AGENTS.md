@@ -23,8 +23,8 @@ in [The code is held to strict quality checks run by the build, and pushes go th
 | [`schema/`](schema/) | Schemas: the report, the repo's settings, the backlog |
 | `agent/`, `junit/`, `gradle-plugin/`, `maven-extension/` | The agent, the JUnit Platform listener and extension, the Gradle plugin, and the Maven core extension |
 | `examples/` | Old services run end to end under the agent, with their approved reports (added as the work starts) |
-| `maintainer-tools/` | Repo checks (`./gradlew check`, `buildDecisionIndexes`, `fixDecisionLinks`), the push script, and the hook that refuses a plain `git push` |
-| `tools/backlog-import/` | Loads the backlog into the issue tracker |
+| `maintainer-tools/` | Repo checks (`./gradlew check`, `buildDecisionIndexes`, `fixDecisionLinks`), the operating-system trace check, and the release script |
+| [`.github/workflows/sync-backlog.yml`](.github/workflows/sync-backlog.yml) | Brings the issues and `docs/BACKLOG.md` up to date after a push that changes the backlog, through the shared workflow |
 | [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle) | Runs any Gradle build's tests under the agent, from outside, without changing that build |
 | [`tools/try-it/airgap-mvn.sh`](tools/try-it/airgap-mvn.sh) | The same for any Maven build, through the Maven extension |
 | `build-logic/`, `config/quality/` | Gradle conventions and the quality-check rules |
@@ -106,7 +106,7 @@ materials, and PGP signatures. The shared settings are in
 1. Set `version=` in [`gradle.properties`](gradle.properties) and the defaults in
    [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle) and
    [`tools/try-it/airgap-mvn.sh`](tools/try-it/airgap-mvn.sh), write what's new for users in
-   `docs/releases/<version>.md` (see [the release notes](docs/releases/)), and push with `sync.sh`.
+   `docs/releases/<version>.md` (see [the release notes](docs/releases/)), and push.
 2. Run `maintainer-tools/release/release.sh <version>`. It tags `main` and pushes the tag.
 3. [The release workflow](.github/workflows/release.yml) runs the whole build first (every JDK, every Gradle), and
    publishes only if it passes.
@@ -117,7 +117,7 @@ passphrase, and a Gradle Plugin Portal API key. To check a release without publi
 `./gradlew :gradle-plugin:publishPlugins --validate-only`.
 
 ## Before you finish
-Run `./gradlew check`. It must pass. Where Gradle's worker processes can't connect back to Gradle, as in some AI
-assistants' sandboxes, PMD and Checkstyle fail to start; run them as plain programs instead, with the same rules, over
-every source set: `./gradlew -I maintainer-tools/quality-cli/quality-cli.init.gradle pmdCli checkstyleCli`. Push only with `maintainer-tools/sync/sync.sh "What changed"`, which syncs the
-issues and backlog page before pushing; never with a plain `git push`.
+Run `./gradlew check`. It must pass. Then commit and `git push`. After a push that changes the backlog,
+[the backlog sync workflow](.github/workflows/sync-backlog.yml) brings the issues up to date and commits
+`docs/BACKLOG.md`, so pull before the next change. Backlog keys never change: the issues are matched by them (see
+[The backlog syncs to the issues in GitHub Actions after each push, and pushes are plain git pushes after the checks](docs/decisions/0021-the-backlog-syncs-to-the-issues-in-github-actions-after-each-push-and-pushes-are-plain-git-pushes-after-the-checks.md)).

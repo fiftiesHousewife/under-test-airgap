@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# Brings this repo's GitHub issues up to date with plan/airgap-backlog.yaml after a push that changes it, and commits
+# the refreshed docs/BACKLOG.md. It calls the shared workflow, so every repo of ours uses one importer (see
+# The backlog syncs to the issues in GitHub Actions after each push, and pushes are plain git pushes after the checks).
+name: Backlog sync
+on:
+  push:
+    branches: [main]
+    paths: [plan/airgap-backlog.yaml]
+  workflow_dispatch:
+    inputs:
+      relink:
+        description: Post every issue link again
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  issues: write
+jobs:
+  sync:
+    uses: fiftiesHousewife/under-test/.github/workflows/backlog-sync.yml@main
+    with:
+      backlog-file: plan/airgap-backlog.yaml
+      relink: ${{ inputs.relink == true }}

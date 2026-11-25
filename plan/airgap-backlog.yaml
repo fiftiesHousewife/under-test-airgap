@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../schema/backlog-seed.schema.json
-# Work to build the airgap agent. Imported into this repo's issue tracker by maintainer-tools/sync/sync.sh.
+# Work to build the airgap agent. Imported into this repo's issue tracker by .github/workflows/sync-backlog.yml.
 # Items refer to each other by key (a descriptive name). Words follow GLOSSARY.md.
 
 items:

@@ -38,7 +38,8 @@ records by `./gradlew buildDecisionIndexes`.
 
 | Decision | Status | Who decides |
 |---|---|---|
-| [The code is held to strict quality checks run by the build, and pushes go through a script that syncs the issues](0007-the-code-is-held-to-strict-quality-checks-run-by-the-build-and-pushes-go-through-a-script-that-syncs-the-issues.md) | accepted (chosen in discussion) | Airgap maintainers |
+| [The code is held to strict quality checks run by the build, and pushes go through a script that syncs the issues](0007-the-code-is-held-to-strict-quality-checks-run-by-the-build-and-pushes-go-through-a-script-that-syncs-the-issues.md) | accepted (chosen in discussion); its push rule replaced by [The backlog syncs to the issues in GitHub Actions after each push, and pushes are plain git pushes after the checks](0021-the-backlog-syncs-to-the-issues-in-github-actions-after-each-push-and-pushes-are-plain-git-pushes-after-the-checks.md) | Airgap maintainers |
 | [This repo runs its own builds under its own agent, and fails on any risky call](0009-this-repo-runs-its-own-builds-under-its-own-agent-and-fails-on-any-risky-call.md) | accepted (chosen in discussion) | Airgap maintainers |
 | [CI stays on setup-gradle v5 for now, rather than accept v6's terms for caching](0016-ci-stays-on-setup-gradle-v5-for-now-rather-than-accept-v6s-terms-for-caching.md) | accepted | Airgap maintainers |
+| [The backlog syncs to the issues in GitHub Actions after each push, and pushes are plain git pushes after the checks](0021-the-backlog-syncs-to-the-issues-in-github-actions-after-each-push-and-pushes-are-plain-git-pushes-after-the-checks.md) | accepted (chosen in discussion) | Airgap maintainers |
 

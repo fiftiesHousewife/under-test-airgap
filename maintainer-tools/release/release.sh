@@ -5,7 +5,7 @@
 #   maintainer-tools/release/release.sh 1.2.3
 #
 # The version must already be in gradle.properties and the try-it script, with its notes in docs/releases/<version>.md,
-# and pushed with maintainer-tools/sync/sync.sh.
+# and pushed.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -17,20 +17,20 @@ case "$VERSION" in
   *) echo "$VERSION isn't a version such as 1.2.3" >&2; exit 1 ;;
 esac
 grep -qx "version=$VERSION" gradle.properties \
-  || { echo "gradle.properties doesn't say version=$VERSION; change it and push with sync.sh first" >&2; exit 1; }
+  || { echo "gradle.properties doesn't say version=$VERSION; change it and push it first" >&2; exit 1; }
 grep -q "\"airgap.version\", \"$VERSION\"" tools/try-it/airgap.init.gradle \
-  || { echo "tools/try-it/airgap.init.gradle doesn't default to $VERSION; change it and push with sync.sh first" >&2; exit 1; }
+  || { echo "tools/try-it/airgap.init.gradle doesn't default to $VERSION; change it and push it first" >&2; exit 1; }
 grep -q "AIRGAP_VERSION:-$VERSION}" tools/try-it/airgap-mvn.sh \
-  || { echo "tools/try-it/airgap-mvn.sh doesn't default to $VERSION; change it and push with sync.sh first" >&2; exit 1; }
+  || { echo "tools/try-it/airgap-mvn.sh doesn't default to $VERSION; change it and push it first" >&2; exit 1; }
 [ -s "docs/releases/$VERSION.md" ] \
-  || { echo "docs/releases/$VERSION.md, the release's notes for users, is missing; write it and push with sync.sh first" >&2; exit 1; }
+  || { echo "docs/releases/$VERSION.md, the release's notes for users, is missing; write it and push it first" >&2; exit 1; }
 [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || { echo "Release from main" >&2; exit 1; }
 git diff --quiet && git diff --cached --quiet || { echo "Commit or discard local changes first" >&2; exit 1; }
 git fetch -q origin main
 [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] \
-  || { echo "main isn't the same as origin/main; push with sync.sh first" >&2; exit 1; }
+  || { echo "main isn't the same as origin/main; push it first" >&2; exit 1; }
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then echo "$TAG already exists" >&2; exit 1; fi
 
 git tag -a "$TAG" -m "airgap $VERSION"
-UNDERTEST_SYNC=1 git push origin "$TAG"
+git push origin "$TAG"
 echo "Pushed $TAG. The release workflow publishes it once every check passes."

@@ -26,4 +26,5 @@ refusing it. Never point a test at a real host.
 
 ## 4. Finish
 - Tick off every `done_when` line, and set `status: "done"` on the item, with a short `notes:` saying what was done.
-- Run `./gradlew check`. Push only with `maintainer-tools/sync/sync.sh "What changed"`.
+- Run `./gradlew check`, then commit and `git push`. The issues and `docs/BACKLOG.md` update in GitHub Actions; pull
+  before the next change.

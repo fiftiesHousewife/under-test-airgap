@@ -6,7 +6,7 @@ group: How this repo works
 
 # The code is held to strict quality checks run by the build, and pushes go through a script that syncs the issues
 
-**Decided by:** Airgap maintainers · **Status:** accepted (chosen in discussion)
+**Decided by:** Airgap maintainers · **Status:** accepted (chosen in discussion); its push rule replaced by [The backlog syncs to the issues in GitHub Actions after each push, and pushes are plain git pushes after the checks](0021-the-backlog-syncs-to-the-issues-in-github-actions-after-each-push-and-pushes-are-plain-git-pushes-after-the-checks.md)
 
 ## Context and Problem Statement
 
@@ -37,5 +37,5 @@ Chosen: the first option. The standards are listed in [AGENTS.md](../../AGENTS.m
 ## More Information
 
 * Builds on: nothing (a foundation decision)
-* Later decisions that build on this: [Every hook is proved on every supported JDK, and the agent checks its own hooks at start](0008-every-hook-is-proved-on-every-supported-jdk-and-the-agent-checks-its-own-hooks-at-start.md)
+* Later decisions that build on this: [The backlog syncs to the issues in GitHub Actions after each push, and pushes are plain git pushes after the checks](0021-the-backlog-syncs-to-the-issues-in-github-actions-after-each-push-and-pushes-are-plain-git-pushes-after-the-checks.md), [Every hook is proved on every supported JDK, and the agent checks its own hooks at start](0008-every-hook-is-proved-on-every-supported-jdk-and-the-agent-checks-its-own-hooks-at-start.md)
 * Background: none
