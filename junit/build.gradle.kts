@@ -14,6 +14,9 @@ dependencies {
     compileOnly(platform(libs.junit5.bom))
     compileOnly(libs.junit5.jupiter.api)
     compileOnly(libs.junit5.platform.launcher)
+    // JUnit 4 itself, for the listener Surefire's JUnit 4 provider calls; a project running JUnit 4 has it already.
+    compileOnly(libs.junit4)
+    testImplementation(libs.junit4)
     testCompileOnly(project(":agent"))
 }
 

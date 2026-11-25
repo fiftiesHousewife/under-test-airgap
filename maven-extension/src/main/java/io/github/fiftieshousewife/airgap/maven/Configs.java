@@ -1,5 +1,6 @@
 package io.github.fiftieshousewife.airgap.maven;
 
+import java.util.Arrays;
 import java.util.List;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 
@@ -50,6 +51,29 @@ final class Configs {
         for (final Xpp3Dom kept : existing) {
             listed.addChild(kept);
         }
+    }
+
+    /**
+     * Adds a value to one of Surefire's {@code <properties>}, such as {@code listener}: after the values it has, with a
+     * comma, or as a new property.
+     */
+    static void addToProperty(final Xpp3Dom configuration, final String name, final String value) {
+        final Xpp3Dom properties = child(configuration, "properties");
+        for (final Xpp3Dom property : properties.getChildren("property")) {
+            if (name.equals(text(property, "name"))) {
+                final String values = text(property, "value");
+                if (values == null || values.trim().isEmpty()) {
+                    set(property, "value", value);
+                } else if (!Arrays.asList(values.split("\\s*,\\s*")).contains(value)) {
+                    set(property, "value", values + "," + value);
+                }
+                return;
+            }
+        }
+        final Xpp3Dom property = new Xpp3Dom("property");
+        set(property, "name", name);
+        set(property, "value", value);
+        properties.addChild(property);
     }
 
     /** @return a setting, such as a list, added empty if it isn't there */

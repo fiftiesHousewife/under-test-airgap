@@ -25,6 +25,8 @@ final class TestPlugins {
     private static final String ARG_LINE = "argLine";
     /** The name of the plugin's own configuration, which {@code mvn surefire:test} uses. */
     private static final String CLI = "-default-cli";
+    /** The listener that names each test when Surefire runs JUnit 3 or 4 with JUnit 4 itself. */
+    static final String JUNIT4_LISTENER = "io.github.fiftieshousewife.airgap.junit.AirgapRunListener";
     /** The first Surefire to replace {@code @{property}} as tests start, after JaCoCo has set its {@code argLine}. */
     private static final int[] LATE_REPLACEMENT = {2, 17};
 
@@ -81,6 +83,10 @@ final class TestPlugins {
             Configs.set(configuration, ARG_LINE, argLine(own, guarding.line(run)));
             Configs.addItem(Configs.child(configuration, "additionalClasspathElements"), "additionalClasspathElement",
                     guarding.getListener().getAbsolutePath());
+            // Names each test for JUnit 4's own runner; on TestNG, the listener property names TestNG's listeners.
+            if (!usesTestNg(project)) {
+                Configs.addToProperty(configuration, "listener", JUNIT4_LISTENER);
+            }
             clear(run.getReport());
             return configuration;
         }
@@ -126,6 +132,16 @@ final class TestPlugins {
         } catch (NumberFormatException unknown) {
             return false;
         }
+    }
+
+    /** @return true if the module's tests run on TestNG */
+    static boolean usesTestNg(final MavenProject project) {
+        for (final org.apache.maven.model.Dependency dependency : project.getDependencies()) {
+            if ("org.testng".equals(dependency.getGroupId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Clears a run's last report and summary, so each build's report is its own, as each Gradle task's is. */

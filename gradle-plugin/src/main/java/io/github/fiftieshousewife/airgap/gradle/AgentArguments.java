@@ -108,7 +108,7 @@ public final class AgentArguments implements CommandLineArgumentProvider {
     }
 
     private static void add(final List<String> settings, final String key, final ListProperty<String> values) {
-        final List<String> list = values.getOrElse(Collections.<String>emptyList());
+        final List<String> list = values.getOrElse(Collections.emptyList());
         if (!list.isEmpty()) {
             settings.add(key + "=" + String.join(",", list));
         }

@@ -92,6 +92,11 @@ class SampleBuildsTest {
         }
     }
 
+    /** @return the report's text for a sample's test, {@code refusesAConnectionToAnotherMachine}, in its class */
+    private static String named(final String testClass) {
+        return "\"test\":\"example." + testClass + ".refusesAConnectionToAnotherMachine\"";
+    }
+
     @ParameterizedTest(name = "Maven {0}")
     @MethodSource("mavens")
     void refusesAndReportsATestsCallAndNamesTheTest(final String maven) throws IOException, InterruptedException {
@@ -101,7 +106,7 @@ class SampleBuildsTest {
                 () -> assertThat(build.exit).as(build.output).isZero(),
                 () -> assertThat(build.report("", "surefire-default-test")).contains("\"kind\":\"tcp\"",
                         "\"target\":\"192.0.2.1:80\"", "\"outcome\":\"refused\"",
-                        "\"test\":\"example.PlainTest.refusesAConnectionToAnotherMachine\""),
+                        named("PlainTest")),
                 () -> assertThat(build.output).contains("airgap: plain made risky calls"));
     }
 
@@ -113,7 +118,8 @@ class SampleBuildsTest {
 
         assertAll(
                 () -> assertThat(build.exit).as(build.output).isZero(),
-                () -> assertThat(build.report("", "surefire-default-test")).contains("\"outcome\":\"refused\""));
+                () -> assertThat(build.report("", "surefire-default-test")).as("named by the JUnit 4 listener")
+                        .contains("\"outcome\":\"refused\"", named("OldSurefireTest")));
     }
 
     @ParameterizedTest(name = "Maven {0}")
@@ -123,7 +129,8 @@ class SampleBuildsTest {
 
         assertAll(
                 () -> assertThat(build.exit).as(build.output).isZero(),
-                () -> assertThat(build.report("", "surefire-default-test")).contains("\"outcome\":\"refused\""),
+                () -> assertThat(build.report("", "surefire-default-test")).contains("\"outcome\":\"refused\"",
+                        named("OwnArgLineTest")),
                 () -> assertThat(build.folder.resolve("target/jacoco.exec")).exists());
     }
 
@@ -134,8 +141,8 @@ class SampleBuildsTest {
 
         assertAll(
                 () -> assertThat(build.exit).as(build.output).isZero(),
-                () -> assertThat(build.report("one", "surefire-default-test")).contains("ModuleOneTest"),
-                () -> assertThat(build.report("two", "surefire-default-test")).contains("ModuleTwoTest"));
+                () -> assertThat(build.report("one", "surefire-default-test")).contains(named("ModuleOneTest")),
+                () -> assertThat(build.report("two", "surefire-default-test")).contains(named("ModuleTwoTest")));
     }
 
     @ParameterizedTest(name = "Maven {0}")
@@ -146,7 +153,7 @@ class SampleBuildsTest {
         assertAll(
                 () -> assertThat(build.exit).as(build.output).isZero(),
                 () -> assertThat(build.report("", "surefire-default-test")).contains("\"outcome\":\"refused\"",
-                        "\"test\":\"example.ExtensionsXmlTest.refusesAConnectionToAnotherMachine\""));
+                        named("ExtensionsXmlTest")));
     }
 
     @ParameterizedTest(name = "Maven {0}")

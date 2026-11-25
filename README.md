@@ -278,8 +278,9 @@ Two lines from the first run of an old order service's tests. Each line is one c
 ```
 
 Each line names the test that was running and the line of the service's code that made the call. The test is named
-only when the tests run on the JUnit Platform (JUnit 5 and later, or JUnit 4 through its Vintage engine) with
-`airgap-junit` on their class path, as the plugin arranges.
+when the tests run on the JUnit Platform (JUnit 5 and later, or JUnit 4 through its Vintage engine) with
+`airgap-junit` on their class path, as the plugin arranges, and in Maven builds also when Surefire runs JUnit 3 or 4
+tests with JUnit 4 itself, as the Maven extension arranges.
 
 ## What it doesn't catch
 
