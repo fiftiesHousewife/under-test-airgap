@@ -47,6 +47,21 @@ java/nio/file/attribute/FileOwnerAttributeView.setOwner(Ljava/nio/file/attribute
 java/nio/file/Files.setPosixFilePermissions(Ljava/nio/file/Path;Ljava/util/Set;)Ljava/nio/file/Path; # changes a file's permissions
 java/nio/file/attribute/PosixFileAttributeView.setPermissions(Ljava/util/Set;)V # changes a file's permissions
 java/nio/file/attribute/PosixFileAttributeView.setGroup(Ljava/nio/file/attribute/GroupPrincipal;)V # changes a file's group
+# On Linux, the JDK keeps a file's DOS attributes in an extended attribute, and opens the file read-only
+# (UnixPath.openForAttributeAccess, O_RDONLY) to read or set them. Found on JDK 11 and 17.
+java/nio/file/Files.isDirectory(Ljava/nio/file/Path;[Ljava/nio/file/LinkOption;)Z # reads a file's attributes: on Linux, its DOS attributes too, opening it read-only
+java/nio/file/Files.isRegularFile(Ljava/nio/file/Path;[Ljava/nio/file/LinkOption;)Z # reads a file's attributes: on Linux, its DOS attributes too, opening it read-only
+java/nio/file/Files.readAttributes(Ljava/nio/file/Path;Ljava/lang/Class;[Ljava/nio/file/LinkOption;)Ljava/nio/file/attribute/BasicFileAttributes; # reads a file's attributes: on Linux, its DOS attributes too, opening it read-only
+java/nio/file/attribute/BasicFileAttributeView.readAttributes()Ljava/nio/file/attribute/BasicFileAttributes; # reads a file's attributes: on Linux, its DOS attributes too, opening it read-only
+java/nio/file/attribute/DosFileAttributeView.readAttributes()Ljava/nio/file/attribute/BasicFileAttributes; # reads a file's attributes: on Linux, its DOS attributes too, opening it read-only
+java/nio/file/attribute/DosFileAttributeView.readAttributes()Ljava/nio/file/attribute/DosFileAttributes; # reads a file's attributes: on Linux, its DOS attributes too, opening it read-only
+java/nio/file/spi/FileSystemProvider.exists(Ljava/nio/file/Path;[Ljava/nio/file/LinkOption;)Z # reads a file's attributes: on Linux, its DOS attributes too, opening it read-only
+java/nio/file/spi/FileSystemProvider.readAttributes(Ljava/nio/file/Path;Ljava/lang/Class;[Ljava/nio/file/LinkOption;)Ljava/nio/file/attribute/BasicFileAttributes; # reads a file's attributes: on Linux, its DOS attributes too, opening it read-only
+java/nio/file/spi/FileSystemProvider.readAttributesIfExists(Ljava/nio/file/Path;Ljava/lang/Class;[Ljava/nio/file/LinkOption;)Ljava/nio/file/attribute/BasicFileAttributes; # reads a file's attributes: on Linux, its DOS attributes too, opening it read-only
+java/nio/file/attribute/DosFileAttributeView.setArchive(Z)V # on Linux, sets a DOS attribute as an extended attribute, opening the file read-only
+java/nio/file/attribute/DosFileAttributeView.setHidden(Z)V # on Linux, sets a DOS attribute as an extended attribute, opening the file read-only
+java/nio/file/attribute/DosFileAttributeView.setReadOnly(Z)V # on Linux, sets a DOS attribute as an extended attribute, opening the file read-only
+java/nio/file/attribute/DosFileAttributeView.setSystem(Z)V # on Linux, sets a DOS attribute as an extended attribute, opening the file read-only
 
 # Copying or moving to another file system (a zip file's, say) writes through Files.newOutputStream, which is hooked;
 # the unhooked route found only sets the copy's times afterwards. A copy or move within the default file system goes
