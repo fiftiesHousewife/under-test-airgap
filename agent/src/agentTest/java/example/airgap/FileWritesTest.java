@@ -63,6 +63,7 @@ class FileWritesTest {
         return Arguments.of(name, write);
     }
 
+    @SuppressForbidden("FileWriter, with the default character set, is one of the writes the agent must catch")
     private static Stream<Arguments> throwingWrites() {
         return Stream.of(
                 write("FileOutputStream", (file, path) -> new FileOutputStream(file)),

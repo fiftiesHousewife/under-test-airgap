@@ -25,6 +25,11 @@ mockito4 = "4.11.0"
 # The Gradle wiring is compiled against the oldest Gradle it supports, and tested on the latest of each major version.
 gradle-oldest-supported = "5.6.4"
 gradle-tested = "5.6.4,6.9.4,7.6.6,8.14.8"
+# The Maven extension is compiled against the oldest Maven it supports, and tested on the latest of each line (Maven 4
+# on its newest release candidate until 4.0 is out).
+maven-oldest-supported = "3.6.3"
+maven-tested = "3.6.3,3.8.9,3.9.16,4.0.0-rc-7"
+javax-inject = "1"
 
 # Quality tools
 jacoco = "0.8.16"
@@ -69,6 +74,8 @@ junit5-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params" }
 junit5-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 gradle-api-oldest-supported = { module = "dev.gradleplugins:gradle-api", version.ref = "gradle-oldest-supported" }
 junit4 = { module = "junit:junit", version = "4.13.2" }
+maven-core = { module = "org.apache.maven:maven-core", version.ref = "maven-oldest-supported" }
+javax-inject = { module = "javax.inject:javax.inject", version.ref = "javax-inject" }
 apache-httpclient4 = { module = "org.apache.httpcomponents:httpclient", version.ref = "apache-httpclient4" }
 apache-httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "apache-httpclient5" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }

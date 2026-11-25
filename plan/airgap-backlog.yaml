@@ -537,6 +537,8 @@ items:
   - key: "maven-wiring"
     type: "deliverable"
     title: "Maven wiring: the agent on Surefire, Failsafe, application starts and Maven itself"
+    status: "done"
+    notes: "maven-extension/ (airgap-maven-extension), proved by sample builds (plain, old default Surefire, own argLine with JaCoCo, multi-module, forkCount=0, and named in .mvn/extensions.xml) on Maven 3.6.3, 3.8.9, 3.9.16 and 4.0.0-rc-7; tools/try-it/airgap-mvn.sh for one-off runs. Tried on PetClinic (JaCoCo; same 79 tests pass), two 2020-21 Spring guides (as without the agent; a third needs a local service to build at all) and jsoup 1.11.3 (656 of 657 tests pass; the other reaches the internet and is refused, as offline). Tests are named only on the JUnit Platform, not under Surefire's own JUnit 4 runner."
     parent: "the-agent-is-ready-for-a-company-to-approve-and-use"
     phase: "set-up"
     horizon: "next"

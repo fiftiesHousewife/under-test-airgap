@@ -21,11 +21,12 @@ in [The code is held to strict quality checks run by the build, and pushes go th
 | [`docs/decisions/`](docs/decisions/README.md) | This repo's decisions, in MADR form |
 | [`plan/airgap-backlog.yaml`](plan/airgap-backlog.yaml) | The work, imported into this repo's issues and shown on `docs/BACKLOG.md` after each push |
 | [`schema/`](schema/) | Schemas: the report, the repo's settings, the backlog |
-| `agent/`, `junit/`, `gradle-plugin/` | The agent, the JUnit Platform listener and extension, and the Gradle plugin. Maven wiring follows |
+| `agent/`, `junit/`, `gradle-plugin/`, `maven-extension/` | The agent, the JUnit Platform listener and extension, the Gradle plugin, and the Maven core extension |
 | `examples/` | Old services run end to end under the agent, with their approved reports (added as the work starts) |
 | `maintainer-tools/` | Repo checks (`./gradlew check`, `buildDecisionIndexes`, `fixDecisionLinks`), the push script, and the hook that refuses a plain `git push` |
 | `tools/backlog-import/` | Loads the backlog into the issue tracker |
 | [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle) | Runs any Gradle build's tests under the agent, from outside, without changing that build |
+| [`tools/try-it/airgap-mvn.sh`](tools/try-it/airgap-mvn.sh) | The same for any Maven build, through the Maven extension |
 | `build-logic/`, `config/quality/` | Gradle conventions and the quality-check rules |
 
 ## Skills
@@ -57,6 +58,10 @@ The Gradle plugin's integration tests run a sample build on the latest Gradle 5,
 supports. Where Gradle can't download distributions, pass `-Pairgap.gradleDistributions=<folder of gradle-<version>-bin.zip>`.
 They run without this repo's agent attached, since TestKit starts Gradle processes and downloads Gradle; the sample
 builds themselves run under the agent, through the plugin.
+
+The Maven extension's integration tests run sample builds on the latest Maven 3.6, 3.8, 3.9 and 4, on JDK 17. Each
+Maven comes from Maven Central as an ordinary artifact; the samples' plugins download into
+`maven-extension/build/maven-it-repo`. Each build's log is in `maven-extension/build/maven-it-work/<version>/<sample>/`.
 
 The README is written for people using the agent. Keep build, quality and contribution details here, and keep version
 numbers out of it.
@@ -92,13 +97,15 @@ themselves run with it attached, and fail on any risky call (see
 [This repo runs its own builds under its own agent, and fails on any risky call](docs/decisions/0009-this-repo-runs-its-own-builds-under-its-own-agent-and-fails-on-any-risky-call.md)).
 
 ## Releasing
-A release publishes `airgap-agent`, `airgap-junit` and `airgap-gradle-plugin` to Maven Central, the plugin to the
+A release publishes `airgap-agent`, `airgap-junit`, `airgap-maven-extension` and `airgap-gradle-plugin` to Maven
+Central, the plugin to the
 Gradle Plugin Portal, and a GitHub release. Each jar goes with its sources, Javadoc, a CycloneDX software bill of
 materials, and PGP signatures. The shared settings are in
 [`build-logic/src/main/kotlin/io.github.fiftieshousewife.airgap-publishing.gradle.kts`](build-logic/src/main/kotlin/io.github.fiftieshousewife.airgap-publishing.gradle.kts).
 
-1. Set `version=` in [`gradle.properties`](gradle.properties) and the default in
-   [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle), write what's new for users in
+1. Set `version=` in [`gradle.properties`](gradle.properties) and the defaults in
+   [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle) and
+   [`tools/try-it/airgap-mvn.sh`](tools/try-it/airgap-mvn.sh), write what's new for users in
    `docs/releases/<version>.md` (see [the release notes](docs/releases/)), and push with `sync.sh`.
 2. Run `maintainer-tools/release/release.sh <version>`. It tags `main` and pushes the tag.
 3. [The release workflow](.github/workflows/release.yml) runs the whole build first (every JDK, every Gradle), and

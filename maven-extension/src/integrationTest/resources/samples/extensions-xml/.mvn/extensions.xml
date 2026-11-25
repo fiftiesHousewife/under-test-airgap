@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The sample build's tests put the version being tested in place of the token. -->
+<extensions>
+  <extension>
+    <groupId>io.github.fiftieshousewife.airgap</groupId>
+    <artifactId>airgap-maven-extension</artifactId>
+    <version>@airgap.version@</version>
+  </extension>
+</extensions>

@@ -8,5 +8,5 @@ allow:
 # Writes outside the project are refused, so a hook that stops matching shows as a test that wrote where it shouldn't.
 file_writes: refuse
 write_folders:
-  - folder: ../build/airgap-agent-test-writes
-    reason: "FileWritesTest writes here, outside the agent's folder, to prove a listed folder is the project's"
+  - folder: ../build
+    reason: "FileWritesTest writes in the repo's build folder, outside the agent's folder, to prove a listed folder is the project's; the whole folder, since on a fresh checkout the test makes it"

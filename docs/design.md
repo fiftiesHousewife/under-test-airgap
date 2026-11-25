@@ -150,9 +150,9 @@ The same agent jar is added to every JVM that runs the project's code:
 
 | JVM | Why | How it's added |
 |---|---|---|
-| Test runs | Tests are where old code first runs | Gradle: every `Test` task. Maven (planned): Surefire's and Failsafe's `argLine`, added by a Maven core extension without editing the pom (see [Maven builds get the agent through a Maven core extension, without editing the pom](decisions/0020-maven-builds-get-the-agent-through-a-maven-core-extension-without-editing-the-pom.md)) |
-| Application starts | Starting the application on its own is the next thing anyone tries | Gradle: every `JavaExec` task, and Spring Boot's `bootRun`. Maven (planned): `spring-boot:run`'s `jvmArguments` and `exec:exec`'s arguments, by the same extension; `exec:java` runs in Maven's own JVM |
-| The build itself | An old project's build scripts are its code too, and run first | Gradle: `org.gradle.jvmargs` in the engineer's own `gradle.properties` (in the Gradle user home, which wins over the project's). Maven: `MAVEN_OPTS` |
+| Test runs | Tests are where old code first runs | Gradle: every `Test` task. Maven: Surefire's and Failsafe's `argLine`, after the module's own (JaCoCo's, say), with the JUnit listener on the tests' class path, added in memory by a Maven core extension without editing the pom (see [Maven builds get the agent through a Maven core extension, without editing the pom](decisions/0020-maven-builds-get-the-agent-through-a-maven-core-extension-without-editing-the-pom.md)) |
+| Application starts | Starting the application on its own is the next thing anyone tries | Gradle: every `JavaExec` task, and Spring Boot's `bootRun`. Maven: `spring-boot:run`'s `jvmArguments` and `exec:exec`'s arguments when it starts `java`, by the same extension; `exec:java` and `forkCount=0` run in Maven's own JVM, and the extension warns about each |
+| The build itself | An old project's build scripts are its code too, and run first | Gradle: `org.gradle.jvmargs` in the engineer's own `gradle.properties` (in the Gradle user home, which wins over the project's). Maven: `MAVEN_OPTS` or `.mvn/jvm.config` |
 | Forked JVMs | PIT and some test set-ups start more JVMs | PIT's `jvmArgs`, set by hand. A JVM started with `java` from a guarded JVM is refused unless `process:java` is allowed, and then runs unguarded unless it is named the agent too; adding the agent to it automatically is planned |
 
 In the build JVM, the `allow` setting names the company's package repository, so dependencies can download, and
@@ -162,6 +162,13 @@ For Gradle, the plugin `io.github.fiftieshousewife.airgap` does the first two ro
 (see [The Gradle wiring supports Gradle 5.6 and later, proved on each major version](decisions/0010-the-gradle-wiring-supports-gradle-5-6-and-later-proved-on-each-major-version.md)).
 Each task writes its own report, `build/airgap/<task name>/calls.jsonl`, cleared when the task starts. The build JVM
 is set up by hand, as the README describes, because a plugin is applied too late to guard the build that applies it.
+
+For Maven, the core extension `io.github.fiftieshousewife.airgap:airgap-maven-extension` does the same, on Maven 3.6
+and later, without editing any pom (see [Maven builds get the agent through a Maven core extension, without editing
+the pom](decisions/0020-maven-builds-get-the-agent-through-a-maven-core-extension-without-editing-the-pom.md)). It is
+named in `.mvn/extensions.xml`, or for one run in `-Dmaven.ext.class.path`. Each run writes its own report,
+`target/airgap/<plugin>-<execution>/calls.jsonl`, cleared as the build starts, and Maven names each report with calls
+in it as the build ends. Sample builds prove it on the latest Maven 3.6, 3.8, 3.9 and 4.
 
 ## What counts as a risky call, and where it's caught
 

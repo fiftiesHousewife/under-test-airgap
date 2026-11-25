@@ -19,5 +19,5 @@ configure<nmcp.NmcpAggregationExtension> {
 }
 
 dependencies {
-    listOf(":agent", ":junit", ":gradle-plugin").forEach { "nmcpAggregation"(project(it)) }
+    listOf(":agent", ":junit", ":maven-extension", ":gradle-plugin").forEach { "nmcpAggregation"(project(it)) }
 }

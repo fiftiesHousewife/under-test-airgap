@@ -37,4 +37,4 @@ fun includeAll(root: String) {
     }
 }
 includeAll("maintainer-tools")
-include(":agent", ":junit", ":gradle-plugin")
+include(":agent", ":junit", ":gradle-plugin", ":maven-extension")

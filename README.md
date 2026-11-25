@@ -1,8 +1,10 @@
 # under-test-airgap
 
-[![Build](https://github.com/fiftiesHousewife/under-test-airgap/actions/workflows/build.yml/badge.svg)](https://github.com/fiftiesHousewife/under-test-airgap/actions/workflows/build.yml)
-[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE)
-![Runs on JDK 8 and later](https://img.shields.io/badge/runs%20on-JDK%208%20and%20later-blue)
+[![build](https://img.shields.io/github/actions/workflow/status/fiftiesHousewife/under-test-airgap/build.yml?branch=main&label=build)](https://github.com/fiftiesHousewife/under-test-airgap/actions/workflows/build.yml)
+[![maven central](https://img.shields.io/maven-central/v/io.github.fiftieshousewife.airgap/airgap-agent?label=maven%20central)](https://central.sonatype.com/artifact/io.github.fiftieshousewife.airgap/airgap-agent)
+[![runs on: Java 8+](https://img.shields.io/badge/runs%20on-Java%208%2B-blue)](#what-the-airgap-agent-does)
+[![licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE)
+[![decisions: MADR](https://img.shields.io/badge/decisions-MADR-informational)](docs/decisions/README.md)
 
 **Run old Java code without letting it reach other machines, and get a list of everything it tried to reach.**
 
@@ -34,7 +36,7 @@ written to a report.
 | TCP connections, through sockets, NIO channels and asynchronous channels | Opening a browser or mail program, and printing |
 | UDP traffic | For Spring applications, the setting, file and line that gave each address |
 | Starting other programs | Database, HTTP and mail calls named as such in the report |
-| JNDI lookups of LDAP, RMI, DNS and CORBA directories on other machines | Maven wiring |
+| JNDI lookups of LDAP, RMI, DNS and CORBA directories on other machines | |
 | Loading native libraries, other than the JDK's and the build tool's own | |
 | `System.exit` and `Runtime.halt` while a test is running, so the test fails instead of the run ending | |
 | Writing, deleting, renaming or moving files, and making folders, outside the project: reported, and refused if the settings say so | |
@@ -43,7 +45,8 @@ written to a report.
 
 ## Getting started
 
-You need a Gradle build, Gradle 5.6 or later, whose tests you want to run.
+You need a Gradle build (Gradle 5.6 or later) or a Maven build (Maven 3.6 or later) whose tests you want to run. For
+Maven, see [With Maven](#with-maven).
 
 ### 1. Add the plugin and run the tests
 
@@ -82,6 +85,32 @@ script fetches the agent from Maven Central. To fetch it from your company's rep
 `-Dairgap.repository=<repository URL>`. To use a jar you already have, add `-Dairgap.agent=<path to the jar>`. The
 script can't name your code's packages, so list them in `testing/airgap.yaml` (`packages: [com.example.]`), or the
 report may name a library's line instead of yours.
+
+#### With Maven
+
+The Maven extension adds the agent to every module's Surefire, Failsafe, `spring-boot:run` and `exec:exec` runs, and
+the JUnit listener to its tests, without changing any pom. It keeps whatever `argLine` a module already sets, such as
+JaCoCo's. To keep it for good, name it in `.mvn/extensions.xml`:
+
+```xml
+<extensions>
+  <extension>
+    <groupId>io.github.fiftieshousewife.airgap</groupId>
+    <artifactId>airgap-maven-extension</artifactId>
+    <version>...</version> <!-- the version your company approved -->
+  </extension>
+</extensions>
+```
+
+To try it for one run, use [`airgap-mvn.sh`](tools/try-it/airgap-mvn.sh) in place of `mvn`, from the project's
+folder: `/path/to/airgap-mvn.sh test`. It fetches the three jars with Maven, then runs the project's `./mvnw` (or
+`mvn`) with them named in `-Dmaven.ext.class.path`. Set `AIRGAP_REPOSITORY=<repository URL>` to fetch from your
+company's repository too. List your code's packages in `testing/airgap.yaml`, as for the init script.
+
+Each run's report goes to `target/airgap/<plugin>-<execution>/calls.jsonl`, for example
+`target/airgap/surefire-default-test/calls.jsonl`, and Maven names each report with calls in it as the build ends.
+Tests that Maven runs in its own JVM (`forkCount=0`) and `exec:java` can't get the agent this way; the extension warns
+about each. For those, run Maven itself with the agent, as below.
 
 ### 2. Read the report
 
@@ -219,6 +248,9 @@ org.gradle.jvmargs=-Xmx2g -Xbootclasspath/a:/path/to/airgap-agent.jar -javaagent
 `org.gradle.jvmargs` replaces Gradle's default memory setting, so keep an `-Xmx`. Gradle reuses running daemons, so
 stop them with `./gradlew --stop` after changing the file.
 
+For Maven, put the same arguments in `MAVEN_OPTS`, or in the project's `.mvn/jvm.config` for every run, with
+`process:java` allowed so Surefire can start its test JVMs.
+
 ### Settings
 
 Settings follow `=` after the agent's jar on the command line, separated by `;`:
@@ -283,6 +315,7 @@ supported yet. Nothing was run unguarded.
 - Each test checks the call was refused before a connection could start.
 - The check at start is tested to fail when one of the agent's changes is left out.
 - It is tested alongside JaCoCo, Mockito's inline mock maker and PIT.
+- The Gradle plugin runs sample builds on each supported Gradle, and the Maven extension on each supported Maven.
 - Before each release, real open-source projects' tests are run under it, on the JDKs they were written for.
 
 ## For a security review

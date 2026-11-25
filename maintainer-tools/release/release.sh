@@ -20,6 +20,8 @@ grep -qx "version=$VERSION" gradle.properties \
   || { echo "gradle.properties doesn't say version=$VERSION; change it and push with sync.sh first" >&2; exit 1; }
 grep -q "\"airgap.version\", \"$VERSION\"" tools/try-it/airgap.init.gradle \
   || { echo "tools/try-it/airgap.init.gradle doesn't default to $VERSION; change it and push with sync.sh first" >&2; exit 1; }
+grep -q "AIRGAP_VERSION:-$VERSION}" tools/try-it/airgap-mvn.sh \
+  || { echo "tools/try-it/airgap-mvn.sh doesn't default to $VERSION; change it and push with sync.sh first" >&2; exit 1; }
 [ -s "docs/releases/$VERSION.md" ] \
   || { echo "docs/releases/$VERSION.md, the release's notes for users, is missing; write it and push with sync.sh first" >&2; exit 1; }
 [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || { echo "Release from main" >&2; exit 1; }

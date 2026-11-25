@@ -12,6 +12,7 @@ final class PrintsTheMode {
      * @param arguments none
      */
     @SuppressWarnings("PMD.SystemPrintln")
+    @SuppressForbidden("The test reads the mode from this program's standard output")
     public static void main(final String[] arguments) {
         System.out.print(Settings.parse(null).getMode());
     }
