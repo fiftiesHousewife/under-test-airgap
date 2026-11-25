@@ -26,6 +26,7 @@ public final class Target {
     private final int port = NO_PORT;
     private final Reach reach;
     private final String shownInReport;
+    private final String proxy;
 
     private static Target of(final String name, final int port, final Reach reach) {
         return builder().name(name).port(port).reach(reach).build();
@@ -66,15 +67,16 @@ public final class Target {
         return ofAddress(new InetSocketAddress(address, port));
     }
 
+    /** @return a host and port reached through an HTTP proxy, given as {@code host:port}, which the report names */
+    public static Target ofProxiedRequest(final String host, final int port, final String proxy) {
+        return builder().name(host).port(port).reach(isLocalName(host) ? Reach.LOCAL : Reach.UNRESOLVED).proxy(proxy)
+                .build();
+    }
+
     /** @return a program being started, named by the first of its command and arguments */
     public static Target ofCommand(final List<String> command) {
         final String program = command.isEmpty() ? "" : command.get(0);
         return of(program, NO_PORT, Reach.REMOTE);
-    }
-
-    /** @return true for a JNDI name whose provider reaches another machine: ldap, ldaps, rmi, dns and CORBA */
-    public static boolean isNetworkJndiName(final String name) {
-        return JndiUrls.reachesOtherMachines(name);
     }
 
     /**
@@ -113,10 +115,6 @@ public final class Target {
         return HostNames.isLocalName(host);
     }
 
-    static boolean isThisMachines(final InetAddress address) {
-        return HostNames.isThisMachines(address);
-    }
-
     /** @return the host name or address, the program, the library or the exit */
     public String getName() {
         return name;
@@ -135,6 +133,11 @@ public final class Target {
     /** @return whether the address was never looked up, so an unplugged machine would fail to look it up */
     public boolean isUnresolved() {
         return reach == Reach.UNRESOLVED;
+    }
+
+    /** @return the HTTP proxy the call goes through, as {@code host:port}, or {@code null} for none */
+    public String getProxy() {
+        return proxy;
     }
 
     /** @return the target as the report shows it: {@code host:port}, a URL, or the name alone */

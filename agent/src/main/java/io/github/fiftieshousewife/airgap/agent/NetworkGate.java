@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.net.Proxy;
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -106,7 +107,7 @@ public final class NetworkGate {
      * @param name the name, as written
      */
     public static void jndi(final String name) {
-        if (name != null && Target.isNetworkJndiName(name)) {
+        if (name != null && JndiUrls.reachesOtherMachines(name)) {
             Gate.check(Kind.JNDI, Target.ofJndi(name));
         }
     }
@@ -120,4 +121,27 @@ public final class NetworkGate {
             }
         }
     }
+
+    /** {@code HttpURLConnection} is opening its server: through an HTTP proxy, its destination is checked too. */
+    public static void urlConnectionServer(final String host, final int port, final Proxy proxy) {
+        final Target destination = ProxiedRequests.ofUrlConnection(host, port, proxy);
+        if (destination != null) {
+            Gate.check(Kind.TCP, destination);
+        }
+    }
+
+    /** The JDK's HTTP client is sending a request: through an HTTP proxy, its destination is checked too. */
+    public static void jdkClientRequest(final Object client, final Object request) {
+        final Target destination;
+        try {
+            destination = ProxiedRequests.ofJdkClientRequest(client, request);
+        } catch (ReflectiveOperationException | ClassCastException | IllegalArgumentException unreadable) {
+            // A client this JDK's API doesn't describe: its connects are still checked by the socket hooks.
+            return;
+        }
+        if (destination != null) {
+            Gate.check(Kind.TCP, destination);
+        }
+    }
+
 }

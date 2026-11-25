@@ -1,6 +1,7 @@
 package example.airgap;
 
 import java.lang.reflect.InvocationTargetException;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -39,6 +40,18 @@ final class JdkHttpClient {
 
     static Object client() throws ReflectiveOperationException {
         return Class.forName("java.net.http.HttpClient").getMethod("newHttpClient").invoke(null);
+    }
+
+    // A client that sends every request through the proxies the selector picks.
+    static Object clientThrough(final ProxySelector selector) throws ReflectiveOperationException {
+        final Object builder = Class.forName("java.net.http.HttpClient").getMethod("newBuilder").invoke(null);
+        final Class<?> builderType = Class.forName("java.net.http.HttpClient$Builder");
+        builderType.getMethod("proxy", ProxySelector.class).invoke(builder, selector);
+        return builderType.getMethod("build").invoke(builder);
+    }
+
+    static int statusOf(final Object response) throws ReflectiveOperationException {
+        return (Integer) Class.forName("java.net.http.HttpResponse").getMethod("statusCode").invoke(response);
     }
 
     private static Object request(final String uri) throws ReflectiveOperationException {

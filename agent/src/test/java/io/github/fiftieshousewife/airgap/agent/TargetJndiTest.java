@@ -23,8 +23,8 @@ class TargetJndiTest {
                 () -> assertThat(Target.ofJndi("ldap://a/o=x").getName()).isEqualTo("a"),
                 () -> assertThat(Target.ofJndi("ldap://ldap.example.invalid?x").getName())
                         .isEqualTo("ldap.example.invalid"),
-                () -> assertThat(Target.isNetworkJndiName(":ldap://x")).isFalse(),
-                () -> assertThat(Target.isNetworkJndiName("l:x")).isFalse());
+                () -> assertThat(JndiUrls.reachesOtherMachines(":ldap://x")).isFalse(),
+                () -> assertThat(JndiUrls.reachesOtherMachines("l:x")).isFalse());
     }
 
     @Test
@@ -53,12 +53,12 @@ class TargetJndiTest {
     @ValueSource(strings = {"ldap://h/o", "LDAPS://h/o", "rmi://h/x", "dns://h/x", "dns:x", "iiop://h/x",
         "iiopname://h/x", "corbaname:iiop:h#x"})
     void recognisesJndiNamesThatReachOtherMachines(final String name) {
-        assertThat(Target.isNetworkJndiName(name)).isTrue();
+        assertThat(JndiUrls.reachesOtherMachines(name)).isTrue();
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"java:comp/env/jdbc/orders", "jdbc/orders", "", "ldap", "file:/tmp/x", "x:ldap://h"})
     void leavesOtherJndiNamesAlone(final String name) {
-        assertThat(Target.isNetworkJndiName(name)).isFalse();
+        assertThat(JndiUrls.reachesOtherMachines(name)).isFalse();
     }
 }

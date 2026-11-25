@@ -18,7 +18,7 @@ class HookTest {
                 () -> assertThat(Hook.values()).allSatisfy(hook -> assertAll(
                         () -> assertThat(hook.getTypeName()).as(hook.id())
                                 .matches("(java\\.(net|lang|io)|javax\\.naming|sun\\.nio\\.(ch|fs)"
-                                        + "|jdk\\.internal\\.net\\.http)\\..+"),
+                                        + "|sun\\.net\\.www\\.http|jdk\\.internal\\.net\\.http)\\..+"),
                         () -> assertThat(hook.getMethods()).isNotNull(),
                         () -> assertThat(hook.getAdvice().getPackageName()).endsWith(".advice"))));
     }
@@ -55,6 +55,8 @@ class HookTest {
                 () -> assertThat(Hook.TCP_HTTP_CLIENT_TASKS.appliesHere()).isTrue(),
                 () -> assertThat(Hook.TCP_HTTP_CLIENT_SEND.refuses()).isFalse(),
                 () -> assertThat(Hook.TCP_HTTP_CLIENT_TASKS.refuses()).isFalse(),
+                () -> assertThat(Hook.TCP_URL_CONNECTION_PROXY.refuses()).as("checks only behind a proxy").isFalse(),
+                () -> assertThat(Hook.TCP_HTTP_CLIENT_PROXY.refuses()).as("checks only behind a proxy").isFalse(),
                 () -> assertThat(Hook.TCP_SOCKET.refuses()).isTrue(),
                 () -> assertThat(Hook.FILE_WRITE_SECURE_FOLDER.refuses()).as("only notes the folder").isFalse(),
                 () -> assertThat(Hook.FILE_WRITE_SECURE_DELETE.refuses()).isTrue(),

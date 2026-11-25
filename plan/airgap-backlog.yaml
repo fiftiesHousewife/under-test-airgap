@@ -885,6 +885,8 @@ items:
   - key: "the-jdks-http-clients-are-judged-behind-a-proxy"
     type: "deliverable"
     title: "Behind a proxy, HttpURLConnection and the JDK's HTTP client are checked and reported by their real destination as well as the proxy"
+    status: "done"
+    notes: "Two hooks: sun.net.www.http.HttpClient.openServer() for HttpURLConnection, and the JDK 11 client's private sendAsync. Through an HTTP proxy, each checks the destination as a TCP call, reported with a new proxy field; with no proxy they do nothing, since the socket hooks check the destination. Proved through a stand-in proxy on the machine itself on JDK 8, 11, 17, 21 and 25. They don't count as route guards in the JDK route check (they check only behind a proxy), and the check at start proves them by their methods being there. The design's limits name the clients still seen only as the proxy."
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
     phase: "set-up"
     horizon: "next"

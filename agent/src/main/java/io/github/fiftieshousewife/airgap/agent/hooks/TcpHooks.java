@@ -9,9 +9,11 @@ import io.github.fiftieshousewife.airgap.agent.advice.AsyncConnectAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.AsyncConnectHandlerAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.HandOverAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.HandOverExecutorAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.JdkClientProxyAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.ReachabilityAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.SctpSendAdvice;
 import io.github.fiftieshousewife.airgap.agent.advice.TcpAdvice;
+import io.github.fiftieshousewife.airgap.agent.advice.UrlConnectionProxyAdvice;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -35,6 +37,10 @@ import java.nio.ByteBuffer;
  * sender. Refuses nothing itself; the client's connects are refused by the channel hooks.</li>
  * <li>{@code HTTP_CLIENT_SEND}: the JDK HTTP client's private {@code sendAsync}, which every request reaches, from
  * JDK 11: the executor it is given runs the request's tasks with the sender's test and caller.</li>
+ * <li>{@code URL_CONNECTION_PROXY}, {@code HTTP_CLIENT_PROXY}: where {@code HttpURLConnection} opens its server
+ * ({@code sun.net.www.http.HttpClient.openServer()}) and where the JDK HTTP client sends each request (its private
+ * {@code sendAsync}): through an HTTP proxy, the destination is checked as well as the proxy. They check only behind
+ * a proxy, so a route through them isn't guarded by them; a direct connection is checked by the socket hooks.</li>
  * </ul>
  */
 public final class TcpHooks {
@@ -62,6 +68,11 @@ public final class TcpHooks {
     public static final HookSpec ASYNC_HANDLER = new HookSpec("sun.nio.ch.AsynchronousSocketChannelImpl",
             named("connect").and(takesArguments(3)).and(takesArgument(0, SocketAddress.class)),
             AsyncConnectHandlerAdvice.class);
+
+    public static final HookSpec URL_CONNECTION_PROXY = new HookSpec("sun.net.www.http.HttpClient",
+            named("openServer").and(takesArguments(0)), UrlConnectionProxyAdvice.class);
+    public static final HookSpec HTTP_CLIENT_PROXY = new HookSpec("jdk.internal.net.http.HttpClientImpl",
+            named("sendAsync").and(isPrivate()).and(takesArguments(4)), JdkClientProxyAdvice.class);
 
     private TcpHooks() {
     }

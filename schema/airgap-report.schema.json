@@ -24,6 +24,11 @@
       "enum": ["always", "settings", "test"],
       "description": "For an allowed call, which part of the allowlist allowed it: always (the machine itself, or the package repository in the build), the project's settings file, or the test's own allowance."
     },
+    "proxy": {
+      "type": "string",
+      "minLength": 1,
+      "description": "For a call made through an HTTP proxy, the proxy, as host and port; the target is then the destination behind it, judged as well as the proxy."
+    },
     "run": {
       "type": "object",
       "required": ["kind", "java_version"],

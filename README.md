@@ -292,6 +292,9 @@ production. See
 Until shared drives are covered, files on `\\server\share` paths and mapped network drives can be read, and writing
 to them is only reported: Windows opens them itself, outside the JVM's network code.
 
+If you allow an HTTP proxy, the JDK's own HTTP clients are still checked by the address behind it, but other clients
+(Apache HttpClient, OkHttp, Netty) are seen only as the proxy, so everything they reach through it goes ahead.
+
 ## The check at start
 
 The agent changes a few classes inside the JDK, and a JDK update could change one so the agent's change no longer

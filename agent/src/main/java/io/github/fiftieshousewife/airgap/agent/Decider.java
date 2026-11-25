@@ -122,6 +122,7 @@ public final class Decider {
         return Call.builder()
                 .kind(kind)
                 .target(target.text())
+                .proxy(target.getProxy())
                 .run(settings.getRun())
                 .javaVersion(System.getProperty("java.version", "unknown"))
                 .test(context.getTest())

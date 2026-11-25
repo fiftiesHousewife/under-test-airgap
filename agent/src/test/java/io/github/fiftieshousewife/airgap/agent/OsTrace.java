@@ -91,7 +91,7 @@ final class OsTrace {
     // The trace is read on the machine it was made on, whose own addresses the agent counts as local too.
     private static boolean isThisMachines(final String address) {
         try {
-            return Target.isThisMachines(InetAddress.getByName(address));
+            return HostNames.isThisMachines(InetAddress.getByName(address));
         } catch (UnknownHostException notAnAddress) {
             return false;
         }

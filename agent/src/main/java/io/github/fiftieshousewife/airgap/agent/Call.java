@@ -18,6 +18,7 @@ public final class Call {
     @NonNull
     private final String outcome;
     private final String allowedBy;
+    private final String proxy;
     @NonNull
     private final String run;
     @NonNull
@@ -35,6 +36,7 @@ public final class Call {
                 .field("target", target)
                 .field("outcome", outcome)
                 .field("allowed_by", allowedBy)
+                .field("proxy", proxy)
                 .object("run", new Json().field("kind", run).field("java_version", javaVersion))
                 .field("test", test)
                 .field("caller", caller)

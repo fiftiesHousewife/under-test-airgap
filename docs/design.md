@@ -414,10 +414,11 @@ that impossible to miss (see
 
 ## Its limits
 
-- **Behind an allowed HTTP proxy,** only the proxy is seen, so every destination behind it goes ahead. **Planned:**
-  the JDK's own HTTP clients judged by their real destination as well (see
-  [Behind an HTTP proxy, the JDK's own HTTP clients are judged by their real destination as well as the proxy](decisions/0014-behind-an-http-proxy-the-jdks-own-http-clients-are-judged-by-their-real-destination-as-well-as-the-proxy.md));
-  other clients will still show only the proxy.
+- **Behind an allowed HTTP proxy,** the JDK's own clients, `HttpURLConnection` and the JDK 11 HTTP client, are
+  judged by their real destination as well, and the report names both (see
+  [Behind an HTTP proxy, the JDK's own HTTP clients are judged by their real destination as well as the proxy](decisions/0014-behind-an-http-proxy-the-jdks-own-http-clients-are-judged-by-their-real-destination-as-well-as-the-proxy.md)).
+  Other clients, such as Apache HttpClient, OkHttp and Netty, connect to the proxy themselves and send it the
+  destination as text, so only the proxy is seen: every destination behind an allowed proxy goes ahead for them.
 - **Native code** loaded before the agent, or allowed with `native:`, or code that uses the JDK's internals to go
   round it, isn't caught.
 - **An exit outside a test** isn't refused: with no `airgap-junit` on the tests' class path, or from a shared thread

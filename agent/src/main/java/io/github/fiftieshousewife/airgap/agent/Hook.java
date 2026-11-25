@@ -35,6 +35,8 @@ public enum Hook {
     TCP_HTTP_CLIENT_TASKS(TcpHooks.HTTP_CLIENT_TASKS),
     TCP_HTTP_CLIENT_SEND(TcpHooks.HTTP_CLIENT_SEND),
     TCP_ASYNC_HANDLER(TcpHooks.ASYNC_HANDLER),
+    TCP_URL_CONNECTION_PROXY(TcpHooks.URL_CONNECTION_PROXY),
+    TCP_HTTP_CLIENT_PROXY(TcpHooks.HTTP_CLIENT_PROXY),
     UDP_SOCKET_CONNECT(UdpHooks.SOCKET_CONNECT),
     UDP_SOCKET_CONNECT_ADDRESS(UdpHooks.SOCKET_CONNECT_ADDRESS),
     UDP_SOCKET_SEND(UdpHooks.SOCKET_SEND),
@@ -93,14 +95,14 @@ public enum Hook {
     }
 
     /**
-     * Whether the hook refuses calls. The HTTP client's hooks only hand the sender's test and caller to the client's
-     * threads, and the secure directory stream's constructor only notes its folder, so a route through them isn't
-     * guarded by them.
+     * Whether the hook refuses every call that passes it, and so guards each route through it. The HTTP client's
+     * hand-overs pass on the sender's test and caller, the secure directory stream's constructor notes its folder,
+     * and the proxy hooks check only calls made through a proxy; a route through them is guarded elsewhere.
      *
-     * @return false for the hooks that only hand over
+     * @return false for those hooks
      */
     public boolean refuses() {
-        return this != TCP_HTTP_CLIENT_TASKS && this != TCP_HTTP_CLIENT_SEND && this != FILE_WRITE_SECURE_FOLDER;
+        return !HookMethods.HOOKS_THAT_GUARD_NO_ROUTE.contains(name());
     }
 
     /** @return the hook's name in settings and messages, for example {@code tcp-socket} */

@@ -25,7 +25,10 @@ public final class HookMethods {
     public static final Set<String> HOOKS_ONLY_SOME_JDKS_HAVE = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "TCP_SCTP_CONNECT", "TCP_SCTP_SEND", "NATIVE_LIBRARY_FOREIGN_BY_NAME", "NATIVE_LIBRARY_FOREIGN_BY_PATH",
             "TCP_HTTP_CLIENT_TASKS", "TCP_HTTP_CLIENT_SEND", "FILE_WRITE_SECURE_FOLDER", "FILE_WRITE_SECURE_DELETE",
-            "FILE_WRITE_SECURE_MOVE", "FILE_WRITE_SECURE_CHANNEL")));
+            "FILE_WRITE_SECURE_MOVE", "FILE_WRITE_SECURE_CHANNEL", "TCP_HTTP_CLIENT_PROXY")));
+    public static final Set<String> HOOKS_THAT_GUARD_NO_ROUTE = Collections.unmodifiableSet(new HashSet<>(
+            Arrays.asList("TCP_HTTP_CLIENT_TASKS", "TCP_HTTP_CLIENT_SEND", "FILE_WRITE_SECURE_FOLDER",
+                    "TCP_URL_CONNECTION_PROXY", "TCP_HTTP_CLIENT_PROXY")));
 
     private HookMethods() {
     }

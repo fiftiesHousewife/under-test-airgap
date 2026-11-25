@@ -76,9 +76,9 @@ class TargetTest {
         assertAll(
                 () -> assertThat(Target.ofAddress(new InetSocketAddress(own, 1099)).isLocal()).isTrue(),
                 () -> assertThat(Target.ofAddress(own, 1099).isLocal()).isTrue(),
-                () -> assertThat(Target.isThisMachines(own)).isTrue(),
+                () -> assertThat(HostNames.isThisMachines(own)).isTrue(),
                 () -> assertThat(Target.ofReverseLookup(own).isLocal()).as("its name comes from DNS").isFalse(),
-                () -> assertThat(Target.isThisMachines(InetAddress.getByAddress(new byte[] {(byte) 192, 0, 2, 1})))
+                () -> assertThat(HostNames.isThisMachines(InetAddress.getByAddress(new byte[] {(byte) 192, 0, 2, 1})))
                         .isFalse());
     }
 
