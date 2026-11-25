@@ -15,7 +15,7 @@
 #   AIRGAP_JARS        a folder that already holds the three jars, so nothing is fetched
 set -eu
 
-version="${AIRGAP_VERSION:-0.3.0}"
+version="${AIRGAP_VERSION:-0.4.0}"
 group="io.github.fiftieshousewife.airgap"
 
 if [ -f ./mvnw ]; then
