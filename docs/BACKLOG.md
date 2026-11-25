@@ -1,6 +1,6 @@
 # Backlog
 
-Open work for this repository, generated from the issue tracker by [tools/backlog-import](../tools/backlog-import/README.md) after each import. Do not edit by hand.
+Open work for this repository, generated from the issue tracker by [tools/backlog-import](https://github.com/fiftiesHousewife/under-test/blob/main/tools/backlog-import/README.md) after each import. Do not edit by hand.
 
 Ordered by horizon (now, next, later), then items that are ready before items waiting on others.
 
