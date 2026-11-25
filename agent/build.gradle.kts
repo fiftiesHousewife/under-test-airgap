@@ -196,6 +196,8 @@ testJdks.get().forEach { jdk ->
             javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(jdk) }
         }
         systemProperty("airgap.routes.out", layout.buildDirectory.file("jdk-routes/jdk$jdk.tsv").get().asFile.absolutePath)
+        // A failure names each unreviewed route in its message: show it whole, so CI's log says which.
+        testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
     }
     tasks.check {
         dependsOn(task)
