@@ -56,6 +56,10 @@
             "items": {"type": "string"},
             "uniqueItems": true,
             "description": "Each first stack frame in the project's own code that made one of the calls, in order."
+          },
+          "spring_start_up": {
+            "const": true,
+            "description": "For Spring applications: at least one of the calls was made while Spring was starting, as configuration fetched at start-up is."
           }
         }
       }

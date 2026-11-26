@@ -1,6 +1,7 @@
 package io.github.fiftieshousewife.airgap.agent;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Decides each risky call: allowed, refused, or (in {@link Mode#REPORT}) let through and reported; and records it.
@@ -119,7 +120,7 @@ public final class Decider {
 
     private Call.CallBuilder call(final Kind kind, final Target target, final CallContext context) {
         final StackTraceElement[] frames = new Throwable().getStackTrace();
-        return Call.builder()
+        return SpringGate.describe(Call.builder()
                 .kind(kind)
                 .target(target.text())
                 .proxy(target.getProxy())
@@ -127,6 +128,11 @@ public final class Decider {
                 .javaVersion(System.getProperty("java.version", "unknown"))
                 .test(context.getTest())
                 .caller(callerOrCarried(frames))
-                .stack(callers.trimmed(frames));
+                .stack(callers.trimmed(frames)), target);
+    }
+
+    // Returns the Spring profiles that mean production
+    List<String> productionProfiles() {
+        return settings.getProductionProfiles();
     }
 }

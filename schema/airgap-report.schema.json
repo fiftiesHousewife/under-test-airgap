@@ -62,6 +62,10 @@
       },
       "description": "For Spring applications: the setting that supplied the address, where the agent can tell."
     },
+    "spring_start_up": {
+      "const": true,
+      "description": "For Spring applications: the call was made while Spring was starting the application or a context, as configuration fetched at start-up (Spring Cloud Config, Vault, a JNDI data source) is: a dependency the code itself may never name."
+    },
     "profiles": {
       "type": "array",
       "items": {"type": "string"},

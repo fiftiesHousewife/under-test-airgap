@@ -19,6 +19,10 @@ public final class Call {
     private final String outcome;
     private final String allowedBy;
     private final String proxy;
+    private final String settingName;
+    private final String settingFrom;
+    private final List<String> profiles;
+    private final boolean springStartUp;
     @NonNull
     private final String run;
     @NonNull
@@ -40,6 +44,10 @@ public final class Call {
                 .object("run", new Json().field("kind", run).field("java_version", javaVersion))
                 .field("test", test)
                 .field("caller", caller)
+                .object("setting", settingName == null ? null
+                        : new Json().field("name", settingName).field("from", settingFrom))
+                .array("profiles", profiles)
+                .flag("spring_start_up", springStartUp)
                 .array("stack", stack)
                 .toString();
     }

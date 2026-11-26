@@ -321,25 +321,28 @@ API, which JUnit 6 also runs.
 
 ## Spring applications
 
-**Planned.** Today a Spring application gets what any Java code gets: the refusal, the report line and the caller.
-
 In old Spring applications, the dangerous addresses usually come from configuration, and the default profile is often
-production: real hosts and passwords in a plain `application.properties`, with no profile at all. So the agent will:
+production: real hosts and passwords in a plain `application.properties`, with no profile at all. So the agent hooks
+Spring's own classes, as it hooks JUnit 4's, reading them by reflection (see
+[In Spring applications, the report names the setting and profiles behind each call, and a production profile fails start-up](decisions/0024-in-spring-applications-the-report-names-the-setting-and-profiles-behind-each-call-and-a-production-profile-fails-start-up.md)):
 
-- **Name the setting behind each refused address.** Spring Boot keeps the file and line each property came from; at a
-  refusal, the agent looks up which property holds the refused address and records its name and origin. The engineer
-  then knows exactly what the test settings have to override.
-- **Record the profiles Spring activates,** however they were set, and stop the run if one matches the production
-  profile names it's given.
-- **Point out configuration fetched at start-up** (Spring Cloud Config, Vault, a JNDI data source): a refused call
-  before the application has even started, and a dependency the code itself never names. The refusal itself already
-  happens today.
+- **The setting behind each call.** The agent keeps each Spring `Environment` as it's made. At a call, it searches
+  their property sources, in Spring's own order, for the property whose value holds the call's address, and records
+  its name and, where Spring Boot knows it, where it was read (`class path resource [application.properties] - 3:21`)
+  as the line's `setting`. A value that two properties share names the first.
+- **The profiles,** as the line's `profiles`: those active in the environment that held the setting, or in the
+  context refreshed last.
+- **A stop on production profiles.** A context refreshed with an active profile named `prod`, `production` or `live`
+  fails to start, with a message naming the profile, before it can reach anything. A project names its own list in
+  `testing/airgap.yaml` (`production_profiles`); an empty list turns the stop off.
+- **Configuration fetched at start-up** (Spring Cloud Config, Vault, a JNDI data source): a call made while
+  `SpringApplication.run` or a context's refresh is running is marked `spring_start_up`, and the summary marks each
+  system so reached, since the code itself may never name it.
 
-Together these will let an engineer write a test profile, one override per refused address with a stand-in or a dummy
-secret, until a run's report is clean.
-
-Spring applications without Spring Boot (and Spring before 3.1, which has no profiles) get the refusal and the caller;
-the setting is named where the agent can tell which property source held it.
+Together these let an engineer write a test profile, one override per refused address with a stand-in or a dummy
+secret, until a run's report is clean. Spring without Spring Boot gets the setting's name and the profiles, without
+where the setting was read. The hooks are in Spring's classes, rewritten if and when the application loads them, so
+the check at start can't prove them; the agent's own tests start Spring Boot 2.7 on every supported JDK instead.
 
 ## Living alongside other agents
 

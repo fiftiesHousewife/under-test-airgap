@@ -34,8 +34,8 @@ written to a report.
 |---|---|
 | Host lookups, and reverse lookups of an address's name | Opening files on shared drives: `\\server\share` paths and mapped network drives |
 | TCP connections, through sockets, NIO channels and asynchronous channels | Opening a browser or mail program, and printing |
-| UDP traffic | For Spring applications, the setting, file and line that gave each address |
-| Starting other programs | Database, HTTP and mail calls named as such in the report |
+| UDP traffic | Database, HTTP and mail calls named as such in the report |
+| Starting other programs | |
 | JNDI lookups of LDAP, RMI, DNS and CORBA directories on other machines | |
 | Loading native libraries, other than the JDK's and the build tool's own | |
 | `System.exit` and `Runtime.halt` while a test is running, so the test fails instead of the run ending | |
@@ -135,6 +135,13 @@ OrderServiceTest > placesAnOrder() FAILED
 Each line in the report is a system the code tried to reach. The agent only finds them: how a test replaces one
 (a mock, a fake, an in-memory database, a WireMock server) is up to you and the tools you already use. Run the tests
 again after each change, until the report is empty.
+
+In a Spring application, each line also names the property that held the address and where it was read
+(`"setting":{"name":"spring.datasource.url","from":"class path resource [application.properties] - 3:21"}`), and the
+active `profiles`, so a test profile needs one override per line. Calls made while Spring starts, such as fetching
+configuration from Spring Cloud Config or Vault, are marked `spring_start_up`. A Spring context started with a
+`prod`, `production` or `live` profile active fails to start; name your own production profiles in
+`testing/airgap.yaml` (`production_profiles: [prd]`).
 
 Calls to `localhost` are always allowed. To allow anything else, such as a stand-in under its own host name or a
 program a test starts on purpose:

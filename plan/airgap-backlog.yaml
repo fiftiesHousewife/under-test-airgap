@@ -465,6 +465,8 @@ items:
   - key: "spring-profiles-and-setting-origins"
     type: "deliverable"
     title: "For Spring applications: the setting behind each refused address, the active profiles, and a stop on production profiles"
+    status: "done"
+    notes: "Hooks in Spring's AbstractEnvironment, AbstractApplicationContext.refresh and Spring Boot's SpringApplication.run, read by reflection (decision 0024). Each report line in a Spring application names its setting (property, and where Spring Boot read it, as file and line) and the active profiles; calls made while Spring starts are marked spring_start_up, and the summary marks each system so reached; a context started with a production profile (prod, production, live, or the settings file's production_profiles) fails to start. Proved by starting Spring Boot 2.7 in the agent's own tests on every supported JDK."
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
     phase: "set-up"
     horizon: "next"

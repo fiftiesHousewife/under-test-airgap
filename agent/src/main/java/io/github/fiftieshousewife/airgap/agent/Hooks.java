@@ -33,7 +33,7 @@ final class Hooks {
         final ClassFileLocator adviceFiles = ClassFileLocator.ForClassLoader.ofSystemLoader();
         final AgentBuilder builder = withJdkHooks(builder(instrumentation, errorText), without, adviceFiles);
         loadHookedClasses();
-        TestRunnerHooks.addTo(builder, adviceFiles).installOn(instrumentation);
+        ApplicationHooks.addTo(builder, adviceFiles).installOn(instrumentation);
         return errorLines(new String(errorText.toByteArray(), StandardCharsets.UTF_8));
     }
 

@@ -38,31 +38,43 @@ public final class Json {
     }
 
     /**
-     * Adds an object field.
+     * Adds an object field; {@code null} leaves the field out.
      *
      * @param name the field's name
      * @param value the object
      * @return this object
      */
     public Json object(final String name, final Json value) {
-        name(name).append(value);
+        if (value != null) {
+            name(name).append(value);
+        }
         return this;
     }
 
     /**
-     * Adds an array of text; an empty list leaves the field out.
+     * Adds a field that is {@code true}; {@code false} leaves the field out.
+     *
+     * @param name the field's name
+     * @param value whether to add it
+     * @return this object
+     */
+    public Json flag(final String name, final boolean value) {
+        if (value) {
+            name(name).append("true");
+        }
+        return this;
+    }
+
+    /**
+     * Adds an array of text; an empty list, or {@code null}, leaves the field out.
      *
      * @param name the field's name
      * @param values the values
      * @return this object
      */
     public Json array(final String name, final List<String> values) {
-        if (!values.isEmpty()) {
-            final StringBuilder array = name(name).append('[');
-            for (int i = 0; i < values.size(); i++) {
-                array.append(i == 0 ? "" : ",").append(quote(values.get(i)));
-            }
-            array.append(']');
+        if (values != null && !values.isEmpty()) {
+            appendArray(name(name), values);
         }
         return this;
     }
@@ -97,5 +109,13 @@ public final class Json {
     @Override
     public String toString() {
         return out + "}";
+    }
+
+    private static void appendArray(final StringBuilder out, final List<String> values) {
+        out.append('[');
+        for (int i = 0; i < values.size(); i++) {
+            out.append(i == 0 ? "" : ",").append(quote(values.get(i)));
+        }
+        out.append(']');
     }
 }

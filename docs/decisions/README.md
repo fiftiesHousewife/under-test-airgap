@@ -34,6 +34,7 @@ records by `./gradlew buildDecisionIndexes`.
 | [Writes outside the project are reported, and refused only when the settings say so](0019-writes-outside-the-project-are-reported-and-refused-only-when-the-settings-say-so.md) | accepted | Airgap maintainers |
 | [Maven builds get the agent through a Maven core extension, without editing the pom](0020-maven-builds-get-the-agent-through-a-maven-core-extension-without-editing-the-pom.md) | accepted | Airgap maintainers |
 | [The agent names JUnit 4 tests itself, through a hook in JUnit 4's run notifier](0022-the-agent-names-junit-4-tests-itself-through-a-hook-in-junit-4s-run-notifier.md) | accepted (chosen in discussion) | Airgap maintainers |
+| [In Spring applications, the report names the setting and profiles behind each call, and a production profile fails start-up](0024-in-spring-applications-the-report-names-the-setting-and-profiles-behind-each-call-and-a-production-profile-fails-start-up.md) | accepted (chosen in discussion) | Airgap maintainers |
 
 ## How this repo works
 

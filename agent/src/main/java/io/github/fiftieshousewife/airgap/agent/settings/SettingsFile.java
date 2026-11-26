@@ -2,6 +2,7 @@ package io.github.fiftieshousewife.airgap.agent.settings;
 
 import io.github.fiftieshousewife.airgap.agent.Mode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,11 +27,14 @@ public final class SettingsFile {
             "why the tests write there, for example '- folder: ~/.m2/repository' with"
                     + " 'reason: the tests install the library they build' below it");
     private static final Map<String, BiConsumer<SettingsFile, Object>> KEYS = setters();
+    public static final List<String> DEFAULT_PRODUCTION_PROFILES = Collections.unmodifiableList(
+            Arrays.asList("prod", "production", "live"));
 
     private Mode mode;
     private final List<String> allow = new ArrayList<>();
     private final List<String> writeFolders = new ArrayList<>();
     private final List<String> packages = new ArrayList<>();
+    private List<String> productionProfiles = DEFAULT_PRODUCTION_PROFILES;
     private boolean refuseFileWrites;
 
     private SettingsFile() {
@@ -41,7 +45,7 @@ public final class SettingsFile {
         keys.put("mode", SettingsFile::setMode);
         keys.put("allow", SettingsFile::setAllow);
         keys.put("packages", SettingsFile::setPackages);
-        keys.put("production_profiles", SettingsFile::checkProductionProfiles);
+        keys.put("production_profiles", SettingsFile::setProductionProfiles);
         keys.put("file_writes", SettingsFile::setFileWrites);
         keys.put("write_folders", SettingsFile::setWriteFolders);
         return Collections.unmodifiableMap(keys);
@@ -92,9 +96,10 @@ public final class SettingsFile {
         }
     }
 
-    private void checkProductionProfiles(final Object value) {
+    private void setProductionProfiles(final Object value) {
+        productionProfiles = new ArrayList<>();
         for (final Object profile : SettingsEntries.list("production_profiles", value, "Spring profile names")) {
-            SettingsEntries.text("production_profiles entry", profile);
+            productionProfiles.add(SettingsEntries.text("production_profiles entry", profile));
         }
     }
 
@@ -125,5 +130,10 @@ public final class SettingsFile {
     /** @return true if {@code file_writes: refuse} */
     public boolean refusesFileWrites() {
         return refuseFileWrites;
+    }
+
+    /** @return the Spring profiles that mean production: those the file names, or prod, production and live */
+    public List<String> getProductionProfiles() {
+        return Collections.unmodifiableList(productionProfiles);
     }
 }

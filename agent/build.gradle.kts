@@ -107,6 +107,8 @@ dependencies {
     "agentTestImplementation"(libs.assertj.core)
     // JUnit 4, run by itself in JUnit4NamingTest, to prove the hook in its RunNotifier names each test.
     "agentTestImplementation"(libs.junit4)
+    // Spring Boot, started in SpringTest, to prove the Spring hooks name each call's setting and profiles.
+    "agentTestImplementation"(libs.spring.boot)
     "agentTestRuntimeOnly"("org.junit.jupiter:junit-jupiter-engine")
     "agentTestRuntimeOnly"(libs.junit5.platform.launcher)
     // The common clients old code reaches the network with, each proved refused and reported on every JDK.
@@ -333,8 +335,9 @@ tasks.register<Test>("checkOsTrace") {
 val attachedOnly = listOf(
     "**/agent/AirgapAgent*", "**/agent/AgentStart*", "**/agent/Hooks*", "**/agent/SelfCheck*", "**/agent/advice/**",
     "**/agent/Gate*", "**/agent/RunningTests*", "**/agent/NativeGate*", "**/agent/SctpGate*", "**/agent/HandOver*",
-    "**/agent/FileGate*", "**/agent/TestRunnerHooks*",
+    "**/agent/FileGate*", "**/agent/ApplicationHooks*",
     "**/agent/NetworkGate*", "**/agent/SecureStreamGate*", "**/agent/probes/**",
+    "**/agent/SpringGate*", "**/agent/spring/**",
 )
 listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { task ->
     task.configure {
@@ -347,7 +350,7 @@ listOf(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification).forEach { t
 tasks.named<JavaExec>("pitest") {
     val excludedClasses = listOf(
         "AirgapAgent*", "AgentStart*", "Hooks*", "SelfCheck*", "advice.*", "Gate*", "RunningTests*", "NativeGate*",
-        "SctpGate*", "HandOver*", "FileGate*", "TestRunnerHooks*", "NetworkGate*",
+        "SctpGate*", "HandOver*", "FileGate*", "ApplicationHooks*", "SpringGate*", "spring.*", "NetworkGate*",
         "SecureStreamGate*", "probes.*",
     ).joinToString(",") { "io.github.fiftieshousewife.airgap.agent.$it" }
     val schemas = listOf(reportSchema, summarySchema, settingsSchema).map { it.asFile.absolutePath }

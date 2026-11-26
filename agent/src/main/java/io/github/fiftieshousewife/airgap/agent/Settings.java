@@ -14,28 +14,18 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 
 /**
- * The agent's settings, from the text after {@code =} on its command line: {@code key=value} pairs separated by
+ * The agent's settings, from the text after {@code =} on its command line, {@code key=value} pairs separated by
  * {@code ;}, and from the project's settings file. Unknown keys stop the JVM at start, so a mistyped setting is never
- * silently ignored.
- *
- * <ul>
- *   <li>{@code settings}: the project's settings file ({@link SettingsFile}); {@code testing/airgap.yaml} by default,
- *       read if it's there. Its {@code mode} counts unless the command line gives one, and the command line's
- *       {@code allow} adds to its stand-ins. A file that's named but missing, or that's wrong, stops the JVM</li>
- *   <li>{@code mode}: {@code refuse} (the default), {@code report} or {@code off}</li>
- *   <li>{@code report}: where to write the report; {@code build/airgap/calls.jsonl} by default</li>
- *   <li>{@code allow}: comma-separated stand-ins to allow: {@code host}, {@code host:port}, {@code process:name} or
- *       {@code native:name}</li>
- *   <li>{@code run}: what kind of JVM this is, for the report: {@code test} (the default), {@code application} or
- *       {@code build}</li>
- *   <li>{@code project}: comma-separated package prefixes of the project's own code, to name the caller exactly;
- *       they add to the settings file's {@code packages}</li>
- *   <li>{@code root}: the build's root folder, inside which writes go ahead unreported; the folder the JVM starts in
- *       by default. The temporary folder, the report's folder and the settings file's {@code write_folders} (relative
- *       to the root, or to the home folder with {@code ~/}) count too</li>
- *   <li>{@code withoutHooks}: comma-separated hooks not to install, which makes the self-check refuse to start; only
- *       for testing the self-check</li>
- * </ul>
+ * silently ignored. The keys: {@code settings}, the project's settings file ({@link SettingsFile}), by default
+ * {@code testing/airgap.yaml} if it's there, whose {@code mode} counts unless the command line gives one, and to whose
+ * stand-ins the command line's {@code allow} adds (a file named but missing, or wrong, stops the JVM); {@code mode},
+ * {@code refuse} (the default), {@code report} or {@code off}; {@code report}, where to write the report,
+ * {@code build/airgap/calls.jsonl} by default; {@code allow}, comma-separated stand-ins ({@code host},
+ * {@code host:port}, {@code process:name} or {@code native:name}); {@code run}, {@code test} (the default),
+ * {@code application} or {@code build}; {@code project}, package prefixes of the project's own code, adding to the
+ * file's {@code packages}; {@code root}, the build's root folder, inside which writes go ahead unreported, as they do
+ * in the temporary folder, the report's folder and the file's {@code write_folders} (relative to the root, or to the
+ * home folder with {@code ~/}); and {@code withoutHooks}, hooks not to install, only for testing the self-check.
  */
 public final class Settings {
 
@@ -52,6 +42,7 @@ public final class Settings {
     private String root = System.getProperty("user.dir", ".");
     private List<String> writeFolders = Collections.emptyList();
     private boolean refuseFileWrites;
+    private List<String> productionProfiles = SettingsFile.DEFAULT_PRODUCTION_PROFILES;
 
     private Settings() {
     }
@@ -106,6 +97,7 @@ public final class Settings {
         writeFolders = read.getWriteFolders();
         project = read.getPackages();
         refuseFileWrites = read.refusesFileWrites();
+        productionProfiles = read.getProductionProfiles();
     }
 
     /** @return how the agent behaves */
@@ -141,6 +133,11 @@ public final class Settings {
     /** @return the folders writes go ahead in unreported, absolute (see {@code root} and {@code write_folders}) */
     public List<String> getProjectFolders() {
         return SettingsSources.projectFolders(root, report, writeFolders);
+    }
+
+    /** @return the Spring profiles that mean production: a context started with one active fails to start */
+    public List<String> getProductionProfiles() {
+        return Collections.unmodifiableList(productionProfiles);
     }
 
     /** @return the hooks to leave out, by name; empty except when testing the self-check */

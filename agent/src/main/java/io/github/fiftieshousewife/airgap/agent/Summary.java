@@ -88,6 +88,7 @@ final class Summary {
         private final Map<String, Long> outcomes = new TreeMap<>();
         private final Set<String> tests = new TreeSet<>();
         private final Set<String> callers = new TreeSet<>();
+        private boolean springStartUp;
 
         Target(final String kind, final String target) {
             this.kind = kind;
@@ -99,6 +100,7 @@ final class Summary {
             outcomes.merge(call.get("outcome"), 1L, Long::sum);
             addIfPresent(tests, call.get("test"));
             addIfPresent(callers, call.get("caller"));
+            springStartUp |= "true".equals(call.get("spring_start_up"));
         }
 
         private static void addIfPresent(final Set<String> values, final String value) {
@@ -112,7 +114,7 @@ final class Summary {
             outcomes.forEach(ended::number);
             return new Json().field("kind", kind).field("target", target).number("calls", calls)
                     .object("outcomes", ended).array("tests", new ArrayList<>(tests))
-                    .array("callers", new ArrayList<>(callers));
+                    .array("callers", new ArrayList<>(callers)).flag("spring_start_up", springStartUp);
         }
     }
 }

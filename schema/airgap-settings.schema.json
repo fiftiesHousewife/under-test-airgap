@@ -40,7 +40,7 @@
     "production_profiles": {
       "type": "array",
       "items": {"type": "string", "minLength": 1},
-      "description": "Spring profile names that mean production. A run with any of them active stops at once."
+      "description": "Spring profile names that mean production: a Spring context started with any of them active fails to start, before it can reach anything. prod, production and live if not given; an empty list turns the stop off."
     },
     "file_writes": {
       "enum": ["report", "refuse"],

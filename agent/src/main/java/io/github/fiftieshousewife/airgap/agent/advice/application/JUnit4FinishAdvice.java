@@ -1,4 +1,4 @@
-package io.github.fiftieshousewife.airgap.agent.advice;
+package io.github.fiftieshousewife.airgap.agent.advice.application;
 
 import io.github.fiftieshousewife.airgap.agent.Gate;
 import net.bytebuddy.asm.Advice;
