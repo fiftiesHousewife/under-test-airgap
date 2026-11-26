@@ -22,7 +22,7 @@ in [The code is held to strict quality checks run by the build, and pushes go th
 | [`plan/airgap-backlog.yaml`](plan/airgap-backlog.yaml) | The work, imported into this repo's issues and shown on `docs/BACKLOG.md` after each push |
 | [`schema/`](schema/) | Schemas: the report, the repo's settings, the backlog |
 | `agent/`, `junit/`, `gradle-plugin/`, `maven-extension/` | The agent, the JUnit Platform listener and extension, the Gradle plugin, and the Maven core extension |
-| `examples/` | Old services run end to end under the agent, with their approved reports (added as the work starts) |
+| `examples/` | Old services run end to end under the agent: a Spring Boot service built with Gradle and with Maven, and a plain Java batch job. `./gradlew check` fails if a run's report summary differs from the approved one in `examples/<example>/approved/`; after reading a changed summary, `-PapproveExamples` approves it |
 | `maintainer-tools/` | Repo checks (`./gradlew check`, `buildDecisionIndexes`, `fixDecisionLinks`), the operating-system trace check, and the release script |
 | [`.github/workflows/sync-backlog.yml`](.github/workflows/sync-backlog.yml) | Brings the issues and `docs/BACKLOG.md` up to date after a push that changes the backlog, through the shared workflow |
 | [`tools/try-it/airgap.init.gradle`](tools/try-it/airgap.init.gradle) | Runs any Gradle build's tests under the agent, from outside, without changing that build |

@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=../../../schema/airgap-settings.schema.json
+# The example names its own code, so each report line names the example's line, not Spring's.
+packages: [example.orders.]

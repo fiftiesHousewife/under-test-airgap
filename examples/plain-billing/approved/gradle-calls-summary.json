@@ -1,0 +1,6 @@
+{"targets":[
+{"kind":"file-write","target":"/airgap-example-invoices.invalid/acme.txt","calls":1,"outcomes":{"refused":1},"tests":["example.billing.NightlyBillingTest.savesTheInvoice"],"callers":["example.billing.NightlyBilling.bill(NightlyBilling.java:18)"]},
+{"kind":"host-lookup","target":"mail.example.invalid","calls":1,"outcomes":{"refused":1},"tests":["example.billing.NightlyBillingTest.mailsTheInvoice"],"callers":["example.billing.NightlyBilling.mail(NightlyBilling.java:28)"]},
+{"kind":"process","target":"lpr","calls":1,"outcomes":{"refused":1},"tests":["example.billing.NightlyBillingTest.printsTheInvoice"],"callers":["example.billing.NightlyBilling.print(NightlyBilling.java:24)"]},
+{"kind":"tcp","target":"mail.example.invalid:25","calls":1,"outcomes":{"refused":1},"tests":["example.billing.NightlyBillingTest.mailsTheInvoice"],"callers":["example.billing.NightlyBilling.mail(NightlyBilling.java:28)"]}
+]}

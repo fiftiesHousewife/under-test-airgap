@@ -496,6 +496,8 @@ items:
   - key: "example-old-services-with-approved-reports"
     type: "deliverable"
     title: "Example old services (Spring with Gradle, Spring with Maven, plain Java) run end to end, with approved reports"
+    status: "done"
+    notes: "examples/spring-orders (Spring Boot 2.7 on Java 8, with build.gradle through the plugin and pom.xml through the Maven extension) and examples/plain-billing (a plain Java batch job, JUnit 4, file_writes: refuse). The :examples project builds each and compares its calls-summary.json, without the report's own path, with the approved one; -PapproveExamples approves. Found: Maven Surefire's PpidChecker starts /bin/sh to watch Maven, which the agent refuses and reports with no caller in the project."
     parent: "the-agent-refuses-and-reports-every-ordinary-risky-call"
     phase: "set-up"
     horizon: "next"

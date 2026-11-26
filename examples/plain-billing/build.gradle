@@ -1,0 +1,23 @@
+// An old plain Java batch job, built with Gradle: its tests run under the airgap agent through the plugin.
+plugins {
+    id 'java'
+    id 'io.github.fiftieshousewife.airgap'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    maven { url = providers.gradleProperty('airgapRepository').get() }
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
+
+airgap {
+    packages.add('example.billing.')
+}

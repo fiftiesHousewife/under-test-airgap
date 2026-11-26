@@ -1,0 +1,31 @@
+// An old Spring Boot service, built with Gradle: its tests run under the airgap agent through the plugin.
+plugins {
+    id 'java'
+    id 'io.github.fiftieshousewife.airgap'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    maven { url = providers.gradleProperty('airgapRepository').get() }
+    mavenCentral()
+}
+
+dependencies {
+    implementation platform('org.springframework.boot:spring-boot-dependencies:2.7.18')
+    implementation 'org.springframework.boot:spring-boot-starter'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // Gradle 9 runs JUnit 5 only with the platform's launcher named.
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+airgap {
+    packages.add('example.orders.')
+}

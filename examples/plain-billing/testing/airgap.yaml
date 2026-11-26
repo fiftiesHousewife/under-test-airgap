@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=../../../schema/airgap-settings.schema.json
+# The job writes its invoices outside the project, so the settings refuse writes there as well as reporting them.
+file_writes: refuse

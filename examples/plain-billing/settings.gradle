@@ -1,0 +1,12 @@
+// The example's plugin, agent and listener come from the repository the examples' check names, so the example
+// always runs this repo's own build of them.
+pluginManagement {
+    repositories {
+        maven { url = providers.gradleProperty('airgapRepository').get() }
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'io.github.fiftieshousewife.airgap' version providers.gradleProperty('airgapVersion').get()
+    }
+}
+rootProject.name = 'plain-billing'

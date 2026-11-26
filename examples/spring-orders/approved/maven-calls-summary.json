@@ -1,0 +1,7 @@
+{"targets":[
+{"kind":"host-lookup","target":"payments.example.invalid","calls":1,"outcomes":{"refused":1},"tests":["example.orders.OrdersTest.chargesAPayment"],"callers":["example.orders.Payments.charge(Payments.java:22)"]},
+{"kind":"host-lookup","target":"stock.example.invalid","calls":1,"outcomes":{"refused":1},"tests":["example.orders.OrdersTest.checksTheStock"],"callers":["example.orders.StockFeed.inStock(StockFeed.java:23)"]},
+{"kind":"process","target":"/bin/sh","calls":1,"outcomes":{"refused":1},"callers":["(unknown)"]},
+{"kind":"tcp","target":"payments.example.invalid:80","calls":1,"outcomes":{"refused":1},"tests":["example.orders.OrdersTest.chargesAPayment"],"callers":["example.orders.Payments.charge(Payments.java:22)"]},
+{"kind":"tcp","target":"stock.example.invalid:7000","calls":1,"outcomes":{"refused":1},"tests":["example.orders.OrdersTest.checksTheStock"],"callers":["example.orders.StockFeed.inStock(StockFeed.java:23)"]}
+]}
