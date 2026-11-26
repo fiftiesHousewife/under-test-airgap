@@ -51,6 +51,19 @@ class SampleBuildTest {
                         "\"run\":{\"kind\":\"application\"", "\"caller\":\"sample.Main.main("));
     }
 
+    // Applied in one subproject of a build whose conventions come from an included build, with no root build file.
+    @ParameterizedTest(name = "Gradle {0}")
+    @MethodSource("gradleVersions")
+    void worksAppliedInOneSubprojectOfAMultiProjectBuild(final String gradle, final String jdk) throws IOException {
+        MultiProjectSample.write(sample, jdk, gradle);
+        runner(gradle).withArguments("test", "--stacktrace").build();
+        assertAll(
+                () -> assertThat(read("app/build/airgap/test/calls.jsonl")).contains(
+                        "\"target\":\"app-test.invalid\"", "\"outcome\":\"refused\"",
+                        "\"test\":\"sample.AppTest.lookupIsRefused\""),
+                () -> assertThat(sample.resolve("lib/build/airgap")).as("lib doesn't apply the plugin").doesNotExist());
+    }
+
     // The try-it init script adds the agent to a build that doesn't use the plugin, on every supported Gradle.
     @ParameterizedTest(name = "Gradle {0}")
     @MethodSource("gradleVersions")

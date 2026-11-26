@@ -12,6 +12,11 @@ plugins {
 group = "io.github.fiftieshousewife.airgap"
 base.archivesName = "airgap-gradle-plugin"
 
+underTest {
+    // Names no logging library to the builds that apply it: Gradle provides its own.
+    logging = false
+}
+
 // java-gradle-plugin adds the API of the Gradle running this build; the plugin is compiled against the oldest it
 // supports instead, so a newer API can't slip in.
 listOf("api", "compileOnlyApi", "compileOnly", "implementation").forEach { name ->

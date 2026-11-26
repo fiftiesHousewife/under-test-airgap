@@ -34,7 +34,6 @@ public final class AirgapPlugin implements Plugin<Project> {
         final Configuration agent = project.getConfigurations().create(AGENT_CONFIGURATION, configuration -> {
             configuration.setDescription("The airgap agent's jar, added to every test run and application start");
             configuration.setTransitive(false);
-            configuration.setVisible(false);
             configuration.setCanBeConsumed(false);
         });
         project.getDependencies().add(AGENT_CONFIGURATION, GROUP + ":airgap-agent:" + version);

@@ -78,7 +78,7 @@ final class SampleBuild {
                 + "dependencies { testImplementation files(" + junitJars() + ") }\n";
     }
 
-    private static String junitJars() {
+    static String junitJars() {
         final StringBuilder junit = new StringBuilder();
         for (final String jar : System.getProperty("airgap.it.junit").split(File.pathSeparator)) {
             junit.append(junit.length() == 0 ? "" : ", ").append('\'').append(jar.replace("\\", "/")).append('\'');
@@ -86,7 +86,7 @@ final class SampleBuild {
         return junit.toString();
     }
 
-    private static String repo() {
+    static String repo() {
         return uri(System.getProperty("airgap.it.repo"));
     }
 
@@ -94,7 +94,7 @@ final class SampleBuild {
         return new File(path).toURI().toString();
     }
 
-    private static void write(final Path folder, final String path, final String text) throws IOException {
+    static void write(final Path folder, final String path, final String text) throws IOException {
         final Path file = folder.resolve(path);
         Files.createDirectories(Objects.requireNonNull(file.getParent()));
         Files.write(file, text.getBytes(StandardCharsets.UTF_8));

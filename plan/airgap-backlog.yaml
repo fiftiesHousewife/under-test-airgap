@@ -902,6 +902,7 @@ items:
   - key: "the-plugin-works-applied-in-one-subproject"
     type: "deliverable"
     title: "The Gradle plugin works when applied only in a subproject of a multi-project build with shared convention plugins and no root build file"
+    status: "done"
     parent: "the-agent-is-ready-for-a-company-to-approve-and-use"
     phase: "set-up"
     horizon: "next"
@@ -910,7 +911,7 @@ items:
     done_when:
       - "A sample multi-project build with included convention plugins and no root build file applies the plugin in one subproject, and its tests run under the agent, on every supported Gradle"
       - "If Gradle itself needs the plugin declared once at the root, the README says how, with the snippet"
-    notes: "Found by the running-old-code-unplugged lesson: Gradle said the shared convention plugins were loaded twice and asked for a root build file declaring the airgap plugin apply false. The lesson uses the README's Without the plugin set-up instead."
+    notes: "Not reproducible on Gradle 9.9.2 with the lesson's layout (Kotlin and Groovy convention plugins in an included build-logic that depends on the PIT, SpotBugs, forbidden-APIs and versions plugins, the foojay settings plugin, no root build file, the airgap plugin with a version in one or two subprojects); the lesson itself, and Gradle's exact message, are gone. The plugin's integration tests now run that layout on every supported Gradle (conventions from buildSrc on Gradle 5 and 6, which can't include plugin builds), so no root-build snippet is needed. Found along the way: the plugin called Configuration.setVisible, deprecated in Gradle 9.9; removed."
   - key: "http-client-calls-name-their-test-and-caller"
     status: "done"
     type: "deliverable"
